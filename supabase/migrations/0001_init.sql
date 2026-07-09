@@ -1,4 +1,4 @@
--- Mira — initial schema
+-- Facet — initial schema
 -- Run in Supabase: SQL Editor > paste > Run.  (or `supabase db push`)
 --
 -- Privacy model: every row is owned by auth.uid() and Row-Level Security

@@ -1,7 +1,7 @@
 import { CHARGED, type CoachReply, type Entry } from './types'
 
 /**
- * Offline, rule-based Mira.
+ * Offline, rule-based Coach.
  *
  * This is the fallback when no AI endpoint is configured, and it mirrors the
  * exact intervention priority the production system prompt uses:

@@ -1,12 +1,15 @@
 import { initialState, type AppState, type Entry } from './types'
 import { supabase } from './supabase'
 
-const KEY = 'mira.state.v1'
+const KEY = 'facet.state.v1'
+const LEGACY_KEY = 'mira.state.v1'
 
 /** Local-first: the device is always the source of truth for writes. */
 export function loadState(): AppState {
   try {
-    const raw = localStorage.getItem(KEY)
+    // Read Facet state; fall back to any pre-rebrand state so a tester's
+    // nights aren't orphaned by the rename.
+    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY)
     if (!raw) return initialState()
     const parsed = JSON.parse(raw) as AppState
     return { ...initialState(), ...parsed }
@@ -19,12 +22,13 @@ export function saveState(state: AppState): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(state))
   } catch (err) {
-    console.warn('[mira] could not persist state:', err)
+    console.warn('[facet] could not persist state:', err)
   }
 }
 
 export function resetState(): void {
   localStorage.removeItem(KEY)
+  localStorage.removeItem(LEGACY_KEY)
 }
 
 /** Push any unsynced entries to Supabase. No-op when signed out. */
@@ -54,7 +58,7 @@ export async function syncEntries(entries: Entry[]): Promise<Entry[]> {
   )
 
   if (error) {
-    console.warn('[mira] sync failed, will retry later:', error.message)
+    console.warn('[facet] sync failed, will retry later:', error.message)
     return entries
   }
   const ids = new Set(pending.map((p) => p.id))

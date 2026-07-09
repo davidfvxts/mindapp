@@ -18,54 +18,56 @@ export function Onboarding({ onDone }: { onDone: (s: Settings) => void }) {
   return (
     <section className="wrap">
       <header className="bar">
-        <span className="wordmark">MIRA</span>
+        <span className="wordmark">FACET</span>
       </header>
 
-      <main className="fade">
+      <main>
         {step === 0 ? (
-          <>
-            <h1 className="grad-text">
-              Five minutes a day.
-              <br />A sharper you.
+          <div className="develop">
+            <h1>
+              Five minutes,
+              <br />every night.
             </h1>
             <p className="sub">
-              A daily reflection, coached by AI, built on the science of what actually
-              makes reflection work. Let’s set it up so it sticks.
+              Reflect on the day. Over time, a stone takes shape. That’s the whole app.
             </p>
             <div className="spacer" />
             <button className="btn" onClick={() => setStep(1)}>Begin</button>
-          </>
+          </div>
         ) : (
-          <>
+          <div className="develop">
             <h1>A few details.</h1>
-            <p className="sub">This takes about thirty seconds.</p>
+            <p className="sub">About thirty seconds.</p>
 
             <div className="section">
-              <label className="q" htmlFor="ob-name">
-                What should Mira call you?
+              <label className="field-label" htmlFor="ob-name">
+                <span className="ambient">Name</span>
+                <span className="hint">What should Coach call you?</span>
               </label>
               <input id="ob-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="David" />
             </div>
 
             <div className="section">
-              <label className="q" htmlFor="ob-cue">
-                Your trigger
-                <span className="hint">Cues beat willpower. “After I ___, I reflect.”</span>
+              <label className="field-label" htmlFor="ob-cue">
+                <span className="ambient">Trigger</span>
+                <span className="hint">Cues beat willpower. After I ___, I reflect.</span>
               </label>
               <input id="ob-cue" value={cue} onChange={(e) => setCue(e.target.value)} placeholder="close my laptop" />
             </div>
 
             <div className="section">
-              <label className="q" htmlFor="ob-time">Daily reminder</label>
+              <label className="field-label" htmlFor="ob-time">
+                <span className="ambient">Nightly reminder</span>
+              </label>
               <input id="ob-time" type="time" value={reminderTime} onChange={(e) => setTime(e.target.value)} />
             </div>
 
             <div className="spacer" />
-            <button className="btn" onClick={finish}>Start my first reflection</button>
+            <button className="btn" onClick={finish}>Start tonight</button>
             <p className="mode-note center">
-              Your entries live on this device. Nothing leaves it unless you turn on sync.
+              Your reflections stay on this device. Nothing leaves it unless you turn on sync.
             </p>
-          </>
+          </div>
         )}
       </main>
     </section>

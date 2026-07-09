@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { applyEntry, todayStr, weekCount, xpForLevel } from './game'
+import { applyEntry, todayStr, weekCount } from './game'
 import { loadState, resetState, saveState, syncEntries } from './storage'
 import { getCoachReply, getWeeklyInsight } from './ai'
 import { scheduleDailyReminder } from './notifications'
@@ -15,18 +15,17 @@ export interface Draft {
   next: string
 }
 
-export function useMira() {
+export function useFacet() {
   const [state, setState] = useState<AppState>(() => loadState())
   const [toast, setToast] = useState<string | null>(null)
   const [thinking, setThinking] = useState(false)
   const [lastReply, setLastReply] = useState<CoachReply | null>(null)
-  const [lastGain, setLastGain] = useState(0)
 
   useEffect(() => saveState(state), [state])
 
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(() => setToast(null), 2800)
+    const t = setTimeout(() => setToast(null), 4000)
     return () => clearTimeout(t)
   }, [toast])
 
@@ -46,7 +45,7 @@ export function useMira() {
   const completeOnboarding = useCallback((settings: Settings) => {
     setState((s) => ({ ...s, settings, onboarded: true }))
     void scheduleDailyReminder(settings.reminderTime, settings.cue)
-    setToast(`Reminder set: after you ${settings.cue}, ${settings.reminderTime}.`)
+    setToast(`Reminder set — after you ${settings.cue}, ${settings.reminderTime}.`)
   }, [])
 
   const submitEntry = useCallback(
@@ -66,17 +65,14 @@ export function useMira() {
       const reply = await getCoachReply(entry, history, state.settings)
       entry.coach = reply
 
-      const { game, freezeUsed, leveledUp, gained } = applyEntry(
-        state.game, entry, history.length + 1,
-      )
+      const { game, freezeUsed } = applyEntry(state.game, entry, history.length + 1)
 
       setState((s) => ({ ...s, game, entries: [entry, ...s.entries] }))
       setLastReply(reply)
-      setLastGain(gained)
       setThinking(false)
 
-      if (freezeUsed) setToast('Mira spent a streak-freeze. Your streak survived.')
-      else if (leveledUp) setToast(`Level up — you're Level ${game.level}.`)
+      // Never punish; never brag. One quiet line when a Night is bridged.
+      if (freezeUsed) setToast('Last night is covered.')
     },
     [state.entries, state.game, state.settings],
   )
@@ -88,7 +84,7 @@ export function useMira() {
       const tone: Settings['tone'] = rating === 1 ? s.settings.tone : 'gentler'
       return { ...s, settings: { ...s.settings, tone }, entries: [{ ...head, rating }, ...rest] }
     })
-    setToast(rating ? 'Noted — Mira will keep this style.' : 'Got it — Mira will adjust her tone.')
+    setToast(rating ? 'Noted — Coach will keep this read.' : 'Noted — Coach will ease off.')
   }, [])
 
   const mintCard = useCallback(async () => {
@@ -97,7 +93,7 @@ export function useMira() {
     const card: InsightCard = { id: uid(), text, date: todayStr() }
     setState((s) => ({ ...s, cards: [card, ...s.cards] }))
     setThinking(false)
-    setToast('Insight card minted.')
+    setToast('Your week is read.')
   }, [state.entries, state.settings])
 
   const hardReset = useCallback(() => {
@@ -108,16 +104,11 @@ export function useMira() {
   const derived = useMemo(() => {
     const reflectedToday = state.game.lastDay === todayStr()
     const thisWeek = weekCount(state.entries)
-    return {
-      reflectedToday,
-      thisWeek,
-      xpNeeded: xpForLevel(state.game.level),
-      xpPct: Math.min(100, (state.game.xp / xpForLevel(state.game.level)) * 100),
-    }
+    return { reflectedToday, thisWeek }
   }, [state.entries, state.game])
 
   return {
-    state, derived, toast, thinking, lastReply, lastGain,
+    state, derived, toast, thinking, lastReply,
     completeOnboarding, submitEntry, rateReply, mintCard, hardReset,
     setToast, clearReply: () => setLastReply(null),
   }

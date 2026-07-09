@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'so.mira.app',
-  appName: 'Mira',
+  appId: 'so.facet.app',
+  appName: 'Facet',
   webDir: 'dist',
   ios: {
     // The reflection ritual happens at night. A black canvas means no

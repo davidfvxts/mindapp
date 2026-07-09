@@ -13,56 +13,42 @@ export function Reviews({ thisWeek, cardCount, thinking, onMint, onGoToday }: Pr
   const monthlyOpen = cardCount >= MONTHLY_UNLOCK
 
   return (
-    <div className="fade">
+    <div className="develop">
       <h1>Reviews</h1>
-      <p className="sub">Zoom out from events to patterns.</p>
+      <p className="sub">Zoom out from nights to patterns.</p>
 
       <div className="section">
-        <h3>Weekly</h3>
-        <h2>The week in review</h2>
-        <p className="muted" style={{ marginBottom: 20 }}>
-          A structured review of energy, creativity, product and relationships — built from your
-          daily entries, ending in an intention for next week.
+        <span className="ambient">Weekly</span>
+        <h2 style={{ marginTop: 'var(--s-3)' }}>The week in review</h2>
+        <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
+          Coach reads your nights and hands back one thing you couldn’t see yourself —
+          then you set an intention for the week ahead.
         </p>
 
         {weeklyOpen ? (
           <button className="btn" onClick={onMint} disabled={thinking}>
-            {thinking ? 'Mira is reading your week…' : 'Mint this week’s Insight Card'}
+            {thinking ? 'Coach is reading your week…' : 'Read my week'}
           </button>
         ) : (
           <>
-            <div className="bar-track">
-              <i style={{ width: `${(thisWeek / WEEKLY_UNLOCK) * 100}%` }} />
-            </div>
-            <div className="bar-meta">
-              <span>Unlocks at {WEEKLY_UNLOCK} reflections</span>
-              <span>{thisWeek}/{WEEKLY_UNLOCK}</span>
-            </div>
+            <p className="secondary">A week’s read comes after a few nights. Keep going.</p>
             <div className="spacer" />
-            <button className="btn ghost" onClick={onGoToday}>Reflect today</button>
+            <button className="btn ghost" onClick={onGoToday}>Reflect tonight</button>
           </>
         )}
       </div>
 
       <div className="section">
-        <h3>Monthly</h3>
-        <h2>The monthly arc</h2>
-        <p className="muted" style={{ marginBottom: 20 }}>
-          Trajectory, values alignment and fear-setting — with Mira drafting your summary from
-          your own words. You set next month’s theme.
+        <span className="ambient">Monthly</span>
+        <h2 style={{ marginTop: 'var(--s-3)' }}>The monthly arc</h2>
+        <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
+          Trajectory and what you’re building toward — drafted from your own words.
+          You set next month’s theme.
         </p>
         {monthlyOpen ? (
-          <button className="btn ghost" onClick={onGoToday}>Begin monthly arc</button>
+          <button className="btn ghost" onClick={onGoToday}>Begin the monthly arc</button>
         ) : (
-          <>
-            <div className="bar-track">
-              <i style={{ width: `${(cardCount / MONTHLY_UNLOCK) * 100}%` }} />
-            </div>
-            <div className="bar-meta">
-              <span>Unlocks after {MONTHLY_UNLOCK} weekly reviews</span>
-              <span>{cardCount}/{MONTHLY_UNLOCK}</span>
-            </div>
-          </>
+          <p className="secondary">Opens once you’ve gathered a few weekly reads.</p>
         )}
       </div>
     </div>

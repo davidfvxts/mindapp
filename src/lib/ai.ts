@@ -14,7 +14,7 @@ async function authHeader(): Promise<Record<string, string>> {
 }
 
 /**
- * Ask Mira for feedback. Calls the Edge Function (which holds the Anthropic
+ * Ask Coach for a read. Calls the Edge Function (which holds the Anthropic
  * key server-side). Falls back to the offline coach on any failure, so the
  * app is never blocked by the network or a missing key.
  */
@@ -56,7 +56,7 @@ export async function getCoachReply(
       source: 'ai',
     }
   } catch (err) {
-    console.warn('[mira] AI coach unavailable, using local coach:', err)
+    console.warn('[facet] AI coach unavailable, using local coach:', err)
     return localCoach(entry, history, settings.name)
   }
 }
@@ -89,7 +89,7 @@ export async function getWeeklyInsight(
     const data = (await res.json()) as { text?: string }
     return data.text ?? fallback[0]
   } catch (err) {
-    console.warn('[mira] weekly insight unavailable:', err)
+    console.warn('[facet] weekly read unavailable:', err)
     return fallback[entries.length % fallback.length]
   }
 }

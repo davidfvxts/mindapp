@@ -1,23 +1,23 @@
 import { useState } from 'react'
-import { useMira } from './lib/store'
+import { useFacet } from './lib/store'
 import { Onboarding } from './components/Onboarding'
 import { DailyRitual } from './components/DailyRitual'
-import { MiraReply } from './components/MiraReply'
-import { Stats } from './components/Stats'
+import { AfterReflection } from './components/AfterReflection'
+import { Vault } from './components/Vault'
 import { Reviews } from './components/Reviews'
 import { aiEnabled } from './lib/ai'
 import { cloudEnabled } from './lib/supabase'
 
-type Tab = 'today' | 'review' | 'stats'
+type Tab = 'today' | 'review' | 'vault'
 
 const TABS: [Tab, string][] = [
-  ['today', 'Reflect'],
+  ['today', 'Tonight'],
   ['review', 'Reviews'],
-  ['stats', 'Progress'],
+  ['vault', 'Vault'],
 ]
 
 export default function App() {
-  const m = useMira()
+  const m = useFacet()
   const [tab, setTab] = useState<Tab>('today')
 
   if (!m.state.onboarded) return <Onboarding onDone={m.completeOnboarding} />
@@ -27,11 +27,11 @@ export default function App() {
   return (
     <section className="wrap">
       <header className="bar">
-        <span className="wordmark">MIRA</span>
+        <span className="wordmark">FACET</span>
         {game.streak > 0 && (
-          <span className="streak-chip">
-            <b>{game.streak}</b>
-            <span>DAY{game.streak === 1 ? '' : 'S'}</span>
+          <span className="night-chip">
+            <span className="ambient">Night</span>
+            <span className="n">{game.streak}</span>
           </span>
         )}
       </header>
@@ -39,16 +39,11 @@ export default function App() {
       <main>
         {tab === 'today' &&
           (m.lastReply ? (
-            <MiraReply
+            <AfterReflection
               reply={m.lastReply}
-              streak={game.streak}
-              gained={m.lastGain}
-              level={game.level}
-              xp={game.xp}
-              xpNeeded={m.derived.xpNeeded}
-              xpPct={m.derived.xpPct}
+              night={game.streak}
               onRate={m.rateReply}
-              onDone={() => { m.clearReply(); setTab('stats') }}
+              onDone={() => { m.clearReply(); setTab('vault') }}
             />
           ) : (
             <DailyRitual
@@ -69,12 +64,12 @@ export default function App() {
           />
         )}
 
-        {tab === 'stats' && <Stats state={m.state} onReset={m.hardReset} />}
+        {tab === 'vault' && <Vault state={m.state} onReset={m.hardReset} />}
 
         {(!aiEnabled() || !cloudEnabled()) && (
           <p className="mode-note center">
             {!aiEnabled() && 'Offline coach. '}
-            {!cloudEnabled() && 'Local-only storage. '}
+            {!cloudEnabled() && 'On this device only. '}
             Add keys to <code>.env.local</code> for AI coaching and sync.
           </p>
         )}
@@ -88,7 +83,7 @@ export default function App() {
         ))}
       </nav>
 
-      {m.toast && <div className="toast">{m.toast}</div>}
+      {m.toast && <div className="toast" role="status">{m.toast}</div>}
     </section>
   )
 }

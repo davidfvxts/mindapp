@@ -1,0 +1,99 @@
+/* ============================================================
+   FACET — design tokens
+   Direction: Instrument Bench (structure) × Darkroom (motion)
+   Rule zero: colour exists ONLY in --gem-* tokens.
+   If you are typing a hex code that isn't black or white
+   outside the GEM section, stop.
+   ============================================================ */
+
+:root {
+
+  /* ---------- SURFACE ---------- */
+  --surface:            #000000;               /* the only background */
+  --surface-inverse:    #FFFFFF;               /* primary button, toast */
+
+  /* ---------- INK (white over black; contrast computed vs #000) ---------- */
+  --ink-primary:        #FFFFFF;               /* 21.00:1  display numerals, headlines */
+  --ink-body:           rgba(255,255,255,.84); /* 14.45:1  body copy */
+  --ink-secondary:      rgba(255,255,255,.62); /*  7.84:1  secondary text, ambient labels, placeholders */
+  --ink-tertiary:       rgba(255,255,255,.40); /*  3.66:1  large text (≥19px bold / 24px) & meaningful UI marks only */
+  --ink-disabled:       rgba(255,255,255,.26); /*  2.09:1  disabled text — WCAG-exempt */
+  --ink-on-inverse:     #000000;               /* 21.00:1  text on white */
+
+  /* ---------- LINE & FILL ---------- */
+  --line-control:       rgba(255,255,255,.38); /*  3.39:1  interactive boundaries (ghost button, field) */
+  --line-hairline:      rgba(255,255,255,.14); /*  decorative dividers only — never a control edge */
+  --fill-field:         rgba(255,255,255,.07); /*  text-field / chip resting fill */
+  --fill-pressed:       rgba(255,255,255,.12); /*  active/pressed wash */
+  --focus-ring:         #FFFFFF;               /*  2px, offset 3px — visible on every surface */
+
+  /* ---------- TYPE ---------- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+               "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+
+  /* role: size / line-height / weight / tracking */
+  --type-display-size:    72px;  --type-display-lh: 1.02; --type-display-weight: 300; --type-display-track: -0.022em;
+  --type-headline-size:   28px;  --type-headline-lh: 1.16; --type-headline-weight: 600; --type-headline-track: -0.015em;
+  --type-subhead-size:    20px;  --type-subhead-lh: 1.30; --type-subhead-weight: 500; --type-subhead-track: -0.010em;
+  --type-body-size:       17px;  --type-body-lh: 1.50;    --type-body-weight: 400;    --type-body-track: 0;
+  --type-secondary-size:  15px;  --type-secondary-lh: 1.45; --type-secondary-weight: 400; --type-secondary-track: 0.002em;
+  --type-ambient-size:    11px;  --type-ambient-lh: 1.20; --type-ambient-weight: 500; --type-ambient-track: 0.10em; /* + uppercase */
+
+  /* ---------- SPACING (4pt base) ---------- */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  24px;
+  --s-6:  32px;
+  --s-7:  48px;
+  --s-8:  64px;
+  --s-9:  96px;
+
+  /* ---------- RADII ---------- */
+  --r-sm:   8px;    /* chips, small controls */
+  --r-md:   12px;   /* text fields, buttons */
+  --r-lg:   20px;   /* coach block, sheets */
+  --r-full: 999px;  /* pills, progress bar */
+
+  /* ---------- MOTION ---------- */
+  --t-micro:    120ms;   /* press feedback, chip toggle */
+  --t-standard: 240ms;   /* state changes, progress */
+  --t-enter:    420ms;   /* screen & element entrances ("develop") */
+  --t-reward:   1200ms;  /* the Stone — nothing else may use this */
+
+  --ease-settle: cubic-bezier(0.30, 0.00, 0.12, 1.00); /* default: fast start, long quiet landing */
+  --ease-exit:   cubic-bezier(0.40, 0.00, 1.00, 1.00); /* leaving elements */
+  --ease-reward: cubic-bezier(0.16, 1.00, 0.30, 1.00);  /* Stone reveal only */
+
+  /* ============================================================
+     GEM — the ONLY colour in the system.
+     May be referenced solely by the Stone (milestone artefact).
+     Never as a background, text fill, icon tint, border, chart,
+     or "special" button. No exceptions, including marketing
+     screens inside the app.
+     ============================================================ */
+  --gem-ember:    linear-gradient(140deg, #FF6A3D 0%, #C2273B 100%); /* Run of 7   */
+  --gem-tide:     linear-gradient(140deg, #35D0BA 0%, #2563EB 100%); /* Run of 30  */
+  --gem-iris:     linear-gradient(140deg, #7C5CFF 0%, #C838F0 100%); /* Run of 90  */
+  --gem-aurora:   linear-gradient(140deg, #34D399 0%, #22D3EE 100%); /* Run of 180 */
+  --gem-solstice: linear-gradient(140deg, #FFD34D 0%, #FF8A2A 100%); /* Run of 365 */
+
+  --gem-girdle:   rgba(255,255,255,.25);  /* facet edge stroke — achromatic */
+}
+
+/* ---------- REDUCED MOTION ----------
+   Transforms off, fades only, nothing longer than 150ms.
+   The Stone renders static and fully coloured — the reward
+   is the object, not the animation. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-micro:    0ms;
+    --t-standard: 120ms;
+    --t-enter:    150ms;
+    --t-reward:   150ms;
+    --ease-settle: linear;
+    --ease-exit:   linear;
+    --ease-reward: linear;
+  }
+}

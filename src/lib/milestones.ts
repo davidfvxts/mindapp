@@ -1,32 +1,58 @@
 /**
- * Milestones — the only moments colour is permitted.
+ * The Stone — the only place colour is permitted in Facet.
  *
- * Mira's palette is pure black and white. These five gradients exist solely
- * to cut milestone gems from. They are never used as backgrounds, never
- * ambient, never decorative. If colour appears, the user earned it.
+ * Colour appears in exactly two contexts: the full-screen milestone moment
+ * (once, at earning) and the Vault detail view. Everywhere else the Stone
+ * renders greyscale. These five gradients are the entire colour budget of
+ * the product — never a background, tint, border, or button. Treat them
+ * like real money.
  */
-export const GRADIENTS: readonly [string, string][] = [
-  ['#D9C7FF', '#8FF3DA'],
-  ['#9FC4FF', '#C0A8FF'],
-  ['#D6FFA3', '#A3F5FF'],
-  ['#F0CBF5', '#F2FF6B'],
-  ['#EFBCFF', '#FFDCB0'],
-]
-
-/** Streak lengths that mint a gem. */
-export const STREAK_MILESTONES = [1, 3, 7, 14, 30, 60, 100, 180, 365] as const
-
-export const isStreakMilestone = (streak: number): boolean =>
-  (STREAK_MILESTONES as readonly number[]).includes(streak)
-
-/** Stable gradient choice per milestone, so a given streak always looks the same. */
-export const gemVariant = (streak: number): number => {
-  const i = (STREAK_MILESTONES as readonly number[]).indexOf(streak)
-  return (i >= 0 ? i : streak) % GRADIENTS.length
+export interface Stone {
+  /** The stone's plain name. Shown only at the milestone moment / Vault detail. */
+  name: string
+  /** The Night that earns it. */
+  night: number
+  from: string
+  to: string
 }
 
-export const milestoneLabel = (streak: number): string => {
-  if (streak === 1) return 'First reflection'
-  if (streak >= 365) return 'One year'
-  return `${streak}-day streak`
+/** Earned in order. Nights match the design system exactly. */
+export const STONES: readonly Stone[] = [
+  { name: 'Ember', night: 7, from: '#FF6A3D', to: '#C2273B' },
+  { name: 'Tide', night: 30, from: '#35D0BA', to: '#2563EB' },
+  { name: 'Iris', night: 90, from: '#7C5CFF', to: '#C838F0' },
+  { name: 'Aurora', night: 180, from: '#34D399', to: '#22D3EE' },
+  { name: 'Solstice', night: 365, from: '#FFD34D', to: '#FF8A2A' },
+] as const
+
+export const isMilestoneNight = (night: number): boolean =>
+  STONES.some((s) => s.night === night)
+
+/** The stone earned exactly on this Night, if any. */
+export const stoneForNight = (night: number): Stone | null =>
+  STONES.find((s) => s.night === night) ?? null
+
+/** The stones already banked at this Night (in the Vault, greyscale in the grid). */
+export const bankedStones = (night: number): Stone[] =>
+  STONES.filter((s) => s.night <= night)
+
+/** The next milestone still ahead, if any. */
+export const nextStone = (night: number): Stone | null =>
+  STONES.find((s) => s.night > night) ?? null
+
+/**
+ * Progression is shown, never scored. The rough in hand moves through four
+ * plain states as it develops toward its next colour milestone. At most one
+ * quiet word ever sits under the stone — never a number, never a percentage.
+ */
+export const STAGES = ['Rough', 'Cut', 'Polished', 'Brilliant'] as const
+export type Stage = (typeof STAGES)[number]
+
+export function stoneStage(night: number): Stage {
+  if (night <= 0) return 'Rough'
+  const prev = STONES.reduce((acc, s) => (s.night < night ? s.night : acc), 0)
+  const next = nextStone(night)?.night ?? STONES[STONES.length - 1].night
+  if (next <= prev) return 'Brilliant'
+  const f = (night - prev) / (next - prev)
+  return STAGES[Math.min(STAGES.length - 1, Math.max(0, Math.floor(f * STAGES.length)))]
 }

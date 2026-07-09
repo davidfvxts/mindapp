@@ -22,9 +22,9 @@ export interface Entry {
   /** One thing to do differently (action-orientation). */
   next: string
   ts: number
-  /** Mira's coaching response, cached so we don't re-bill the API. */
+  /** Coach's reply, cached so we don't re-bill the API. */
   coach?: CoachReply
-  /** 1 = helpful, 0 = off, undefined = unrated. Tunes Mira's tone. */
+  /** 1 = helpful, 0 = off, undefined = unrated. Tunes Coach's read. */
   rating?: 0 | 1
   synced?: boolean
 }
@@ -52,11 +52,13 @@ export interface Settings {
 }
 
 export interface GameState {
+  /** xp/level drive the Stone's stage internally — NEVER shown to the user. */
   xp: number
   level: number
+  /** The Night count. The only number the user ever sees. */
   streak: number
   best: number
-  /** "Never miss twice" — one auto-freeze per week. */
+  /** "Never miss twice" — one auto-freeze per week bridges a single missed Night. */
   freezes: number
   lastDay: string | null
 }

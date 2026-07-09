@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'Mira — reflection coach',
-        short_name: 'Mira',
-        description: 'A 5-minute daily reflection, coached by AI.',
+        name: 'Facet',
+        short_name: 'Facet',
+        description: 'Five minutes a night. Over time, a stone takes shape.',
         theme_color: '#000000',
         background_color: '#000000',
         display: 'standalone',

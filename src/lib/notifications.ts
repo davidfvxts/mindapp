@@ -39,7 +39,7 @@ export async function scheduleDailyReminder(time: string, cue: string): Promise<
       ],
     })
   } catch (err) {
-    console.warn('[mira] could not schedule reminder:', err)
+    console.warn('[facet] could not schedule reminder:', err)
   }
 }
 
