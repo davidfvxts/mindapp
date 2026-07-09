@@ -125,6 +125,7 @@ export function useFacet() {
     void (async () => {
       try {
         const today = todayStr()
+        const caughtUp: string[] = []
         for (const entry of pending.slice(0, 5)) {
           const history = state.entries.filter((e) => e.ts < entry.ts)
           const result = await fetchCoachReply(entry, history, state.settings, state.coach)
@@ -136,6 +137,15 @@ export function useFacet() {
             ),
             coach: applyMemo(s.coach, result.memo, today, false),
           }))
+          caughtUp.push(entry.date)
+        }
+        // The owed reads exist now — say so quietly, and point nowhere. They
+        // live under their nights in the Vault.
+        if (caughtUp.length === 1) {
+          const day = new Date(`${caughtUp[0]}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long' })
+          setToast(`Coach read ${day}’s night. It’s in the Vault.`)
+        } else if (caughtUp.length > 1) {
+          setToast('Coach caught up on your nights. They’re in the Vault.')
         }
       } finally {
         catchingUp.current = false
@@ -241,7 +251,10 @@ export function useFacet() {
     setState((s) => {
       const [head, ...rest] = s.entries
       if (!head) return s
-      const tone: Settings['tone'] = rating === 1 ? s.settings.tone : 'gentler'
+      // Symmetric: a miss eases Coach off; a hit lifts the easing again.
+      // A deliberate 'sharper' setting is never overridden by ratings.
+      const tone: Settings['tone'] =
+        rating === 0 ? 'gentler' : s.settings.tone === 'gentler' ? 'default' : s.settings.tone
       return { ...s, settings: { ...s.settings, tone }, entries: [{ ...head, rating }, ...rest] }
     })
     setToast(rating ? 'Noted — Coach will keep this read.' : 'Noted — Coach will ease off.')

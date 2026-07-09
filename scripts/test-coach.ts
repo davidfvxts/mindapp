@@ -65,6 +65,17 @@ ok('daily prompt adds an owed-intention clause',
     triage(En({ event: 'good day', emotions: ['Calm'], well: 'shipped' }),
       { openCommitment: { text: 'call the lawyer', date: 'x' } })).includes('OWED intention'))
 
+// ---------- bedside manner: the night contract is always present ----------
+{
+  const sys = dailySystem(NOMEM, triage(En({}), NOMEM))
+  ok('daily prompt closes loops at night', sys.includes('Tomorrow, ask yourself'))
+  ok('daily prompt mirrors the language', sys.includes('language they wrote in'))
+  ok('daily prompt carries the distress rule', sys.includes('self-harm'))
+  ok('followup module closes, not questions',
+    dailySystem(NOMEM, triage(En({ event: 'quiet admin day', emotions: ['Focused'], well: 'inbox' }), NOMEM))
+      .includes('CLOSE THE DAY'))
+}
+
 // ---------- user data block ----------
 {
   const u = buildDailyUser('David', En({}),

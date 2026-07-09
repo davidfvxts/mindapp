@@ -205,9 +205,11 @@ The reflection is **local-first and always works offline**: it's saved the insta
 written and the Night advances, with no network in the path. **Direct feedback (Coach's
 reply) is online-only** — fetched live when online, and *skipped* when offline rather than
 faked with a stand-in. An offline reflection is flagged `pendingCoach`; the moment
-connectivity returns, `store.ts` quietly fetches the owed reply and attaches it (no
-hijacking tonight's screen). The weekly read is online-only too. This is deliberate: maximum
-value online, still fully usable offline.
+connectivity returns, `store.ts` quietly fetches the owed reply, attaches it, and says so
+with one toast ("Coach read Tuesday's night. It's in the Vault.") — no hijacking tonight's
+screen. Past Coach reads are always readable under their nights in the Vault list. The
+weekly read is online-only too. This is deliberate: maximum value online, still fully
+usable offline.
 
 ### Sync
 `supabase.ts` signs the device in **anonymously** (no magic-link UI needed) so reflections
@@ -238,6 +240,14 @@ Every reply is a real intervention, not chat. The flow (stateless server, local 
    Eurich, Goldsmith, Ferriss, Oettingen…). Each cites the finding in `docs/Reflection-System-2026.md`.
 4. **Reply** carries a small `memo` (1–3 theme tags, commitment outcome, voice read); the weekly
    reply carries a `profileDelta`. Both fold into **local** `CoachMemory` via `coachMemory.ts`.
+
+**Bedside manner (hard rules in `COACH_CORE` — keep these):** it's 11pm, so nightly replies
+CLOSE loops — never a question that demands an answer tonight; anything worth asking is handed
+to the morning ("Tomorrow, ask yourself…"), and charged nights end parked. Coach replies in the
+language the user writes in (German entry → German reply). An entry signalling acute distress
+gets a quiet signpost to a real person/professional instead of an intervention — no diagnosis,
+no lists. Reply ratings tune tone **symmetrically**: "Not quite" eases Coach to gentler,
+"That's right" lifts it back to default (a deliberate `sharper` is never overridden).
 
 **Memory is local-first** (in app state, persisted, synced like entries — no server state, no
 new table): a `profile` (voice, values, goals, obstacles, people, projects, what lands vs. not,

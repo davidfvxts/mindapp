@@ -60,6 +60,12 @@ export function Vault({ state, onReset, onRevisit }: { state: AppState; onReset:
                 <div className="item-meta ambient">{e.emotions.join(' · ')}</div>
               )}
               <div className="item-body">{e.event}</div>
+              {e.coach && (
+                <div className="item-coach">
+                  <span className="ambient">Coach</span>
+                  <p>{e.coach.text}</p>
+                </div>
+              )}
             </div>
           ))
         )}

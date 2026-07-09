@@ -232,6 +232,13 @@ textarea.error, input.error { border-color: var(--line-control); }
 .item:first-child { border-top: none; }
 .item .item-meta { margin-bottom: var(--s-1); }
 .item .item-body { font-size: var(--type-secondary-size); color: var(--ink-body); }
+/* Coach's read of that night — kept with the words it read. Type only, no box. */
+.item .item-coach { margin-top: var(--s-3); }
+.item .item-coach .ambient { display: block; margin-bottom: var(--s-1); }
+.item .item-coach p {
+  margin: 0; font-size: var(--type-secondary-size);
+  color: var(--ink-secondary); line-height: var(--type-body-lh);
+}
 
 /* ---------- tab bar: text only, no icons ---------- */
 .tabs {
