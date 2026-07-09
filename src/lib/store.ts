@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { applyEntry, todayStr, weekCount } from './game'
 import { loadState, resetState, saveState, syncEntries } from './storage'
-import { aiEnabled, fetchCoachReply, getWeeklyInsight } from './ai'
+import { aiEnabled, fetchCoachReply, fetchFirstRead, getWeeklyInsight } from './ai'
 import { applyMemo, recordCommitment, mergeWeeklyDelta } from './coachMemory'
+import { seedMemoryFromAnswers, deterministicFirstRead, type OnboardingAnswers } from './onboarding'
 import { ensureSession } from './supabase'
 import { scheduleDailyReminder } from './notifications'
 import type { AppState, CoachReply, Emotion, Entry, InsightCard, Settings } from './types'
@@ -23,6 +24,8 @@ export interface Reveal {
   reply: CoachReply | null
   /** True when a reply is owed but couldn't be fetched (offline / transient). */
   pending: boolean
+  /** The onboarding First Read — presented a touch more prominently. */
+  firstRead?: boolean
 }
 
 /** Live connectivity. Drives whether direct feedback is fetched or skipped. */
@@ -113,6 +116,46 @@ export function useFacet() {
     setToast(`Reminder set — after you ${settings.cue}, ${settings.reminderTime}.`)
   }, [])
 
+  /**
+   * The guided onboarding's payoff. Seeds the coach profile from the intake,
+   * runs their first-ever reflection, and returns the First Read (AI when
+   * online, a deterministic-but-specific read otherwise) with Night 1's Stone.
+   */
+  const beginJourney = useCallback(
+    async (settings: Settings, answers: OnboardingAnswers, first: Draft) => {
+      setThinking(true)
+      const today = todayStr()
+      const entry: Entry = {
+        id: uid(),
+        date: today,
+        event: first.event.trim(),
+        emotions: first.emotions,
+        well: first.well.trim(),
+        next: first.next.trim(),
+        ts: Date.now(),
+      }
+
+      let coach = seedMemoryFromAnswers(answers, today)
+      let reply: CoachReply = { text: deterministicFirstRead(answers, first), kind: 'celebration', source: 'local' }
+      if (aiEnabled() && online) {
+        const r = await fetchFirstRead(answers, entry, settings)
+        if (r) {
+          reply = r.reply
+          coach = mergeWeeklyDelta(coach, r.profileDelta ?? undefined, today)
+        }
+      }
+      entry.coach = reply
+      coach = recordCommitment(coach, entry, today)
+
+      const { game } = applyEntry(state.game, entry, 1)
+      void scheduleDailyReminder(settings.reminderTime, settings.cue)
+      setState((s) => ({ ...s, settings, onboarded: true, coach, entries: [entry], game }))
+      setReveal({ night: game.streak, reply, pending: false, firstRead: true })
+      setThinking(false)
+    },
+    [state.game, online],
+  )
+
   const submitEntry = useCallback(
     async (draft: Draft) => {
       setThinking(true)
@@ -198,7 +241,7 @@ export function useFacet() {
 
   return {
     state, derived, toast, thinking, reveal, online,
-    completeOnboarding, submitEntry, rateReply, mintCard, hardReset,
+    completeOnboarding, beginJourney, submitEntry, rateReply, mintCard, hardReset,
     setToast, clearReveal: () => setReveal(null),
   }
 }

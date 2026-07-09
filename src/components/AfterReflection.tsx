@@ -10,11 +10,13 @@ interface Props {
   pending: boolean
   /** The Night count — the only number shown here. */
   night: number
+  /** The onboarding First Read — labelled, and not rated (it's a welcome). */
+  firstRead?: boolean
   onRate: (r: 0 | 1) => void
   onDone: () => void
 }
 
-export function AfterReflection({ reply, pending, night, onRate, onDone }: Props) {
+export function AfterReflection({ reply, pending, night, firstRead, onRate, onDone }: Props) {
   const [rated, setRated] = useState<0 | 1 | null>(null)
   const milestone = stoneForNight(night)
 
@@ -46,13 +48,15 @@ export function AfterReflection({ reply, pending, night, onRate, onDone }: Props
       {reply ? (
         <div className="section">
           <div className="coach">
-            <span className="coach-label ambient">Coach</span>
+            <span className="coach-label ambient">{firstRead ? 'Coach · your first read' : 'Coach'}</span>
             <p className="develop">{reply.text}</p>
             {reply.lesson && <p className="lesson develop develop-2">{reply.lesson}</p>}
-            <div className="rate">
-              <button className={rated === 1 ? 'pick' : ''} onClick={() => rate(1)}>That’s right</button>
-              <button className={rated === 0 ? 'pick' : ''} onClick={() => rate(0)}>Not quite</button>
-            </div>
+            {!firstRead && (
+              <div className="rate">
+                <button className={rated === 1 ? 'pick' : ''} onClick={() => rate(1)}>That’s right</button>
+                <button className={rated === 0 ? 'pick' : ''} onClick={() => rate(0)}>Not quite</button>
+              </div>
+            )}
           </div>
         </div>
       ) : pending ? (

@@ -9,6 +9,7 @@
 
 import {
   buildDailyUser,
+  buildOnboardingUser,
   buildWeeklyUser,
   extractJson,
   routeModel,
@@ -16,8 +17,9 @@ import {
   type EntryIn,
   type MemoryIn,
   type Model,
+  type OnboardingIn,
 } from './logic.ts'
-import { dailySystem, weeklySystem } from './prompts.ts'
+import { dailySystem, onboardingSystem, weeklySystem } from './prompts.ts'
 
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const API = 'https://api.anthropic.com/v1/messages'
@@ -44,6 +46,12 @@ interface WeeklyBody {
   name: string
   entries: { date: string; event: string; emotions: string[]; well: string; next: string }[]
   memory?: MemoryIn
+}
+interface OnboardingBody {
+  mode: 'onboarding'
+  name: string
+  answers?: OnboardingIn
+  entry: EntryIn
 }
 
 /**
@@ -90,7 +98,19 @@ Deno.serve(async (req) => {
   if (!ANTHROPIC_KEY) return json({ error: 'ANTHROPIC_API_KEY not set' }, 500)
 
   try {
-    const body = (await req.json()) as DailyBody | WeeklyBody
+    const body = (await req.json()) as DailyBody | WeeklyBody | OnboardingBody
+
+    if (body.mode === 'onboarding') {
+      // The First Read — the best model, once, for the strongest first impression.
+      const user = buildOnboardingUser(body.name, body.answers ?? {}, body.entry)
+      const raw = await callClaude('claude-opus-4-8', onboardingSystem(), user, 900, false)
+      const parsed = extractJson<{ text?: string; profileDelta?: unknown }>(raw) ?? { text: raw.trim() }
+      return json({
+        text: parsed.text ?? raw.trim(),
+        profileDelta: parsed.profileDelta ?? null,
+        meta: { model: 'claude-opus-4-8', route: 'onboarding→opus' },
+      })
+    }
 
     if (body.mode === 'weekly') {
       const memory = body.memory ?? {}

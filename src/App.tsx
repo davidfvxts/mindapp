@@ -20,7 +20,7 @@ export default function App() {
   const m = useFacet()
   const [tab, setTab] = useState<Tab>('today')
 
-  if (!m.state.onboarded) return <Onboarding onDone={m.completeOnboarding} />
+  if (!m.state.onboarded) return <Onboarding onBegin={m.beginJourney} />
 
   const { game } = m.state
 
@@ -43,6 +43,7 @@ export default function App() {
               reply={m.reveal.reply}
               pending={m.reveal.pending}
               night={m.reveal.night}
+              firstRead={m.reveal.firstRead}
               onRate={m.rateReply}
               onDone={() => { m.clearReveal(); setTab('vault') }}
             />

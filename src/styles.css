@@ -169,6 +169,17 @@ textarea.error, input.error { border-color: var(--line-control); }
 .chip.on { background: var(--surface-inverse); color: var(--ink-on-inverse); }
 .chip:disabled { color: var(--ink-disabled); cursor: default; }
 
+/* ---------- onboarding progress meter ---------- */
+.meter {
+  height: 2px; border-radius: var(--r-full); overflow: hidden;
+  background: var(--line-hairline); margin: var(--s-4) 0 var(--s-6);
+}
+.meter > i {
+  display: block; height: 100%; border-radius: var(--r-full);
+  background: var(--ink-primary);
+  transition: width var(--t-standard) var(--ease-settle);
+}
+
 /* ---------- step dots ---------- */
 .dots { display: flex; gap: var(--s-2); margin-bottom: var(--s-5); }
 .dots i {

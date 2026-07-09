@@ -77,6 +77,47 @@ export async function fetchCoachReply(
   }
 }
 
+/** The onboarding First Read plus the profile Opus extracts from intake. */
+export interface FirstReadResult {
+  reply: CoachReply
+  profileDelta: Partial<CoachProfile> | null
+}
+
+/**
+ * The First Read — one Opus 4.8 call at the very start, the strongest first
+ * impression. Returns null offline/unconfigured; the caller then shows a
+ * deterministic read stitched from the intake, so the moment still lands.
+ */
+export async function fetchFirstRead(
+  answers: { name: string; goals: string[]; world: string; obstacle: string; cue: string },
+  entry: Entry,
+  settings: Settings,
+): Promise<FirstReadResult | null> {
+  if (!COACH_URL) return null
+  try {
+    const res = await fetch(COACH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({
+        mode: 'onboarding',
+        name: settings.name,
+        answers: { goals: answers.goals, world: answers.world, obstacle: answers.obstacle, cue: answers.cue },
+        entry: { event: entry.event, emotions: entry.emotions, well: entry.well, next: entry.next },
+      }),
+    })
+    if (!res.ok) throw new Error(`coach ${res.status}`)
+    const data = (await res.json()) as { text?: string; profileDelta?: Partial<CoachProfile>; meta?: CoachReply['meta'] }
+    if (!data.text) throw new Error('empty first read')
+    return {
+      reply: { text: data.text, kind: 'celebration', source: 'ai', meta: data.meta },
+      profileDelta: data.profileDelta ?? null,
+    }
+  } catch (err) {
+    console.warn('[facet] first read unavailable, using local:', err)
+    return null
+  }
+}
+
 /** The weekly read plus the identity revision Opus proposes. */
 export interface WeeklyResult {
   text: string

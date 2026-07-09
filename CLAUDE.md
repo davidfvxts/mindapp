@@ -178,6 +178,7 @@ src/
     game.ts         Habit engine: the Night mechanic, never-miss-twice, internal XP.  ← TESTED
     coachMemory.ts  Local-first coach memory: curate() (recency + long-ago recall),
                     recordCommitment/applyMemo/mergeWeeklyDelta. Bounded.  ← TESTED
+    onboarding.ts   Guided-intake → profile seed + deterministic First Read.  ← TESTED
     ai.ts           Online-only Coach: sends entry + curated memory; returns reply + memo.
     supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth.
     storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
@@ -225,10 +226,12 @@ other than the Night count.
 Every reply is a real intervention, not chat. The flow (stateless server, local memory):
 1. **Triage** (`logic.ts`, deterministic) reads tonight's entry + the memory the client sends
    and picks the one intervention, in the research priority order above.
-2. **Route** — different models for different feedback: light night → **Haiku 4.5**;
-   standard depth (agency/celebration/accountability) → **Sonnet 5**; charged / why-spiral /
-   decision-avoidance / recurring-pattern → **Opus 4.8**. Weekly synthesis → **Opus 4.8** with
-   adaptive thinking. Daily runs thinking-off for a fast nightly loop.
+2. **Route** — different models for different feedback: charged / why-spiral / decision-avoidance
+   / recurring-pattern → **Opus 4.8**; everything else → **Sonnet 5** (the near-Opus daily floor).
+   Weekly synthesis + the onboarding First Read → **Opus 4.8**. Daily runs thinking-off for a fast
+   nightly loop; weekly/onboarding think. **Haiku 4.5 stays wired as the scale lever** — route the
+   lightest nights to it (one line in `routeModel`) once you're optimising cost at scale; for the
+   testing phase Sonnet is the floor so first impressions land.
 3. **Assemble** (`prompts.ts`) — `COACH_CORE` (identity + the five mechanisms + hard rules +
    voice-mirroring) plus the ONE expert module for the chosen intervention (Pennebaker, Kross,
    Eurich, Goldsmith, Ferriss, Oettingen…). Each cites the finding in `docs/Reflection-System-2026.md`.
@@ -241,6 +244,16 @@ revised weekly by Opus), a **theme ledger** (first/last/count → recency *and* 
 and a **commitment ledger** (each "one thing I'll do differently" tracked to kept/dropped for
 accountability). `curate()` sends Coach the recent nights verbatim + older nights a live theme
 echoes + what's owed — so it knows both tonight and what you said weeks ago, in your voice.
+
+### Onboarding = coach intake + the wow moment
+The guided flow (`components/Onboarding.tsx` → `store.beginJourney`) is the product from minute one:
+a gamified, ~2-minute intake (name → goals → world → obstacle → the implementation-intention cue)
+that **seeds the profile deterministically** (so Coach knows the user with or without the network),
+then runs their **first real reflection**, then hands back a personalised **First Read** as Night 1's
+Stone forms. Online, `mode:'onboarding'` gets an **Opus 4.8** First Read + a profile extraction
+(`onboarding.ts` seed is enriched by the AI `profileDelta`); offline, `deterministicFirstRead()`
+stitches a specific read from their answers so the moment still lands. Colour stays scarce — Night 1
+is a greyscale Rough stone; the wow is the read + the object, never an early gradient.
 
 ### The API key never touches the browser
 Anthropic is called from the Supabase Edge Function (`supabase/functions/coach/`) holding

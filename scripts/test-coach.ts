@@ -6,6 +6,7 @@
 import { triage, routeModel, buildDailyUser, extractJson, type MemoryIn } from '../supabase/functions/coach/logic'
 import { dailySystem } from '../supabase/functions/coach/prompts'
 import { curate, recordCommitment, applyMemo, mergeWeeklyDelta } from '../src/lib/coachMemory'
+import { seedMemoryFromAnswers, deterministicFirstRead, obstaclePhrase } from '../src/lib/onboarding'
 import { emptyCoachMemory } from '../src/lib/types'
 import type { CoachMemory, Emotion, Entry } from '../src/lib/types'
 
@@ -44,8 +45,8 @@ ok('route charged → opus',
   routeModel(triage(En({ emotions: ['Overwhelmed'] }), NOMEM)).model === 'claude-opus-4-8')
 ok('route standard → sonnet',
   routeModel(triage(En({ event: 'shipped', emotions: ['Proud'], well: '' }), NOMEM)).model === 'claude-sonnet-5')
-ok('route light → haiku',
-  routeModel(triage(En({ event: 'calm admin day', emotions: ['Focused'], well: 'inbox zero' }), NOMEM)).model === 'claude-haiku-4-5')
+ok('route light → sonnet (floor)',
+  routeModel(triage(En({ event: 'calm admin day', emotions: ['Focused'], well: 'inbox zero' }), NOMEM)).model === 'claude-sonnet-5')
 
 // ---------- prompt assembly: the right expert loads ----------
 ok('daily prompt loads the distancing module',
@@ -129,6 +130,25 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   }, '2026-07-10')
   ok('weekly delta sets voice', m.profile.voice === 'clipped, technical')
   ok('weekly delta caps a list at 8', (m.profile.goals?.length ?? 0) === 8)
+}
+
+// ---------- onboarding: intake → profile seed + first read ----------
+{
+  const answers = {
+    name: 'David', goals: ['Sharper decisions', 'Shipping more'], world: 'building Facet with my cofounder',
+    obstacle: 'Perfectionism', cue: 'close my laptop', reminderTime: '21:30',
+  }
+  const seeded = seedMemoryFromAnswers(answers, '2026-07-10')
+  ok('seed carries goals', (seeded.profile.goals ?? []).includes('Sharper decisions'))
+  ok('seed maps the obstacle', (seeded.profile.obstacles ?? [])[0] === 'perfectionism')
+  ok('seed captures their world', (seeded.profile.projects ?? [])[0]?.includes('Facet') === true)
+  ok('obstaclePhrase maps "I forget"', obstaclePhrase('I forget') === 'forgetting to start')
+
+  const read = deterministicFirstRead(answers, { event: 'closed the seed round today', emotions: ['Proud'], well: 'prepped cold', next: 'draft the deck' })
+  ok('first read names them', read.includes('David'))
+  ok('first read reflects the goal', read.toLowerCase().includes('sharper decisions'))
+  ok('first read references their moment', read.includes('closed the seed round'))
+  ok('first read hands them the cue', read.includes('close my laptop'))
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL COACH TESTS PASSED')

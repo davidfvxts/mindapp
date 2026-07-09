@@ -93,17 +93,21 @@ export function triage(entry: EntryIn, memory: MemoryIn): Triage {
 
 /**
  * Different models for different feedback types. Quality-first, cost-aware:
- * the psychologically demanding nights get the strongest model; routine nights
- * get the fast one; the weekly synthesis (elsewhere) gets Opus with thinking.
+ * the psychologically demanding nights get the strongest model; everything else
+ * gets Sonnet 5 (the near-Opus daily floor). The weekly + onboarding reads
+ * (elsewhere) get Opus with thinking.
+ *
+ * Testing-phase choice: Sonnet 5 is the floor so every reply mirrors voice well
+ * and first impressions land — the per-reply cost delta vs. Haiku is a fraction
+ * of a cent. Haiku 4.5 stays wired as the scale lever: when you're optimising
+ * cost at hundreds of users, route the lightest nights (below) to it.
  */
 export function routeModel(t: Triage): { model: Model; route: string } {
   if (t.whySpiral || t.charged || t.decisionAvoidance || t.patternEcho) {
     return { model: 'claude-opus-4-8', route: 'charged→opus' }
   }
-  if (t.missingAgency || t.positive || t.owedCommitment) {
-    return { model: 'claude-sonnet-5', route: 'standard→sonnet' }
-  }
-  return { model: 'claude-haiku-4-5', route: 'light→haiku' }
+  // Scale lever: swap to 'claude-haiku-4-5' here for the lightest nights at scale.
+  return { model: 'claude-sonnet-5', route: 'standard→sonnet' }
 }
 
 const ratedTag = (r?: 0 | 1): string => (r === 1 ? ' | rated: landed' : r === 0 ? ' | rated: off' : '')
@@ -159,6 +163,28 @@ export function buildWeeklyUser(
   if (memory.projects?.length) known.push(`projects: ${memory.projects.join(', ')}`)
   if (memory.relationships?.length) known.push(`people: ${memory.relationships.join(', ')}`)
   if (known.length) lines.push(`KNOWN PROFILE — ${known.join(' · ')}`)
+  return lines.join('\n')
+}
+
+export interface OnboardingIn {
+  goals?: string[]
+  world?: string
+  obstacle?: string
+  cue?: string
+}
+
+/** The DATA block for the onboarding First Read — intake + their first-ever reflection. */
+export function buildOnboardingUser(name: string, a: OnboardingIn, entry: EntryIn): string {
+  const lines = [`Reflector: ${name || 'the user'}`, '', 'INTAKE (their guided setup):']
+  if (a.goals?.length) lines.push(`- Wants to get sharper at: ${a.goals.join(', ')}`)
+  if (a.world?.trim()) lines.push(`- Building: ${a.world.trim()}`)
+  if (a.obstacle) lines.push(`- What's tripped reflection up before: ${a.obstacle}`)
+  if (a.cue?.trim()) lines.push(`- Their cue: after they ${a.cue.trim()}, they reflect.`)
+  lines.push('', 'THEIR FIRST-EVER REFLECTION, TONIGHT:')
+  lines.push(`Event: ${entry.event}`)
+  lines.push(`Emotions: ${entry.emotions.join(', ') || '(none named)'}`)
+  lines.push(`What went well / their contribution: ${entry.well || '(left blank)'}`)
+  lines.push(`What they'll do differently: ${entry.next || '(left blank)'}`)
   return lines.join('\n')
 }
 
