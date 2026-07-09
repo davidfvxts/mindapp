@@ -10,7 +10,7 @@ interface Props {
   onBegin?: (settings: Settings, answers: OnboardingAnswers, first: Draft) => Promise<void>
   /** Re-tune: intake only, update what Coach knows. */
   onRetune?: (settings: Settings, answers: OnboardingAnswers) => void
-  initial?: { name?: string; goals?: string[]; cue?: string; reminderTime?: string }
+  initial?: { name?: string; goals?: string[]; cue?: string; reminderTime?: string; morningTime?: string }
 }
 
 /**
@@ -31,6 +31,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
   const [obstacle, setObstacle] = useState('')
   const [cue, setCue] = useState(initial?.cue ?? '')
   const [reminderTime, setTime] = useState(initial?.reminderTime ?? '21:30')
+  const [morningTime, setMorning] = useState(initial?.morningTime ?? '08:30')
 
   const [event, setEvent] = useState('')
   const [emotions, setEmotions] = useState<Emotion[]>([])
@@ -50,6 +51,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
       name: name.trim() || 'there',
       cue: cue.trim() || 'close my laptop',
       reminderTime,
+      morningTime,
       tone: 'default',
     }
     if (retune) {
@@ -189,6 +191,20 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
               <div className="section">
                 <label className="field-label" htmlFor="ob-time"><span className="ambient">Nightly reminder</span></label>
                 <input id="ob-time" type="time" value={reminderTime} onChange={(e) => setTime(e.target.value)} />
+              </div>
+              <div className="section">
+                <label className="field-label" htmlFor="ob-morning">
+                  <span className="ambient">Morning note</span>
+                  <span className="hint">Last night’s intention, back when you can act on it.</span>
+                </label>
+                {morningTime ? (
+                  <>
+                    <input id="ob-morning" type="time" value={morningTime} onChange={(e) => setMorning(e.target.value)} />
+                    <button type="button" className="btn text" onClick={() => setMorning('')}>No morning note</button>
+                  </>
+                ) : (
+                  <button type="button" className="btn text" onClick={() => setMorning('08:30')}>Add a morning note</button>
+                )}
               </div>
             </>
           )}

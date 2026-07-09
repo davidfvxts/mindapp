@@ -8,8 +8,9 @@ import {
   dueForNudge, pickOfflineNudge, toNudge, markSeen,
   commitNudge as commit, declineNudge as decline, resolveNudge as resolve,
 } from './guidance'
+import { intentionForToday, needsComeback } from './morning'
 import { ensureSession } from './supabase'
-import { scheduleDailyReminder } from './notifications'
+import { cancelMorningIntention, scheduleDailyReminder, scheduleMorningIntention } from './notifications'
 import type { AppState, CoachReply, Emotion, Entry, InsightCard, Settings } from './types'
 
 const uid = (): string =>
@@ -157,6 +158,7 @@ export function useFacet() {
   const completeOnboarding = useCallback((settings: Settings) => {
     setState((s) => ({ ...s, settings, onboarded: true }))
     void scheduleDailyReminder(settings.reminderTime, settings.cue)
+    if (!settings.morningTime) void cancelMorningIntention()
     setToast(`Reminder set — after you ${settings.cue}, ${settings.reminderTime}.`)
   }, [])
 
@@ -193,6 +195,7 @@ export function useFacet() {
 
       const { game } = applyEntry(state.game, entry, 1)
       void scheduleDailyReminder(settings.reminderTime, settings.cue)
+      void scheduleMorningIntention(settings.morningTime, entry.next)
       setState((s) => ({ ...s, settings, onboarded: true, coach, entries: [entry], game }))
       setReveal({ night: game.streak, reply, pending: false, firstRead: true })
       setThinking(false)
@@ -242,6 +245,9 @@ export function useFacet() {
       setReveal({ night: game.streak, reply, pending })
       setThinking(false)
 
+      // Tonight's intention comes back tomorrow morning, when it can be acted on.
+      void scheduleMorningIntention(state.settings.morningTime, entry.next)
+
       if (freezeUsed) setToast('Last night is covered.')
     },
     [state.entries, state.game, state.settings, state.coach, online],
@@ -282,6 +288,7 @@ export function useFacet() {
     const seed = seedMemoryFromAnswers(answers, today)
     setState((s) => ({ ...s, settings, coach: mergeWeeklyDelta(s.coach, seed.profile, today) }))
     void scheduleDailyReminder(settings.reminderTime, settings.cue)
+    if (!settings.morningTime) void cancelMorningIntention()
     setToast('Coach re-tuned to you.')
   }, [])
 
@@ -307,21 +314,34 @@ export function useFacet() {
     setToast(kept ? 'That’s a good one to keep.' : 'No pressure — it’s off your plate.')
   }, [])
 
+  /** The comeback is shown once per lapse — acknowledging flows into the ritual. */
+  const acknowledgeComeback = useCallback(() => {
+    setState((s) => ({ ...s, comebackAck: s.game.lastDay }))
+  }, [])
+
   const hardReset = useCallback(() => {
     resetState()
     setState(loadState())
   }, [])
 
   const derived = useMemo(() => {
-    const reflectedToday = state.game.lastDay === todayStr()
+    const today = todayStr()
+    const reflectedToday = state.game.lastDay === today
     const thisWeek = weekCount(state.entries)
-    return { reflectedToday, thisWeek }
-  }, [state.entries, state.game])
+    // Last night's intention, surfaced while it can still shape today.
+    const todayIntention = reflectedToday ? null : intentionForToday(state.coach.commitments, today)
+    // A real lapse (≥2 missed nights) gets a designed re-entry, once.
+    const comeback = needsComeback(state.game.lastDay, today, state.comebackAck)
+      ? { best: state.game.best }
+      : null
+    return { reflectedToday, thisWeek, todayIntention, comeback }
+  }, [state.entries, state.game, state.coach.commitments, state.comebackAck])
 
   return {
     state, derived, toast, thinking, reveal, online,
     completeOnboarding, beginJourney, retune, submitEntry, rateReply, mintCard,
-    markGuidanceSeen, commitNudge, declineNudge, resolveNudge, hardReset,
+    markGuidanceSeen, commitNudge, declineNudge, resolveNudge,
+    acknowledgeComeback, hardReset,
     setToast, clearReveal: () => setReveal(null),
   }
 }

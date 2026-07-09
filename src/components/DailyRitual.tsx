@@ -6,6 +6,11 @@ interface Props {
   reflectedToday: boolean
   cue: string
   thinking: boolean
+  /** Last night's intention, when it's due today — one quiet line, no box. */
+  todayIntention?: string | null
+  /** A real lapse (≥2 missed nights) → the guilt-free re-entry, once. */
+  comeback?: { best: number } | null
+  onComebackSeen?: () => void
   onSubmit: (d: Draft) => void
 }
 
@@ -15,7 +20,9 @@ const STEPS = [
   { n: 'The next step', hint: 'One thing you’ll do differently tomorrow.' },
 ]
 
-export function DailyRitual({ reflectedToday, cue, thinking, onSubmit }: Props) {
+export function DailyRitual({
+  reflectedToday, cue, thinking, todayIntention, comeback, onComebackSeen, onSubmit,
+}: Props) {
   const [step, setStep] = useState(0)
   const [event, setEvent] = useState('')
   const [emotions, setEmotions] = useState<Emotion[]>([])
@@ -39,6 +46,24 @@ export function DailyRitual({ reflectedToday, cue, thinking, onSubmit }: Props) 
     onSubmit({ event, emotions, well, next })
   }
 
+  // The comeback: a real lapse ends here, without a trace of guilt. Once.
+  if (comeback && !reflectedToday) {
+    return (
+      <div className="develop">
+        <span className="ambient">Tonight</span>
+        <h1 style={{ marginTop: 'var(--s-3)' }}>You’re back.</h1>
+        <p className="sub">
+          {comeback.best > 1
+            ? `You reached Night ${comeback.best} — that ground is yours. `
+            : ''}
+          What’s kept is kept. One moment tonight is enough.
+        </p>
+        <div className="spacer" />
+        <button className="btn" onClick={onComebackSeen}>Begin tonight</button>
+      </div>
+    )
+  }
+
   if (reflectedToday && !adding) {
     return (
       <div className="develop">
@@ -54,6 +79,9 @@ export function DailyRitual({ reflectedToday, cue, thinking, onSubmit }: Props) 
 
   return (
     <div className="develop" key={step}>
+      {/* Last night's intention, back in daylight. Plain text — no box, no icon. */}
+      {todayIntention && <p className="morning-line">Today: {todayIntention}</p>}
+
       <div className="dots">
         {STEPS.map((_, i) => (
           <i key={i} className={i === step ? 'on' : i < step ? 'visited' : ''} />

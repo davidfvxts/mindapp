@@ -12,7 +12,10 @@ export function loadState(): AppState {
     const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY)
     if (!raw) return initialState()
     const parsed = JSON.parse(raw) as AppState
-    return { ...initialState(), ...parsed }
+    // Deep-merge settings so states persisted before a new setting existed
+    // pick up its default instead of dropping the field.
+    const init = initialState()
+    return { ...init, ...parsed, settings: { ...init.settings, ...parsed.settings } }
   } catch {
     return initialState()
   }

@@ -180,6 +180,14 @@ textarea.error, input.error { border-color: var(--line-control); }
   transition: width var(--t-standard) var(--ease-settle);
 }
 
+/* ---------- the morning line: last night's intention, in daylight ---------- */
+.morning-line {
+  margin: 0 0 var(--s-6);
+  font-size: var(--type-secondary-size);
+  color: var(--ink-secondary);
+  line-height: var(--type-body-lh);
+}
+
 /* ---------- step dots ---------- */
 .dots { display: flex; gap: var(--s-2); margin-bottom: var(--s-5); }
 .dots i {

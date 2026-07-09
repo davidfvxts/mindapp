@@ -7,6 +7,7 @@ import { triage, routeModel, buildDailyUser, extractJson, type MemoryIn } from '
 import { dailySystem } from '../supabase/functions/coach/prompts'
 import { curate, recordCommitment, applyMemo, mergeWeeklyDelta } from '../src/lib/coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, obstaclePhrase } from '../src/lib/onboarding'
+import { intentionForToday, missedNights, needsComeback } from '../src/lib/morning'
 import {
   SEEDS, dueForNudge, pickOfflineNudge, toNudge,
   commitNudge, declineNudge, resolveNudge, markSeen,
@@ -251,6 +252,29 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
     ok('seeing it clears the marker', unseenCount(s2) === 0)
     ok('open selector finds it', openNudge(s1)?.id === 'c')
   }
+}
+
+// ---------- morning: the loop beyond 11pm ----------
+{
+  const C = (date: string, status: 'open' | 'kept' | 'dropped' = 'open') =>
+    ({ date, text: 'send the memo', status }) as const
+
+  ok('last night’s intention surfaces today', intentionForToday([C('2026-07-08')], '2026-07-09') === 'send the memo')
+  ok('a bridged night still surfaces it', intentionForToday([C('2026-07-07')], '2026-07-09') === 'send the memo')
+  ok('tonight’s own intention is not “today”', intentionForToday([C('2026-07-09')], '2026-07-09') === null)
+  ok('a lapsed intention stays quiet', intentionForToday([C('2026-07-05')], '2026-07-09') === null)
+  ok('resolved intentions don’t resurface', intentionForToday([C('2026-07-08', 'kept')], '2026-07-09') === null)
+  ok('no commitments, no line', intentionForToday([], '2026-07-09') === null)
+
+  ok('missedNights counts whole missed nights', missedNights('2026-07-05', '2026-07-09') === 3)
+  ok('yesterday means nothing missed', missedNights('2026-07-08', '2026-07-09') === 0)
+  ok('never reflected means nothing missed', missedNights(null, '2026-07-09') === 0)
+
+  ok('two missed nights → comeback', needsComeback('2026-07-06', '2026-07-09', null) === true)
+  ok('one missed night is bridged, not a comeback', needsComeback('2026-07-07', '2026-07-09', null) === false)
+  ok('comeback shows once per lapse', needsComeback('2026-07-06', '2026-07-09', '2026-07-06') === false)
+  ok('a new lapse gets a new comeback', needsComeback('2026-07-06', '2026-07-09', '2026-07-01') === true)
+  ok('never reflected → onboarding, not comeback', needsComeback(null, '2026-07-09', null) === false)
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL COACH TESTS PASSED')

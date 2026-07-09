@@ -180,6 +180,7 @@ src/
                     recordCommitment/applyMemo/mergeWeeklyDelta. Bounded.  ← TESTED
     onboarding.ts   Guided-intake → profile seed + deterministic First Read.  ← TESTED
     guidance.ts     The occasional nudge: irregular gate + evidence-based library + lifecycle.  ← TESTED
+    morning.ts      The loop beyond 11pm: today's-intention line + comeback detection. PURE.  ← TESTED
     ai.ts           Online-only Coach: sends entry + curated memory; returns reply + memo. Also fetchNudge().
     supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth.
     storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
@@ -210,6 +211,19 @@ with one toast ("Coach read Tuesday's night. It's in the Vault.") — no hijacki
 screen. Past Coach reads are always readable under their nights in the Vault list. The
 weekly read is online-only too. This is deliberate: maximum value online, still fully
 usable offline.
+
+### The loop beyond 11pm — morning note + comeback
+The intention written at night ("one thing I'll do differently") comes back **the next
+morning**, when it can be acted on (Gollwitzer: cues work at execution time): a quiet
+`Today: <intention>` line on the Tonight screen (`morning.ts` → `intentionForToday`, shown
+for a 1–2-night-old open intention only), plus an optional one-shot **local** morning
+notification (`settings.morningTime`, default 08:30, one-tap off in onboarding/retune;
+rescheduled after every reflection so the text is always tonight's intention). After a real
+lapse (**≥2 missed nights** — one miss is bridged by never-miss-twice), the Tonight screen
+opens with a designed, guilt-free re-entry ("You're back. You reached Night N — that ground
+is yours.") shown **once per lapse** (`state.comebackAck` records the `game.lastDay` it was
+acknowledged for) before flowing straight into the ritual. No guilt copy, no streak
+vocabulary, Night count the only number.
 
 ### Sync
 `supabase.ts` signs the device in **anonymously** (no magic-link UI needed) so reflections
@@ -290,7 +304,7 @@ setup" — updates settings and augments the profile (`store.retune`), no new en
 ### The API key never touches the browser
 Anthropic is called from the Supabase Edge Function (`supabase/functions/coach/`) holding
 `ANTHROPIC_API_KEY` as a server-side secret. Notifications are **local**, not push
-(`@capacitor/local-notifications`) — no APNs, no server, works offline.
+(`@capacitor/local-notifications`) — no APNs, no server, works offline; the evening cue reminder and the one-shot morning note both schedule on-device.
 
 ### Next steps, in order
 1. Paste `ANTHROPIC_API_KEY` (secret) + enable Anonymous sign-ins — see the two steps above.

@@ -170,6 +170,9 @@ export interface Settings {
   /** Implementation intention: "After I <cue>, I reflect." (Gollwitzer) */
   cue: string
   reminderTime: string
+  /** Morning note: last night's intention, delivered when it can be acted on.
+   *  Empty string = off. */
+  morningTime: string
   tone: 'default' | 'gentler' | 'sharper'
 }
 
@@ -195,18 +198,21 @@ export interface AppState {
   nudges: Nudge[]
   /** Night count at the last nudge check (whether or not one surfaced) — paces them. */
   lastNudgeCheck: number
+  /** The `game.lastDay` a comeback was acknowledged for — shows it once per lapse. */
+  comebackAck: string | null
   onboarded: boolean
 }
 
 export const emptyCoachMemory = (): CoachMemory => ({ profile: {}, themes: [], commitments: [] })
 
 export const initialState = (): AppState => ({
-  settings: { name: '', cue: '', reminderTime: '21:30', tone: 'default' },
+  settings: { name: '', cue: '', reminderTime: '21:30', morningTime: '08:30', tone: 'default' },
   game: { xp: 0, level: 1, streak: 0, best: 0, freezes: 1, lastDay: null },
   entries: [],
   cards: [],
   coach: emptyCoachMemory(),
   nudges: [],
   lastNudgeCheck: 0,
+  comebackAck: null,
   onboarded: false,
 })

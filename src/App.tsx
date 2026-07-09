@@ -37,6 +37,7 @@ export default function App() {
           goals: (m.state.coach.profile.goals ?? []).filter((g) => (GOAL_OPTIONS as readonly string[]).includes(g)),
           cue: p.cue,
           reminderTime: p.reminderTime,
+          morningTime: p.morningTime,
         }}
         onRetune={(settings, answers) => { m.retune(settings, answers); setRetuning(false); setTab('today') }}
       />
@@ -74,6 +75,9 @@ export default function App() {
               reflectedToday={m.derived.reflectedToday}
               cue={m.state.settings.cue}
               thinking={m.thinking}
+              todayIntention={m.derived.todayIntention}
+              comeback={m.derived.comeback}
+              onComebackSeen={m.acknowledgeComeback}
               onSubmit={(d) => void m.submitEntry(d)}
             />
           ))}
