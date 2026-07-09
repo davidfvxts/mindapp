@@ -159,15 +159,42 @@ export function buildDailyUser(
   return lines.join('\n')
 }
 
-/** The DATA block for the weekly synthesis. */
+export interface WeeklyReviewIn {
+  wins?: string
+  friction?: string
+  avoided?: string
+}
+export interface WoopIn {
+  wish?: string
+  outcome?: string
+  obstacle?: string
+  plan?: string
+}
+
+/** The DATA block for the weekly synthesis — the nights, and (when the user did
+ *  the guided review) THEIR answers + THEIR WOOP. */
 export function buildWeeklyUser(
   name: string,
   entries: { date: string; event: string; emotions: string[]; well: string; next: string }[],
   memory: MemoryIn,
+  review?: WeeklyReviewIn | null,
+  woop?: WoopIn | null,
 ): string {
   const lines = [`Reflector: ${name || 'the user'}`, '', "THIS WEEK'S NIGHTS:"]
   for (const e of entries) {
     lines.push(`- ${e.date} [${e.emotions.join(', ')}] ${e.event} | well: ${e.well || '—'} | next: ${e.next || '—'}`)
+  }
+  if (review && (review.wins || review.friction || review.avoided)) {
+    lines.push('', 'THEIR OWN REVIEW, JUST WRITTEN:')
+    if (review.wins) lines.push(`- Wins & what caused them: ${review.wins}`)
+    if (review.friction) lines.push(`- What got in the way: ${review.friction}`)
+    if (review.avoided) lines.push(`- The decision they're avoiding: ${review.avoided}`)
+  }
+  if (woop?.wish) {
+    lines.push('', `THEIR WOOP FOR NEXT WEEK: wish "${woop.wish}"`
+      + (woop.outcome ? ` · outcome "${woop.outcome}"` : '')
+      + (woop.obstacle ? ` · obstacle "${woop.obstacle}"` : '')
+      + (woop.plan ? ` · plan "${woop.plan}"` : ''))
   }
   if (memory.voice) lines.push('', `KNOWN VOICE: ${memory.voice}`)
   const known: string[] = []

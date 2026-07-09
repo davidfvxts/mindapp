@@ -2,6 +2,7 @@ import type { AppState, CoachKind, CoachMemo, CoachMemory, CoachProfile, CoachRe
 import { anonKey, supabase } from './supabase'
 import { curate } from './coachMemory'
 import type { NudgeDraft } from './guidance'
+import type { WeeklyAnswers, Woop } from './weekly'
 
 const COACH_URL = import.meta.env.VITE_COACH_URL as string | undefined
 
@@ -167,11 +168,14 @@ export interface WeeklyResult {
 /**
  * Weekly synthesis — online-only, always Opus 4.8 with thinking. Returns null
  * when offline/unconfigured so Reviews can skip minting rather than fabricate.
+ * With `extras` (the guided review), Coach builds on the USER's own answers
+ * and pressure-tests their WOOP; without (the quiet memory pass), as before.
  */
 export async function getWeeklyInsight(
   entries: Entry[],
   settings: Settings,
   coach: CoachMemory,
+  extras?: { review: WeeklyAnswers; woop: Woop },
 ): Promise<WeeklyResult | null> {
   if (!COACH_URL) return null
   const { memory } = curate(entries, coach)
@@ -186,6 +190,8 @@ export async function getWeeklyInsight(
           date: e.date, event: e.event, emotions: e.emotions, well: e.well, next: e.next,
         })),
         memory,
+        review: extras?.review ?? null,
+        woop: extras?.woop ?? null,
       }),
     })
     if (!res.ok) throw new Error(`coach ${res.status}`)

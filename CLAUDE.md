@@ -181,6 +181,7 @@ src/
     onboarding.ts   Guided-intake → profile seed + deterministic First Read.  ← TESTED
     guidance.ts     The occasional nudge: irregular gate + evidence-based library + lifecycle.  ← TESTED
     morning.ts      The loop beyond 11pm: Today bookend (win + adaptive question), intention line, comeback. PURE.  ← TESTED
+    weekly.ts       Weekly review pacing: readiness + quiet-synthesis clocks; WOOP types. PURE.  ← TESTED
     ai.ts           Online-only Coach: sends entry + curated memory; returns reply + memo. Also fetchNudge().
     supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth.
     storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
@@ -310,6 +311,21 @@ deliberately **not** a catalogue the user grinds through:
   in a few nights on, "how did it go?", never punishing), **Not for me** (set aside), plus an
   optional note to push back or ask for help. Lifecycle is pure + tested; state is local
   (`state.nudges`), persisted and synced like everything else — no new table.
+
+### The weekly review = the user's work, structured by Coach
+The weekly is a GUIDED flow (`Reviews.tsx`), not a one-tap card: check-in on last week's
+standing intention ("did it hold?") → three prompts (wins & causes / what got in the way —
+"what", never "why" / the decision being avoided) → a captured **WOOP** (wish → outcome →
+internal obstacle → if-then). Coach's read (Opus 4.8, thinking) receives THEIR answers +
+THEIR WOOP alongside the nights — it builds on what they saw and **pressure-tests their
+WOOP** rather than writing its own. The if-then becomes a **standing weekly intention** on
+the nudge lifecycle (`weeklyIntentionNudge`, kind `intention`, born committed, check-in
+~5 nights on, resolved in Guidance or at the top of the next review). Pacing lives in
+`weekly.ts`: `weeklyReady` (≥5 nights in the trailing week + ≥5 nights since the last
+guided review → quiet dot on the Reviews tab) and `quietSynthesisDue` — **memory no longer
+depends on the button**: a week left untouched gets a background memory-only synthesis
+(profileDelta folds in, no card, nothing shown, ready marker stays). Past reads list on
+the Reviews landing.
 
 **Retune anytime.** `components/Onboarding.tsx` runs in `mode:'retune'` from the Vault's "Revisit
 setup" — updates settings and augments the profile (`store.retune`), no new entry, no Night change.

@@ -90,7 +90,9 @@ export interface InsightCard {
   date: string
 }
 
-export type NudgeKind = 'tip' | 'action' | 'habit' | 'routine' | 'reading'
+/** 'intention' = the standing weekly WOOP intention, born committed from the
+ *  weekly review — same lifecycle (check-in → kept/didn't stick), never AI-drawn. */
+export type NudgeKind = 'tip' | 'action' | 'habit' | 'routine' | 'reading' | 'intention'
 /** open → the user hasn't decided · committed → they'll try it (Coach checks in) ·
  *  kept/dropped → how the check-in resolved · declined → not for them. */
 export type NudgeStatus = 'open' | 'committed' | 'kept' | 'dropped' | 'declined'
@@ -220,6 +222,10 @@ export interface AppState {
   /** Tomorrow's Coach question, written by tonight's reply (memo.morningQuestion).
    *  Fetched at night so the morning needs no network. */
   nextMorningQuestion: { forDate: string; text: string } | null
+  /** Date of the last GUIDED weekly review (the user's own work). Paces readiness. */
+  lastWeeklyReview: string | null
+  /** Date of the last weekly synthesis of ANY kind (guided or quiet memory-only). */
+  lastWeeklySynthesis: string | null
   onboarded: boolean
 }
 
@@ -236,5 +242,7 @@ export const initialState = (): AppState => ({
   comebackAck: null,
   mornings: [],
   nextMorningQuestion: null,
+  lastWeeklyReview: null,
+  lastWeeklySynthesis: null,
   onboarded: false,
 })

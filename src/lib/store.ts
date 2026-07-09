@@ -5,13 +5,14 @@ import { aiEnabled, fetchCoachReply, fetchFirstRead, fetchNudge, getWeeklyInsigh
 import { applyMemo, isCharged, recordCommitment, mergeWeeklyDelta } from './coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, type OnboardingAnswers } from './onboarding'
 import {
-  dueForNudge, pickOfflineNudge, toNudge, markSeen,
+  dueForNudge, pickOfflineNudge, toNudge, markSeen, weeklyIntentionNudge,
   commitNudge as commit, declineNudge as decline, resolveNudge as resolve,
 } from './guidance'
 import {
   intentionForToday, isMorningWindow, needsComeback, nextDay,
   offlineMorningQuestion, upsertMorning,
 } from './morning'
+import { quietSynthesisDue, weeklyReady, type WeeklyAnswers, type Woop } from './weekly'
 import { ensureSession } from './supabase'
 import { cancelMorningIntention, scheduleDailyReminder, scheduleMorningIntention } from './notifications'
 import type { AppState, CoachReply, Emotion, Entry, InsightCard, MorningNote, Settings } from './types'
@@ -279,20 +280,61 @@ export function useFacet() {
     setToast(rating ? 'Noted — Coach will keep this read.' : 'Noted — Coach will ease off.')
   }, [])
 
-  const mintCard = useCallback(async () => {
-    if (!online) { setToast('Coach reads your week when you’re online.'); return }
-    setThinking(true)
-    const result = await getWeeklyInsight(state.entries, state.settings, state.coach)
-    setThinking(false)
-    if (!result) { setToast('Coach couldn’t be reached. Try again in a moment.'); return }
-    const card: InsightCard = { id: uid(), text: result.text, date: todayStr() }
-    setState((s) => ({
-      ...s,
-      cards: [card, ...s.cards],
-      coach: mergeWeeklyDelta(s.coach, result.profileDelta ?? undefined, todayStr()),
-    }))
-    setToast('Your week is read.')
-  }, [online, state.entries, state.settings, state.coach])
+  /**
+   * The guided weekly review's payoff. The user did the work (three prompts +
+   * a WOOP); Coach synthesizes FROM their answers, the WOOP becomes a standing
+   * weekly intention (checked in on like any commitment), and the profile
+   * revision folds in. Returns the minted card, or null on failure — the
+   * user's answers stay in the flow so they can simply try again.
+   */
+  const completeWeekly = useCallback(
+    async (review: WeeklyAnswers, woop: Woop): Promise<InsightCard | null> => {
+      if (!online) { setToast('Coach reads your week when you’re online.'); return null }
+      setThinking(true)
+      const result = await getWeeklyInsight(state.entries, state.settings, state.coach, { review, woop })
+      setThinking(false)
+      if (!result) { setToast('Coach couldn’t be reached. Try again in a moment.'); return null }
+      const today = todayStr()
+      const card: InsightCard = { id: uid(), text: result.text, date: today }
+      const nights = Math.max(state.game.best, state.game.streak)
+      setState((s) => ({
+        ...s,
+        cards: [card, ...s.cards],
+        coach: mergeWeeklyDelta(s.coach, result.profileDelta ?? undefined, today),
+        nudges: woop.wish.trim() && woop.plan.trim()
+          ? [weeklyIntentionNudge(woop, uid(), nights, today), ...s.nudges]
+          : s.nudges,
+        lastWeeklyReview: today,
+        lastWeeklySynthesis: today,
+      }))
+      setToast('Your week is read.')
+      return card
+    },
+    [online, state.entries, state.settings, state.coach, state.game],
+  )
+
+  // Quiet memory synthesis: a week that sat ready and untouched still teaches
+  // Coach. Online-only, memory-only — profileDelta folds in, no card is minted,
+  // nothing is shown, and the ready marker stays so the guided review remains
+  // theirs to do. One attempt per day, guarded against racing the manual flow.
+  const quietWeekly = useRef<string | null>(null)
+  useEffect(() => {
+    if (!online || !aiEnabled() || thinking) return
+    const today = todayStr()
+    if (quietWeekly.current === today) return
+    if (!quietSynthesisDue(weekCount(state.entries), state.lastWeeklyReview, state.lastWeeklySynthesis, today)) return
+    quietWeekly.current = today
+    void (async () => {
+      const result = await getWeeklyInsight(state.entries, state.settings, state.coach)
+      if (!result) return // try again tomorrow (or next session)
+      setState((s) => ({
+        ...s,
+        coach: mergeWeeklyDelta(s.coach, result.profileDelta ?? undefined, today),
+        lastWeeklySynthesis: today,
+      }))
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, state.entries.length, state.lastWeeklyReview, state.lastWeeklySynthesis, thinking])
 
   /** Re-run the intake at any time: update settings + augment the profile.
    *  No new entry, no Night change — just re-tune what Coach knows. */
@@ -369,8 +411,18 @@ export function useFacet() {
     }
     const morningWindow = isMorningWindow(new Date().getHours())
 
-    return { reflectedToday, thisWeek, todayIntention, comeback, morningNote, morningQuestion, morningWindow }
-  }, [state.entries, state.game, state.coach, state.comebackAck, state.mornings, state.nextMorningQuestion])
+    // The weekly review: ready when the week is gathered and the last guided
+    // review is far enough back. The open standing intention (if any) is
+    // checked in on at the top of the next review.
+    const reviewReady = weeklyReady(thisWeek, state.lastWeeklyReview, today)
+    const openWeeklyIntention =
+      state.nudges.find((n) => n.kind === 'intention' && n.status === 'committed') ?? null
+
+    return {
+      reflectedToday, thisWeek, todayIntention, comeback, morningNote, morningQuestion, morningWindow,
+      reviewReady, openWeeklyIntention,
+    }
+  }, [state.entries, state.game, state.coach, state.comebackAck, state.mornings, state.nextMorningQuestion, state.nudges, state.lastWeeklyReview])
 
   /** Set the Today bookend: one win, optionally an answer to Coach's question. */
   const setMorning = useCallback((win: string, answer?: string) => {
@@ -389,7 +441,7 @@ export function useFacet() {
 
   return {
     state, derived, toast, thinking, reveal, online,
-    completeOnboarding, beginJourney, retune, submitEntry, rateReply, mintCard,
+    completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly,
     markGuidanceSeen, commitNudge, declineNudge, resolveNudge,
     acknowledgeComeback, setMorning, hardReset,
     setToast, clearReveal: () => setReveal(null),

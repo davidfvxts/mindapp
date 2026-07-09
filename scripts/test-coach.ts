@@ -3,7 +3,7 @@
  * assembly, and the local memory (theme ledger + commitment chain).
  * Run: npm run test:coach
  */
-import { triage, routeModel, buildDailyUser, extractJson, type MemoryIn } from '../supabase/functions/coach/logic'
+import { triage, routeModel, buildDailyUser, buildWeeklyUser, extractJson, type MemoryIn } from '../supabase/functions/coach/logic'
 import { dailySystem } from '../supabase/functions/coach/prompts'
 import { curate, recordCommitment, applyMemo, mergeWeeklyDelta } from '../src/lib/coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, obstaclePhrase } from '../src/lib/onboarding'
@@ -11,6 +11,8 @@ import {
   intentionForToday, isMorningWindow, missedNights, needsComeback,
   nextDay, offlineMorningQuestion, upsertMorning,
 } from '../src/lib/morning'
+import { quietSynthesisDue, weeklyReady } from '../src/lib/weekly'
+import { weeklyIntentionNudge } from '../src/lib/guidance'
 import {
   SEEDS, dueForNudge, pickOfflineNudge, toNudge,
   commitNudge, declineNudge, resolveNudge, markSeen,
@@ -317,6 +319,39 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
     dailySystem(NOMEM, triage(En({}), NOMEM)).includes('morningQuestion'))
   ok('daily prompt weighs a morning win without guilt',
     dailySystem(NOMEM, triage(En({}), NOMEM)).includes('MORNING WIN'))
+}
+
+// ---------- the weekly review: the user's work, paced + captured ----------
+{
+  // readiness: week gathered + last guided review far enough back
+  ok('not ready under the gate', !weeklyReady(4, null, '2026-07-09'))
+  ok('ready at the gate, never reviewed', weeklyReady(5, null, '2026-07-09'))
+  ok('not ready right after a review', !weeklyReady(7, '2026-07-07', '2026-07-09'))
+  ok('ready again after the gap', weeklyReady(7, '2026-07-01', '2026-07-09'))
+
+  // quiet synthesis: only when ready-but-untouched for a while
+  ok('quiet pass not due under the gate', !quietSynthesisDue(4, null, null, '2026-07-09'))
+  ok('quiet pass due when long untouched', quietSynthesisDue(5, null, null, '2026-07-09'))
+  ok('a recent review blocks the quiet pass', !quietSynthesisDue(7, '2026-07-05', '2026-07-05', '2026-07-09'))
+  ok('a recent quiet pass blocks another', !quietSynthesisDue(7, null, '2026-07-05', '2026-07-09'))
+  ok('an old synthesis stops blocking', quietSynthesisDue(7, null, '2026-06-20', '2026-07-09'))
+
+  // the WOOP becomes a standing intention on the nudge lifecycle
+  const woop = { wish: 'close the pilot deal', outcome: 'runway stops being the first thought', obstacle: 'avoidance', plan: 'If I stall, I send the draft anyway' }
+  const n = weeklyIntentionNudge(woop, 'w1', 12, '2026-07-09')
+  ok('intention is born committed', n.status === 'committed' && n.kind === 'intention')
+  ok('intention carries the wish + plan', n.title === 'close the pilot deal' && n.body.includes('send the draft'))
+  ok('intention check-in lands mid-week', (n.checkInNight ?? 0) === 17)
+  ok('intention keeps the obstacle for Coach', n.note?.includes('avoidance') === true)
+
+  // the weekly data block carries THEIR answers + THEIR WOOP
+  const u = buildWeeklyUser('David', [], NOMEM,
+    { wins: 'shipped onboarding; I cut scope', friction: 'ad-hoc calls ate the mornings', avoided: 'the cofounder equity talk' },
+    woop)
+  ok('weekly block carries their review', u.includes('THEIR OWN REVIEW') && u.includes('cut scope'))
+  ok('weekly block carries their WOOP', u.includes('THEIR WOOP') && u.includes('close the pilot deal'))
+  const u2 = buildWeeklyUser('David', [], NOMEM)
+  ok('quiet pass sends no review block', !u2.includes('THEIR OWN REVIEW'))
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL COACH TESTS PASSED')

@@ -22,6 +22,7 @@ export type { NudgeKind, NudgeSource } from './types'
 
 export const KIND_LABEL: Record<NudgeKind, string> = {
   tip: 'A tip', action: 'Try this', habit: 'A habit', routine: 'A routine', reading: 'Worth a read',
+  intention: 'This week',
 }
 export const MEDIUM_LABEL: Record<NudgeSource['medium'], string> = {
   book: 'Book', talk: 'Talk', article: 'Article', paper: 'Paper',
@@ -404,6 +405,29 @@ export function toNudge(d: NudgeDraft, id: string, night: number, date: string, 
   return {
     id, night, date, kind: d.kind, title: d.title, body: d.body, value: d.value,
     source: d.source, seedId: d.seedId, status: 'open', origin, seen: false,
+  }
+}
+
+/**
+ * The weekly WOOP becomes a standing intention — born COMMITTED (the user just
+ * set it themselves; there's nothing to accept) and checked in on a few nights
+ * later through the same lifecycle as every other commitment: kept or didn't
+ * stick, never punishing. Distinct from the nightly commitment ledger.
+ */
+export function weeklyIntentionNudge(
+  woop: { wish: string; outcome: string; obstacle: string; plan: string },
+  id: string,
+  nights: number,
+  date: string,
+): Nudge {
+  return {
+    id, night: nights, date, kind: 'intention',
+    title: woop.wish.trim(),
+    body: woop.plan.trim(),
+    value: woop.outcome.trim() || 'The one outcome that makes next week a win.',
+    note: woop.obstacle.trim() ? `The obstacle: ${woop.obstacle.trim()}` : undefined,
+    status: 'committed', checkInNight: nights + 5, origin: 'local',
+    seen: true, checkInSeen: false,
   }
 }
 

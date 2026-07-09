@@ -46,6 +46,7 @@ export default function App() {
 
   const { game } = m.state
   const guidanceNew = unseenCount(m.state) > 0
+  const reviewNew = m.derived.reviewReady
 
   return (
     <section className="wrap">
@@ -98,10 +99,12 @@ export default function App() {
 
         {tab === 'review' && (
           <Reviews
-            thisWeek={m.derived.thisWeek}
-            cardCount={m.state.cards.length}
+            ready={m.derived.reviewReady}
+            cards={m.state.cards}
             thinking={m.thinking}
-            onMint={() => void m.mintCard()}
+            openIntention={m.derived.openWeeklyIntention}
+            onResolveIntention={m.resolveNudge}
+            onComplete={(r, w) => m.completeWeekly(r, w)}
             onGoToday={() => setTab('today')}
           />
         )}
@@ -121,7 +124,9 @@ export default function App() {
         {TABS.map(([id, label]) => (
           <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
             {label}
-            {id === 'guidance' && guidanceNew && tab !== 'guidance' && <i className="tab-dot" aria-hidden />}
+            {((id === 'guidance' && guidanceNew) || (id === 'review' && reviewNew)) && tab !== id && (
+              <i className="tab-dot" aria-hidden />
+            )}
           </button>
         ))}
       </nav>

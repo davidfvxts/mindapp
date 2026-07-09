@@ -20,6 +20,8 @@ import {
   type Model,
   type MorningIn,
   type OnboardingIn,
+  type WeeklyReviewIn,
+  type WoopIn,
 } from './logic.ts'
 import { dailySystem, guidanceSystem, onboardingSystem, weeklySystem } from './prompts.ts'
 
@@ -49,6 +51,9 @@ interface WeeklyBody {
   name: string
   entries: { date: string; event: string; emotions: string[]; well: string; next: string }[]
   memory?: MemoryIn
+  /** Present when the user did the guided review — their answers + their WOOP. */
+  review?: WeeklyReviewIn | null
+  woop?: WoopIn | null
 }
 interface OnboardingBody {
   mode: 'onboarding'
@@ -141,7 +146,7 @@ Deno.serve(async (req) => {
 
     if (body.mode === 'weekly') {
       const memory = body.memory ?? {}
-      const user = buildWeeklyUser(body.name, body.entries ?? [], memory)
+      const user = buildWeeklyUser(body.name, body.entries ?? [], memory, body.review, body.woop)
       const raw = await callClaude('claude-opus-4-8', weeklySystem(), user, 2000, true)
       const parsed = extractJson<{ text?: string; profileDelta?: unknown }>(raw) ?? { text: raw.trim() }
       return json({
