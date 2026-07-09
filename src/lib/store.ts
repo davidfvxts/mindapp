@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { applyEntry, todayStr, weekCount } from './game'
 import { loadState, resetState, saveState, syncEntries } from './storage'
 import { aiEnabled, fetchCoachReply, getWeeklyInsight } from './ai'
+import { applyMemo, recordCommitment, mergeWeeklyDelta } from './coachMemory'
 import { ensureSession } from './supabase'
 import { scheduleDailyReminder } from './notifications'
 import type { AppState, CoachReply, Emotion, Entry, InsightCard, Settings } from './types'
@@ -75,8 +76,9 @@ export function useFacet() {
   }, [state.entries.length, online])
 
   // Deferred coaching: reflections written offline are read by Coach the moment
-  // connectivity returns. Quiet — it attaches replies to past entries without
-  // hijacking tonight's screen.
+  // connectivity returns. Quiet — attaches replies to past entries and folds
+  // what Coach learned into memory (themes/voice only; not commitment outcomes,
+  // which a late reply could misattribute to a newer intention).
   const catchingUp = useRef(false)
   useEffect(() => {
     if (!online || !aiEnabled() || catchingUp.current) return
@@ -85,15 +87,17 @@ export function useFacet() {
     catchingUp.current = true
     void (async () => {
       try {
+        const today = todayStr()
         for (const entry of pending.slice(0, 5)) {
           const history = state.entries.filter((e) => e.ts < entry.ts)
-          const reply = await fetchCoachReply(entry, history, state.settings)
-          if (!reply) break // still unreachable — leave pending, try again later
+          const result = await fetchCoachReply(entry, history, state.settings, state.coach)
+          if (!result) break // still unreachable — leave pending, try again later
           setState((s) => ({
             ...s,
             entries: s.entries.map((e) =>
-              e.id === entry.id ? { ...e, coach: reply, pendingCoach: false, synced: false } : e,
+              e.id === entry.id ? { ...e, coach: result.reply, pendingCoach: false, synced: false } : e,
             ),
+            coach: applyMemo(s.coach, result.memo, today, false),
           }))
         }
       } finally {
@@ -112,9 +116,10 @@ export function useFacet() {
   const submitEntry = useCallback(
     async (draft: Draft) => {
       setThinking(true)
+      const today = todayStr()
       const entry: Entry = {
         id: uid(),
-        date: todayStr(),
+        date: today,
         event: draft.event.trim(),
         emotions: draft.emotions,
         well: draft.well.trim(),
@@ -123,29 +128,36 @@ export function useFacet() {
       }
       const history = state.entries
 
-      // The reflection is saved no matter what. Direct feedback is an
-      // online-only event: fetched now when online, skipped (and owed) when not.
+      // The reflection is saved no matter what. Direct feedback is online-only:
+      // fetched now when online, skipped (and owed) when not.
       let reply: CoachReply | null = null
       let pending = false
+      let coach = state.coach
       if (aiEnabled()) {
         if (online) {
-          reply = await fetchCoachReply(entry, history, state.settings)
-          if (reply) entry.coach = reply
-          else { pending = true; entry.pendingCoach = true }
+          const result = await fetchCoachReply(entry, history, state.settings, state.coach)
+          if (result) {
+            reply = result.reply
+            entry.coach = result.reply
+            // Resolve the previously-owed intention, then fold themes/voice.
+            coach = applyMemo(coach, result.memo, today, true)
+          } else { pending = true; entry.pendingCoach = true }
         } else {
           pending = true
           entry.pendingCoach = true
         }
       }
+      // Record tonight's intention as newly owed — online, offline, or key-less.
+      coach = recordCommitment(coach, entry, today)
 
       const { game, freezeUsed } = applyEntry(state.game, entry, history.length + 1)
-      setState((s) => ({ ...s, game, entries: [entry, ...s.entries] }))
+      setState((s) => ({ ...s, game, entries: [entry, ...s.entries], coach }))
       setReveal({ night: game.streak, reply, pending })
       setThinking(false)
 
       if (freezeUsed) setToast('Last night is covered.')
     },
-    [state.entries, state.game, state.settings, online],
+    [state.entries, state.game, state.settings, state.coach, online],
   )
 
   const rateReply = useCallback((rating: 0 | 1) => {
@@ -161,13 +173,17 @@ export function useFacet() {
   const mintCard = useCallback(async () => {
     if (!online) { setToast('Coach reads your week when you’re online.'); return }
     setThinking(true)
-    const text = await getWeeklyInsight(state.entries, state.settings)
+    const result = await getWeeklyInsight(state.entries, state.settings, state.coach)
     setThinking(false)
-    if (!text) { setToast('Coach couldn’t be reached. Try again in a moment.'); return }
-    const card: InsightCard = { id: uid(), text, date: todayStr() }
-    setState((s) => ({ ...s, cards: [card, ...s.cards] }))
+    if (!result) { setToast('Coach couldn’t be reached. Try again in a moment.'); return }
+    const card: InsightCard = { id: uid(), text: result.text, date: todayStr() }
+    setState((s) => ({
+      ...s,
+      cards: [card, ...s.cards],
+      coach: mergeWeeklyDelta(s.coach, result.profileDelta ?? undefined, todayStr()),
+    }))
     setToast('Your week is read.')
-  }, [online, state.entries, state.settings])
+  }, [online, state.entries, state.settings, state.coach])
 
   const hardReset = useCallback(() => {
     resetState()

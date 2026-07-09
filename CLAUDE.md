@@ -174,24 +174,29 @@ src/
   styles/tokens.css   The design tokens. The ONLY source of colour/size/motion values.
   styles.css          Component layer, built entirely on the tokens.
   lib/
-    types.ts        Domain model. EMOTIONS, CHARGED (drives self-distancing).
+    types.ts        Domain model. EMOTIONS, CHARGED, CoachMemory (profile/themes/commitments).
     game.ts         Habit engine: the Night mechanic, never-miss-twice, internal XP.  ← TESTED
-    ai.ts           Online-only Coach: fetches the edge function when online; returns
-                    null (skip) offline. Never a rule-based stand-in.
+    coachMemory.ts  Local-first coach memory: curate() (recency + long-ago recall),
+                    recordCommitment/applyMemo/mergeWeeklyDelta. Bounded.  ← TESTED
+    ai.ts           Online-only Coach: sends entry + curated memory; returns reply + memo.
     supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth.
     storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
-    store.ts        useFacet() — the single app hook. Owns online/offline + deferral.
+    store.ts        useFacet() — the single app hook. Owns online/offline + deferral + memory merge.
     milestones.ts   The five Stone colourways (Night 7/30/90/180/365) + stage words.
   components/
     Onboarding · DailyRitual (Tonight) · AfterReflection · Stone · Reviews · Vault
 supabase/
   migrations/0001_init.sql   Schema + Row-Level Security.
-  functions/coach/index.ts   Anthropic proxy. Holds ANTHROPIC_API_KEY server-side.
+  functions/coach/
+    logic.ts        Triage + model routing + data-block builders. PURE.  ← TESTED
+    prompts.ts      COACH_CORE voice contract + one expert module per intervention. PURE.
+    index.ts        Deno glue: triage → route → assemble → call Claude → reply. Holds the key.
 ```
 
-The intervention priority (rumination → distancing → pattern → agency → follow-up) lives in
-one place now: the system prompt in `functions/coach/index.ts`. There is no offline
-rule-based coach — see "Online / offline" below.
+The intervention priority (rumination → distancing → pattern → fear-setting → agency →
+celebration → accountability → follow-up) lives in **`logic.ts` (triage) + `prompts.ts`
+(expert modules)**. `scripts/test-coach.ts` covers it, plus routing and the memory merges.
+There is no offline rule-based coach — see "Online / offline" below.
 
 ### Online / offline — the core contract
 The reflection is **local-first and always works offline**: it's saved the instant it's
@@ -216,11 +221,31 @@ freeze/week bridges a single missed Night; two misses reset) is covered by 16
 tests in `scripts/test-game.ts` — keep them green. The UI never shows a number
 other than the Night count.
 
+### Coaching engine — expert-driven, multi-model, learns who you are
+Every reply is a real intervention, not chat. The flow (stateless server, local memory):
+1. **Triage** (`logic.ts`, deterministic) reads tonight's entry + the memory the client sends
+   and picks the one intervention, in the research priority order above.
+2. **Route** — different models for different feedback: light night → **Haiku 4.5**;
+   standard depth (agency/celebration/accountability) → **Sonnet 5**; charged / why-spiral /
+   decision-avoidance / recurring-pattern → **Opus 4.8**. Weekly synthesis → **Opus 4.8** with
+   adaptive thinking. Daily runs thinking-off for a fast nightly loop.
+3. **Assemble** (`prompts.ts`) — `COACH_CORE` (identity + the five mechanisms + hard rules +
+   voice-mirroring) plus the ONE expert module for the chosen intervention (Pennebaker, Kross,
+   Eurich, Goldsmith, Ferriss, Oettingen…). Each cites the finding in `docs/Reflection-System-2026.md`.
+4. **Reply** carries a small `memo` (1–3 theme tags, commitment outcome, voice read); the weekly
+   reply carries a `profileDelta`. Both fold into **local** `CoachMemory` via `coachMemory.ts`.
+
+**Memory is local-first** (in app state, persisted, synced like entries — no server state, no
+new table): a `profile` (voice, values, goals, obstacles, people, projects, what lands vs. not,
+revised weekly by Opus), a **theme ledger** (first/last/count → recency *and* long-ago recall),
+and a **commitment ledger** (each "one thing I'll do differently" tracked to kept/dropped for
+accountability). `curate()` sends Coach the recent nights verbatim + older nights a live theme
+echoes + what's owed — so it knows both tonight and what you said weeks ago, in your voice.
+
 ### The API key never touches the browser
-Anthropic is called from the Supabase Edge Function (`supabase/functions/coach/index.ts`)
-holding `ANTHROPIC_API_KEY` as a server-side secret. Notifications are **local**, not
-push (`@capacitor/local-notifications`) — no APNs, no server, works offline.
-Model routing: Haiku for daily coaching, Sonnet for weekly synthesis.
+Anthropic is called from the Supabase Edge Function (`supabase/functions/coach/`) holding
+`ANTHROPIC_API_KEY` as a server-side secret. Notifications are **local**, not push
+(`@capacitor/local-notifications`) — no APNs, no server, works offline.
 
 ### Next steps, in order
 1. Paste `ANTHROPIC_API_KEY` (secret) + enable Anonymous sign-ins — see the two steps above.

@@ -1,15 +1,21 @@
-import type { CoachReply, Entry, Settings } from './types'
+import type { CoachKind, CoachMemo, CoachMemory, CoachProfile, CoachReply, Entry, Settings } from './types'
 import { anonKey, supabase } from './supabase'
+import { curate } from './coachMemory'
 
 const COACH_URL = import.meta.env.VITE_COACH_URL as string | undefined
 
 /** A real Coach endpoint is configured. Without it, direct feedback is skipped entirely. */
 export const aiEnabled = (): boolean => Boolean(COACH_URL)
 
+const KINDS: CoachKind[] = [
+  'rumination', 'distancing', 'pattern', 'fear_setting',
+  'agency', 'celebration', 'accountability', 'followup',
+]
+const asKind = (k: unknown): CoachKind => (KINDS.includes(k as CoachKind) ? (k as CoachKind) : 'followup')
+
 /**
  * Prefer the signed-in user's token; fall back to the anon key so the
- * function is callable even before the anonymous session resolves. Both are
- * valid JWTs to the Functions gateway.
+ * function is callable even before the anonymous session resolves.
  */
 async function authHeaders(): Promise<Record<string, string>> {
   let token = anonKey
@@ -21,19 +27,29 @@ async function authHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${token}`, apikey: anonKey ?? token }
 }
 
+/** Tonight's reply plus what Coach learned, to fold into local memory. */
+export interface DailyResult {
+  reply: CoachReply
+  memo: CoachMemo | null
+}
+
 /**
- * Direct feedback is an ONLINE-ONLY event. Ask Coach (the Edge Function that
- * holds the Anthropic key server-side) for a read. Returns null on any failure
- * — offline, missing key, network blip — and the caller simply skips the reply
- * rather than showing a degraded stand-in. The reflection itself is already
- * saved locally; nothing here can cost the user their words or their Night.
+ * Direct feedback is an ONLINE-ONLY event. The server triages tonight's entry,
+ * routes it to the right model (Haiku / Sonnet 5 / Opus 4.8), loads the matching
+ * expert, and replies in the user's voice using the memory we send. Returns null
+ * on any failure — the caller then simply skips (the reflection is already saved).
+ *
+ * `history` is the prior nights (newest-first, excluding tonight); `coach` is the
+ * local memory. Both are curated here into a compact, bounded payload.
  */
 export async function fetchCoachReply(
   entry: Entry,
   history: Entry[],
   settings: Settings,
-): Promise<CoachReply | null> {
+  coach: CoachMemory,
+): Promise<DailyResult | null> {
   if (!COACH_URL) return null
+  const curated = curate(history, coach)
   try {
     const res = await fetch(COACH_URL, {
       method: 'POST',
@@ -42,38 +58,42 @@ export async function fetchCoachReply(
         mode: 'daily',
         name: settings.name,
         tone: settings.tone,
-        entry: {
-          event: entry.event,
-          emotions: entry.emotions,
-          well: entry.well,
-          next: entry.next,
-        },
-        history: history.slice(0, 10).map((h) => ({
-          date: h.date,
-          event: h.event,
-          emotions: h.emotions,
-        })),
+        entry: { event: entry.event, emotions: entry.emotions, well: entry.well, next: entry.next },
+        history: curated.history,
+        recall: curated.recall,
+        memory: curated.memory,
       }),
     })
     if (!res.ok) throw new Error(`coach ${res.status}`)
-    const data = (await res.json()) as Partial<CoachReply>
+    const data = (await res.json()) as { text?: string; lesson?: string; kind?: string; memo?: CoachMemo; meta?: CoachReply['meta'] }
     if (!data.text) throw new Error('empty reply')
-    return { text: data.text, lesson: data.lesson, kind: data.kind ?? 'followup', source: 'ai' }
+    return {
+      reply: { text: data.text, lesson: data.lesson, kind: asKind(data.kind), source: 'ai', meta: data.meta },
+      memo: data.memo ?? null,
+    }
   } catch (err) {
     console.warn('[facet] Coach unavailable, will read this on reconnect:', err)
     return null
   }
 }
 
+/** The weekly read plus the identity revision Opus proposes. */
+export interface WeeklyResult {
+  text: string
+  profileDelta: Partial<CoachProfile> | null
+}
+
 /**
- * Weekly synthesis — also online-only. Returns null when offline or unconfigured
- * so the Reviews screen can skip minting rather than fabricate a read.
+ * Weekly synthesis — online-only, always Opus 4.8 with thinking. Returns null
+ * when offline/unconfigured so Reviews can skip minting rather than fabricate.
  */
 export async function getWeeklyInsight(
   entries: Entry[],
   settings: Settings,
-): Promise<string | null> {
+  coach: CoachMemory,
+): Promise<WeeklyResult | null> {
   if (!COACH_URL) return null
+  const { memory } = curate(entries, coach)
   try {
     const res = await fetch(COACH_URL, {
       method: 'POST',
@@ -84,11 +104,13 @@ export async function getWeeklyInsight(
         entries: entries.slice(0, 7).map((e) => ({
           date: e.date, event: e.event, emotions: e.emotions, well: e.well, next: e.next,
         })),
+        memory,
       }),
     })
     if (!res.ok) throw new Error(`coach ${res.status}`)
-    const data = (await res.json()) as { text?: string }
-    return data.text ?? null
+    const data = (await res.json()) as { text?: string; profileDelta?: Partial<CoachProfile> }
+    if (!data.text) throw new Error('empty weekly read')
+    return { text: data.text, profileDelta: data.profileDelta ?? null }
   } catch (err) {
     console.warn('[facet] weekly read unavailable:', err)
     return null
