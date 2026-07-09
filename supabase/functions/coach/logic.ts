@@ -137,12 +137,6 @@ export function routeModelForKind(kind: CoachKind): { model: Model; route: strin
 
 const ratedTag = (r?: 0 | 1): string => (r === 1 ? ' | rated: landed' : r === 0 ? ' | rated: off' : '')
 
-export interface MorningIn {
-  win: string
-  question?: string
-  answer?: string
-}
-
 /** The DATA block for the daily call — recency, long-ago recall, and what's owed. */
 export function buildDailyUser(
   name: string,
