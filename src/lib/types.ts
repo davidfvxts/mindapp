@@ -75,6 +75,52 @@ export interface InsightCard {
   date: string
 }
 
+export type NudgeKind = 'tip' | 'action' | 'habit' | 'routine' | 'reading'
+/** open → the user hasn't decided · committed → they'll try it (Coach checks in) ·
+ *  kept/dropped → how the check-in resolved · declined → not for them. */
+export type NudgeStatus = 'open' | 'committed' | 'kept' | 'dropped' | 'declined'
+
+export interface NudgeSource {
+  by: string
+  medium: 'book' | 'talk' | 'article' | 'paper' | 'podcast' | 'film' | 'blog'
+  url?: string
+}
+
+/**
+ * An occasional Coach nudge — a tip, action, habit, routine, or reading. Surfaced
+ * irregularly (never two nights running) and only when it can make a real
+ * difference, the way a good coach mentions one thing between sessions. The user
+ * can commit to it, push back on it, or set it aside; Coach checks in later on
+ * whatever they committed to. AI-generated when online; drawn from an evidence-
+ * based library when not.
+ */
+export interface Nudge {
+  id: string
+  /** Night count when it was surfaced. */
+  night: number
+  date: string
+  kind: NudgeKind
+  title: string
+  /** The suggestion itself. */
+  body: string
+  /** How it creates value / why it fits them now — always shown. */
+  value: string
+  /** For readings: the real, credible work. */
+  source?: NudgeSource
+  status: NudgeStatus
+  /** The user's pushback or ask-for-help — kept for Coach's next read. */
+  note?: string
+  /** Set on commit: the Night at/after which Coach checks in. */
+  checkInNight?: number
+  /** Seed id when drawn from the offline library (dedupe); absent for AI nudges. */
+  seedId?: string
+  origin: 'ai' | 'local'
+  /** The user has seen this in its current actionable state. */
+  seen?: boolean
+  /** The user has seen the "how did it go?" check-in once it came due. */
+  checkInSeen?: boolean
+}
+
 /** A recurring topic: recency (last) + longevity (first, count). */
 export interface ThemeLedgerEntry {
   key: string
@@ -145,6 +191,10 @@ export interface AppState {
   entries: Entry[]
   cards: InsightCard[]
   coach: CoachMemory
+  /** Occasional Coach nudges, newest first. */
+  nudges: Nudge[]
+  /** Night count at the last nudge check (whether or not one surfaced) — paces them. */
+  lastNudgeCheck: number
   onboarded: boolean
 }
 
@@ -156,5 +206,7 @@ export const initialState = (): AppState => ({
   entries: [],
   cards: [],
   coach: emptyCoachMemory(),
+  nudges: [],
+  lastNudgeCheck: 0,
   onboarded: false,
 })

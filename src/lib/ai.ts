@@ -1,6 +1,7 @@
-import type { CoachKind, CoachMemo, CoachMemory, CoachProfile, CoachReply, Entry, Settings } from './types'
+import type { AppState, CoachKind, CoachMemo, CoachMemory, CoachProfile, CoachReply, Entry, Settings } from './types'
 import { anonKey, supabase } from './supabase'
 import { curate } from './coachMemory'
+import type { NudgeDraft } from './guidance'
 
 const COACH_URL = import.meta.env.VITE_COACH_URL as string | undefined
 
@@ -114,6 +115,44 @@ export async function fetchFirstRead(
     }
   } catch (err) {
     console.warn('[facet] first read unavailable, using local:', err)
+    return null
+  }
+}
+
+/**
+ * The occasional nudge — Opus 4.8 reviews the recent nights + memory and decides
+ * whether there's ONE genuinely useful thing to offer right now. Online-only,
+ * with thinking (it's a judgement call, and rare enough that cost is a non-issue).
+ * Returns a draft, `'skip'` when Coach judges nothing meaningful to say, or null
+ * on any failure — the caller then falls back to the local library.
+ */
+export async function fetchNudge(state: AppState): Promise<NudgeDraft | 'skip' | null> {
+  if (!COACH_URL) return null
+  const { memory } = curate(state.entries, state.coach)
+  const avoid = state.nudges.map((n) => n.title)
+  try {
+    const res = await fetch(COACH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({
+        mode: 'guidance',
+        name: state.settings.name,
+        nights: Math.max(state.game.best, state.game.streak),
+        entries: state.entries.slice(0, 10).map((e) => ({
+          date: e.date, event: e.event, emotions: e.emotions, well: e.well, next: e.next, kind: e.coach?.kind,
+        })),
+        memory,
+        avoid,
+      }),
+    })
+    if (!res.ok) throw new Error(`coach ${res.status}`)
+    const data = (await res.json()) as {
+      skip?: boolean; kind?: NudgeDraft['kind']; title?: string; body?: string; value?: string; source?: NudgeDraft['source']
+    }
+    if (data.skip || !data.title || !data.body || !data.value || !data.kind) return 'skip'
+    return { kind: data.kind, title: data.title, body: data.body, value: data.value, source: data.source }
+  } catch (err) {
+    console.warn('[facet] nudge unavailable, using local library:', err)
     return null
   }
 }

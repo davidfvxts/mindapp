@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { applyEntry, todayStr, weekCount } from './game'
 import { loadState, resetState, saveState, syncEntries } from './storage'
-import { aiEnabled, fetchCoachReply, fetchFirstRead, getWeeklyInsight } from './ai'
+import { aiEnabled, fetchCoachReply, fetchFirstRead, fetchNudge, getWeeklyInsight } from './ai'
 import { applyMemo, recordCommitment, mergeWeeklyDelta } from './coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, type OnboardingAnswers } from './onboarding'
+import {
+  dueForNudge, pickOfflineNudge, toNudge, markSeen,
+  commitNudge as commit, declineNudge as decline, resolveNudge as resolve,
+} from './guidance'
 import { ensureSession } from './supabase'
 import { scheduleDailyReminder } from './notifications'
 import type { AppState, CoachReply, Emotion, Entry, InsightCard, Settings } from './types'
@@ -63,6 +67,36 @@ export function useFacet() {
 
   // Give this device a sync identity once (anonymous — no sign-in UI needed).
   useEffect(() => { void ensureSession() }, [])
+
+  // The occasional nudge. When Coach is due (irregular, never daily, one at a
+  // time), consider surfacing one thing worth trying. Online, Opus decides what —
+  // and may decline ("nothing meaningful tonight"); offline, or if the model
+  // can't be reached, we draw a fitting one from the local library. Either way we
+  // advance the pacing clock so the next check waits its gap.
+  const nudging = useRef(false)
+  useEffect(() => {
+    if (nudging.current || !dueForNudge(state)) return
+    nudging.current = true
+    void (async () => {
+      try {
+        const nights = Math.max(state.game.best, state.game.streak)
+        const today = todayStr()
+        const res = aiEnabled() && online ? await fetchNudge(state) : 'offline'
+        // 'skip' = Coach deliberately held back; null/'offline' = fall back to the library.
+        const draft = res === 'skip' ? null : res && res !== 'offline' ? res : pickOfflineNudge(state)
+        const origin: 'ai' | 'local' = res && res !== 'offline' && res !== 'skip' ? 'ai' : 'local'
+        setState((s) => {
+          const base = { ...s, lastNudgeCheck: Math.max(s.lastNudgeCheck, nights) }
+          if (!draft) return base
+          return { ...base, nudges: [toNudge(draft, uid(), nights, today, origin), ...s.nudges] }
+        })
+        if (draft) setToast('Coach left you something in Guidance.')
+      } finally {
+        nudging.current = false
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, state.entries.length, state.nudges.length, state.lastNudgeCheck])
 
   // Local-first sync: push any unsynced reflections whenever they change or we
   // come back online. Never blocks a write; failures just retry next time.
@@ -228,6 +262,38 @@ export function useFacet() {
     setToast('Your week is read.')
   }, [online, state.entries, state.settings, state.coach])
 
+  /** Re-run the intake at any time: update settings + augment the profile.
+   *  No new entry, no Night change — just re-tune what Coach knows. */
+  const retune = useCallback((settings: Settings, answers: OnboardingAnswers) => {
+    const today = todayStr()
+    const seed = seedMemoryFromAnswers(answers, today)
+    setState((s) => ({ ...s, settings, coach: mergeWeeklyDelta(s.coach, seed.profile, today) }))
+    void scheduleDailyReminder(settings.reminderTime, settings.cue)
+    setToast('Coach re-tuned to you.')
+  }, [])
+
+  /** Opening the Guidance tab clears the "new" marker. */
+  const markGuidanceSeen = useCallback(() => {
+    setState((s) => ({ ...s, nudges: markSeen(s.nudges, Math.max(s.game.best, s.game.streak)) }))
+  }, [])
+
+  /** "I'll try this" — Coach checks in a few nights on. */
+  const commitNudge = useCallback((id: string, note?: string) => {
+    setState((s) => ({ ...s, nudges: commit(s.nudges, id, Math.max(s.game.best, s.game.streak), note) }))
+    setToast('Noted — Coach will check in on this.')
+  }, [])
+
+  /** "Not for me" — set it aside; Coach learns from an optional reason. */
+  const declineNudge = useCallback((id: string, note?: string) => {
+    setState((s) => ({ ...s, nudges: decline(s.nudges, id, note) }))
+  }, [])
+
+  /** Resolve a due check-in — kept it or not. Never punishing either way. */
+  const resolveNudge = useCallback((id: string, kept: boolean) => {
+    setState((s) => ({ ...s, nudges: resolve(s.nudges, id, kept) }))
+    setToast(kept ? 'That’s a good one to keep.' : 'No pressure — it’s off your plate.')
+  }, [])
+
   const hardReset = useCallback(() => {
     resetState()
     setState(loadState())
@@ -241,7 +307,8 @@ export function useFacet() {
 
   return {
     state, derived, toast, thinking, reveal, online,
-    completeOnboarding, beginJourney, submitEntry, rateReply, mintCard, hardReset,
+    completeOnboarding, beginJourney, retune, submitEntry, rateReply, mintCard,
+    markGuidanceSeen, commitNudge, declineNudge, resolveNudge, hardReset,
     setToast, clearReveal: () => setReveal(null),
   }
 }

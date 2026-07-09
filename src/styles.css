@@ -267,6 +267,33 @@ textarea.error, input.error { border-color: var(--line-control); }
 .mode-note { margin-top: var(--s-8); color: var(--ink-tertiary); font-size: var(--type-secondary-size); line-height: 1.6; }
 .mode-note code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; color: var(--ink-secondary); }
 
+/* ---------- guidance: the occasional Coach nudge ---------- */
+.nudge { padding: var(--s-6) 0 var(--s-7); border-top: 1px solid var(--line-hairline); }
+.nudge:first-of-type { border-top: none; }
+.nudge-kind { display: block; margin-bottom: var(--s-3); }
+.g-title {
+  display: flex; align-items: baseline; gap: var(--s-3); flex-wrap: wrap;
+  font-size: var(--type-subhead-size); font-weight: var(--type-subhead-weight);
+  letter-spacing: var(--type-subhead-track); line-height: var(--type-subhead-lh);
+  color: var(--ink-primary); margin: 0 0 var(--s-3);
+}
+.nudge-value {
+  margin-top: var(--s-3); color: var(--ink-secondary);
+  font-size: var(--type-secondary-size); line-height: var(--type-body-lh);
+}
+.g-source { margin-top: var(--s-3); color: var(--ink-tertiary); text-transform: none; letter-spacing: 0.02em; }
+.g-source a { color: var(--ink-secondary); text-decoration: none; border-bottom: 1px solid var(--line-control); }
+.g-source a:hover { color: var(--ink-primary); }
+.nudge-note { margin-top: var(--s-5); min-height: 64px; }
+.nudge-actions { gap: var(--s-4); margin-top: var(--s-5); align-items: center; }
+.nudge-actions .btn.primary { width: auto; padding-left: var(--s-7); padding-right: var(--s-7); }
+
+/* new-nudge marker on the Guidance tab */
+.tabs button .tab-dot {
+  display: inline-block; width: 4px; height: 4px; border-radius: var(--r-full);
+  background: var(--ink-primary); margin-left: 6px; vertical-align: middle;
+}
+
 /* ---------- the Stone ---------- */
 .stone { margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: var(--s-4); width: max-content; }
 .stone svg { display: block; }

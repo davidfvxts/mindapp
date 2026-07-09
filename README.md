@@ -134,18 +134,20 @@ src/
     tokens.css    Design tokens — the only source of colour/size/motion values.
   styles.css      Component layer, built entirely on the tokens.
   lib/
-    types.ts      Domain model. EMOTIONS, CHARGED (drives self-distancing).
+    types.ts      Domain model. EMOTIONS, CHARGED (drives self-distancing), Nudge.
     game.ts       The habit engine: Night mechanic, never-miss-twice, internal XP.  ← tested
+    guidance.ts   The occasional nudge: irregular gate + evidence-based library + lifecycle.  ← tested
     ai.ts         Online-only Coach: fetches the edge function when online, skips offline.
     supabase.ts   Null client when unconfigured → local-only. Anonymous session for sync.
     storage.ts    Local-first persistence + opportunistic cloud sync.
-    store.ts      useFacet() — the single app hook. Owns online/offline + deferred catch-up.
+    store.ts      useFacet() — the single app hook. Owns online/offline + deferred catch-up + nudges.
     milestones.ts The five Stone colourways + the Rough→Cut→Polished→Brilliant stages.
   components/
-    Onboarding.tsx      Captures the if-then cue (Gollwitzer).
+    Onboarding.tsx      Captures the if-then cue (Gollwitzer). Reruns anytime as retune.
     DailyRitual.tsx     "Tonight" — the 3-step loop: moment → read → next step.
     AfterReflection.tsx Coach's read + the Night count + the Stone.
     Stone.tsx           The only colour in the app.
+    Guidance.tsx        The occasional Coach nudge — commit, push back, or set aside.
     Reviews.tsx         Weekly and monthly reads.
     Vault.tsx           Banked stones + your own past words.
 supabase/

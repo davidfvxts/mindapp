@@ -3,7 +3,7 @@ import { Stone } from './Stone'
 import { bankedStones, nextStone, type Stone as StoneModel } from '../lib/milestones'
 import type { AppState } from '../lib/types'
 
-export function Vault({ state, onReset }: { state: AppState; onReset: () => void }) {
+export function Vault({ state, onReset, onRevisit }: { state: AppState; onReset: () => void; onRevisit: () => void }) {
   const { game, entries } = state
   // Stones are banked off the best Night ever reached — they never regress.
   const banked = bankedStones(game.best)
@@ -66,7 +66,10 @@ export function Vault({ state, onReset }: { state: AppState; onReset: () => void
       </div>
 
       <div className="section">
-        <button className="btn text" onClick={onReset}>Reset everything</button>
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <button className="btn text" onClick={onRevisit}>Revisit setup</button>
+          <button className="btn text" onClick={onReset}>Reset everything</button>
+        </div>
       </div>
     </div>
   )

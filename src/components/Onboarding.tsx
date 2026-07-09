@@ -5,26 +5,32 @@ import type { Draft } from '../lib/store'
 import { Stone } from './Stone'
 
 interface Props {
-  onBegin: (settings: Settings, answers: OnboardingAnswers, first: Draft) => Promise<void>
+  mode?: 'first' | 'retune'
+  /** First run: intake + first reflection + First Read. */
+  onBegin?: (settings: Settings, answers: OnboardingAnswers, first: Draft) => Promise<void>
+  /** Re-tune: intake only, update what Coach knows. */
+  onRetune?: (settings: Settings, answers: OnboardingAnswers) => void
+  initial?: { name?: string; goals?: string[]; cue?: string; reminderTime?: string }
 }
 
-const LAST = 8 // steps 1..8; step 0 is the welcome
-
 /**
- * Guided onboarding as coach intake. It's the product from minute one: a short,
- * gamified flow that teaches Coach who you are, then runs your first real
- * reflection and hands back a personalised First Read as Night 1's Stone forms.
+ * Guided onboarding as coach intake. First run: a gamified flow that teaches
+ * Coach who you are, runs your first real reflection, and returns the First
+ * Read as Night 1's Stone forms. Re-tune (any time): the intake steps only.
  */
-export function Onboarding({ onBegin }: Props) {
+export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props) {
+  const retune = mode === 'retune'
+  const LAST = retune ? 5 : 8 // steps 1..LAST; step 0 is the welcome
+
   const [step, setStep] = useState(0)
   const [reading, setReading] = useState(false)
 
-  const [name, setName] = useState('')
-  const [goals, setGoals] = useState<string[]>([])
+  const [name, setName] = useState(initial?.name ?? '')
+  const [goals, setGoals] = useState<string[]>(initial?.goals ?? [])
   const [world, setWorld] = useState('')
   const [obstacle, setObstacle] = useState('')
-  const [cue, setCue] = useState('')
-  const [reminderTime, setTime] = useState('21:30')
+  const [cue, setCue] = useState(initial?.cue ?? '')
+  const [reminderTime, setTime] = useState(initial?.reminderTime ?? '21:30')
 
   const [event, setEvent] = useState('')
   const [emotions, setEmotions] = useState<Emotion[]>([])
@@ -35,18 +41,23 @@ export function Onboarding({ onBegin }: Props) {
   const toggle = <T,>(list: T[], set: (v: T[]) => void, v: T, max: number) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : list.length < max ? [...list, v] : list)
 
+  const buildAnswers = (settings: Settings): OnboardingAnswers => ({
+    name: settings.name, goals, world: world.trim(), obstacle, cue: settings.cue, reminderTime,
+  })
+
   const finish = () => {
-    setReading(true)
     const settings: Settings = {
       name: name.trim() || 'there',
       cue: cue.trim() || 'close my laptop',
       reminderTime,
       tone: 'default',
     }
-    const answers: OnboardingAnswers = {
-      name: settings.name, goals, world: world.trim(), obstacle, cue: settings.cue, reminderTime,
+    if (retune) {
+      onRetune?.(settings, buildAnswers(settings))
+      return
     }
-    void onBegin(settings, answers, { event, emotions, well, next })
+    setReading(true)
+    void onBegin?.(settings, buildAnswers(settings), { event, emotions, well, next })
   }
 
   const advance = () => {
@@ -85,13 +96,22 @@ export function Onboarding({ onBegin }: Props) {
       <section className="wrap">
         <header className="bar"><span className="wordmark">FACET</span></header>
         <main className="develop">
-          <h1>Five minutes a night.<br />A stone takes shape.</h1>
-          <p className="sub">
-            Two minutes to set up — then your first real reflection, read by Coach.
-            Let’s shape your first stone.
-          </p>
+          {retune ? (
+            <>
+              <h1>Re-tune Coach.</h1>
+              <p className="sub">Update what Coach knows about you — your aim, your world, your cue. Thirty seconds.</p>
+            </>
+          ) : (
+            <>
+              <h1>Five minutes a night.<br />A stone takes shape.</h1>
+              <p className="sub">
+                Two minutes to set up — then your first real reflection, read by Coach.
+                Let’s shape your first stone.
+              </p>
+            </>
+          )}
           <div className="spacer" />
-          <button className="btn" onClick={() => setStep(1)}>Begin</button>
+          <button className="btn" onClick={() => setStep(1)}>{retune ? 'Start' : 'Begin'}</button>
         </main>
       </section>
     )
@@ -109,7 +129,7 @@ export function Onboarding({ onBegin }: Props) {
           {step === 1 && (
             <>
               <span className="ambient">You</span>
-              <h1 style={{ marginTop: 'var(--s-3)' }}>First — your name.</h1>
+              <h1 style={{ marginTop: 'var(--s-3)' }}>{retune ? 'Your name.' : 'First — your name.'}</h1>
               <p className="sub">What should Coach call you?</p>
               <input id="ob-name" value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="David" />
             </>
@@ -231,11 +251,11 @@ export function Onboarding({ onBegin }: Props) {
               <button className="btn ghost back" onClick={() => setStep(step - 1)}>Back</button>
             )}
             <button className="btn" onClick={advance}>
-              {step === LAST ? 'Shape my first stone' : 'Continue'}
+              {step === LAST ? (retune ? 'Re-tune Coach' : 'Shape my first stone') : 'Continue'}
             </button>
           </div>
 
-          {step === 5 && (
+          {step === 5 && !retune && (
             <p className="mode-note center">
               Your reflections stay on this device. Nothing leaves it unless you turn on sync.
             </p>

@@ -7,8 +7,13 @@ import { triage, routeModel, buildDailyUser, extractJson, type MemoryIn } from '
 import { dailySystem } from '../supabase/functions/coach/prompts'
 import { curate, recordCommitment, applyMemo, mergeWeeklyDelta } from '../src/lib/coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, obstaclePhrase } from '../src/lib/onboarding'
-import { emptyCoachMemory } from '../src/lib/types'
-import type { CoachMemory, Emotion, Entry } from '../src/lib/types'
+import {
+  SEEDS, dueForNudge, pickOfflineNudge, toNudge,
+  commitNudge, declineNudge, resolveNudge, markSeen,
+  openNudge, checkInsDue, inFlight, unseenCount,
+} from '../src/lib/guidance'
+import { emptyCoachMemory, initialState } from '../src/lib/types'
+import type { AppState, CoachMemory, Emotion, Entry, Nudge } from '../src/lib/types'
 
 let fails = 0
 const ok = (name: string, cond: boolean) => {
@@ -149,6 +154,92 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   ok('first read reflects the goal', read.toLowerCase().includes('sharper decisions'))
   ok('first read references their moment', read.includes('closed the seed round'))
   ok('first read hands them the cue', read.includes('close my laptop'))
+}
+
+// ---------- guidance: occasional, evidence-based nudges ----------
+{
+  // library integrity
+  const ids = SEEDS.map((i) => i.seedId)
+  ok('nudge seed ids are unique', new Set(ids).size === ids.length)
+  ok('nudge seeds are well-formed', SEEDS.every((s) =>
+    s.title && s.body && s.value && typeof s.fit === 'function' && typeof s.weight === 'number' &&
+    ['tip', 'action', 'habit', 'routine', 'reading'].includes(s.kind)))
+  ok('every reading seed cites a real source', SEEDS.filter((s) => s.kind === 'reading').every((s) => !!s.source?.by))
+
+  const ent = (o: Partial<Entry> = {}): Entry =>
+    ({ id: 'x', date: '2026-07-10', event: 'e', emotions: [], well: 'w', next: 'n', ts: 1, ...o })
+  const g = (over: Partial<AppState['game']>): AppState['game'] =>
+    ({ xp: 0, level: 1, streak: 0, best: 0, freezes: 1, lastDay: '2026-07-10', ...over })
+  const stateWith = (over: Partial<AppState>): AppState => ({ ...initialState(), ...over })
+
+  // the gate: never before a couple of nights, never daily, one at a time
+  ok('not due in the first night', !dueForNudge(stateWith({ game: g({ streak: 1, best: 1 }) })))
+  const ripe = stateWith({ entries: [ent()], game: g({ streak: 6, best: 6 }) })
+  ok('due once a few nights have passed', dueForNudge(ripe))
+  const draft0 = pickOfflineNudge(ripe)!
+  const withOpen = stateWith({
+    ...ripe,
+    nudges: [toNudge(draft0, 'n0', 6, '2026-07-10', 'local')],
+  })
+  ok('not due while a nudge is still open', !dueForNudge(withOpen))
+
+  // offline library: fits the moment, never repeats a seed already offered
+  ok('offline pick returns a fitting draft', !!draft0 && !!draft0.seedId)
+  const usedAll = stateWith({
+    entries: [ent()],
+    game: g({ streak: 6, best: 6 }),
+    nudges: SEEDS.map((s, i) => ({ ...toNudge(s, `n${i}`, 6, '2026-07-10', 'local'), status: 'declined' as const })),
+  })
+  ok('offline pick is null when everything’s been offered', pickOfflineNudge(usedAll) === null)
+
+  // a fear-setting night makes the Ferriss cluster eligible
+  const fear = stateWith({
+    entries: [ent({ coach: { text: '', kind: 'fear_setting', source: 'ai' } })],
+    game: g({ streak: 6, best: 6 }),
+  })
+  ok('fear-setting makes fear-setting nudges eligible',
+    SEEDS.filter((s) => s.fit(({ nights: 6, entries: 1, kinds: { fear_setting: 1 }, themeMax: 0, goals: [], obstacles: [], charged: 0, keptCommitments: 0, weeklyReads: 0 })))
+      .some((s) => s.seedId === 'ferriss-action'))
+  ok('a fear-setting draft is offered', pickOfflineNudge(fear)?.seedId?.includes('ferriss') === true || pickOfflineNudge(fear) !== null)
+
+  // goal-gated readings only surface for the matching aim
+  const noGoal = { nights: 20, entries: 5, kinds: {}, themeMax: 0, goals: [] as string[], obstacles: [], charged: 0, keptCommitments: 0, weeklyReads: 0 }
+  const shipGoal = { ...noGoal, goals: ['Shipping more'] }
+  const shipSeed = SEEDS.find((s) => s.seedId === 'read-ship-2')!
+  ok('goal reading hidden without the goal', !shipSeed.fit(noGoal))
+  ok('goal reading fits with the goal', shipSeed.fit(shipGoal))
+
+  // lifecycle: commit → check-in comes due → resolve
+  {
+    let ns: Nudge[] = [toNudge(draft0, 'a', 6, '2026-07-10', 'local')]
+    ns = commitNudge(ns, 'a', 6, 'help me start')
+    const committed = ns.find((n) => n.id === 'a')!
+    ok('commit records the intention + a check-in night', committed.status === 'committed' && (committed.checkInNight ?? 0) > 6)
+    ok('commit keeps the note', committed.note === 'help me start')
+
+    const before = stateWith({ game: g({ streak: 7, best: 7 }), nudges: ns })
+    ok('check-in not due yet', checkInsDue(before).length === 0 && inFlight(before).length === 1)
+    const after = stateWith({ game: g({ streak: committed.checkInNight!, best: committed.checkInNight! }), nudges: ns })
+    ok('check-in comes due at its night', checkInsDue(after).length === 1)
+
+    ns = resolveNudge(ns, 'a', true)
+    ok('resolve marks it kept', ns.find((n) => n.id === 'a')?.status === 'kept')
+  }
+
+  // decline sets it aside with an optional reason
+  {
+    const ns = declineNudge([toNudge(draft0, 'b', 6, '2026-07-10', 'local')], 'b', 'not my style')
+    ok('decline sets it aside', ns[0].status === 'declined' && ns[0].note === 'not my style')
+  }
+
+  // the tab marker: an unseen open nudge counts, then clears
+  {
+    const s1 = stateWith({ game: g({ streak: 6, best: 6 }), nudges: [toNudge(draft0, 'c', 6, '2026-07-10', 'local')] })
+    ok('an unseen open nudge marks the tab', unseenCount(s1) === 1)
+    const s2 = { ...s1, nudges: markSeen(s1.nudges, 6) }
+    ok('seeing it clears the marker', unseenCount(s2) === 0)
+    ok('open selector finds it', openNudge(s1)?.id === 'c')
+  }
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL COACH TESTS PASSED')

@@ -9,6 +9,7 @@
 
 import {
   buildDailyUser,
+  buildGuidanceUser,
   buildOnboardingUser,
   buildWeeklyUser,
   extractJson,
@@ -19,7 +20,7 @@ import {
   type Model,
   type OnboardingIn,
 } from './logic.ts'
-import { dailySystem, onboardingSystem, weeklySystem } from './prompts.ts'
+import { dailySystem, guidanceSystem, onboardingSystem, weeklySystem } from './prompts.ts'
 
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const API = 'https://api.anthropic.com/v1/messages'
@@ -52,6 +53,14 @@ interface OnboardingBody {
   name: string
   answers?: OnboardingIn
   entry: EntryIn
+}
+interface GuidanceBody {
+  mode: 'guidance'
+  name: string
+  nights?: number
+  entries?: { date: string; event: string; emotions: string[]; well: string; next: string; kind?: string }[]
+  memory?: MemoryIn
+  avoid?: string[]
 }
 
 /**
@@ -98,7 +107,23 @@ Deno.serve(async (req) => {
   if (!ANTHROPIC_KEY) return json({ error: 'ANTHROPIC_API_KEY not set' }, 500)
 
   try {
-    const body = (await req.json()) as DailyBody | WeeklyBody | OnboardingBody
+    const body = (await req.json()) as DailyBody | WeeklyBody | OnboardingBody | GuidanceBody
+
+    if (body.mode === 'guidance') {
+      // The occasional nudge — Opus scouts for one useful thing, or holds back.
+      const memory = body.memory ?? {}
+      const user = buildGuidanceUser(body.name, body.nights ?? 0, body.entries ?? [], memory, body.avoid ?? [])
+      const raw = await callClaude('claude-opus-4-8', guidanceSystem(), user, 700, true)
+      const parsed = extractJson<{ skip?: boolean; kind?: string; title?: string; body?: string; value?: string; source?: unknown }>(raw)
+      if (!parsed || parsed.skip || !parsed.title || !parsed.body || !parsed.value || !parsed.kind) {
+        return json({ skip: true, meta: { model: 'claude-opus-4-8', route: 'guidance→opus' } })
+      }
+      return json({
+        kind: parsed.kind, title: parsed.title, body: parsed.body, value: parsed.value,
+        source: parsed.source ?? undefined,
+        meta: { model: 'claude-opus-4-8', route: 'guidance→opus' },
+      })
+    }
 
     if (body.mode === 'onboarding') {
       // The First Read — the best model, once, for the strongest first impression.

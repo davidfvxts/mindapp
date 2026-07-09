@@ -3,15 +3,19 @@ import { useFacet } from './lib/store'
 import { Onboarding } from './components/Onboarding'
 import { DailyRitual } from './components/DailyRitual'
 import { AfterReflection } from './components/AfterReflection'
+import { Guidance } from './components/Guidance'
 import { Vault } from './components/Vault'
 import { Reviews } from './components/Reviews'
+import { unseenCount } from './lib/guidance'
+import { GOAL_OPTIONS } from './lib/onboarding'
 import { aiEnabled } from './lib/ai'
 import { cloudEnabled } from './lib/supabase'
 
-type Tab = 'today' | 'review' | 'vault'
+type Tab = 'today' | 'guidance' | 'review' | 'vault'
 
 const TABS: [Tab, string][] = [
   ['today', 'Tonight'],
+  ['guidance', 'Guidance'],
   ['review', 'Reviews'],
   ['vault', 'Vault'],
 ]
@@ -19,10 +23,28 @@ const TABS: [Tab, string][] = [
 export default function App() {
   const m = useFacet()
   const [tab, setTab] = useState<Tab>('today')
+  const [retuning, setRetuning] = useState(false)
 
   if (!m.state.onboarded) return <Onboarding onBegin={m.beginJourney} />
 
+  if (retuning) {
+    const p = m.state.settings
+    return (
+      <Onboarding
+        mode="retune"
+        initial={{
+          name: p.name === 'there' ? '' : p.name,
+          goals: (m.state.coach.profile.goals ?? []).filter((g) => (GOAL_OPTIONS as readonly string[]).includes(g)),
+          cue: p.cue,
+          reminderTime: p.reminderTime,
+        }}
+        onRetune={(settings, answers) => { m.retune(settings, answers); setRetuning(false); setTab('today') }}
+      />
+    )
+  }
+
   const { game } = m.state
+  const guidanceNew = unseenCount(m.state) > 0
 
   return (
     <section className="wrap">
@@ -56,6 +78,16 @@ export default function App() {
             />
           ))}
 
+        {tab === 'guidance' && (
+          <Guidance
+            state={m.state}
+            onCommit={m.commitNudge}
+            onDecline={m.declineNudge}
+            onResolve={m.resolveNudge}
+            onSeen={m.markGuidanceSeen}
+          />
+        )}
+
         {tab === 'review' && (
           <Reviews
             thisWeek={m.derived.thisWeek}
@@ -66,7 +98,7 @@ export default function App() {
           />
         )}
 
-        {tab === 'vault' && <Vault state={m.state} onReset={m.hardReset} />}
+        {tab === 'vault' && <Vault state={m.state} onReset={m.hardReset} onRevisit={() => setRetuning(true)} />}
 
         {(!aiEnabled() || !cloudEnabled()) && (
           <p className="mode-note center">
@@ -81,6 +113,7 @@ export default function App() {
         {TABS.map(([id, label]) => (
           <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
             {label}
+            {id === 'guidance' && guidanceNew && tab !== 'guidance' && <i className="tab-dot" aria-hidden />}
           </button>
         ))}
       </nav>

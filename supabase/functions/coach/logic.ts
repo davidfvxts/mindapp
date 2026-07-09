@@ -166,6 +166,34 @@ export function buildWeeklyUser(
   return lines.join('\n')
 }
 
+/** The DATA block for the occasional nudge — recent nights, who they are, what's
+ *  already been offered (so Coach never repeats itself). */
+export function buildGuidanceUser(
+  name: string,
+  nights: number,
+  entries: { date: string; event: string; emotions: string[]; well: string; next: string; kind?: string }[],
+  memory: MemoryIn,
+  avoid: string[],
+): string {
+  const lines = [`Reflector: ${name || 'the user'}`, `Nights so far: ${nights}`, '', 'RECENT NIGHTS:']
+  for (const e of entries) {
+    lines.push(`- ${e.date} [${e.emotions.join(', ')}] ${e.event} | well: ${e.well || '—'} | next: ${e.next || '—'}${e.kind ? ` | coach: ${e.kind}` : ''}`)
+  }
+  const known: string[] = []
+  if (memory.voice) known.push(`voice: ${memory.voice}`)
+  if (memory.values?.length) known.push(`values: ${memory.values.join(', ')}`)
+  if (memory.goals?.length) known.push(`goals: ${memory.goals.join(', ')}`)
+  if (memory.obstacles?.length) known.push(`obstacles: ${memory.obstacles.join(', ')}`)
+  if (memory.projects?.length) known.push(`projects: ${memory.projects.join(', ')}`)
+  if (memory.relationships?.length) known.push(`people: ${memory.relationships.join(', ')}`)
+  if (known.length) lines.push('', `KNOWN PROFILE — ${known.join(' · ')}`)
+  if (memory.themes?.length) {
+    lines.push('', 'RECURRING THEMES: ' + memory.themes.map((t) => `${t.key}×${t.count}`).join('; '))
+  }
+  if (avoid.length) lines.push('', 'ALREADY OFFERED (do NOT repeat these): ' + avoid.join(' | '))
+  return lines.join('\n')
+}
+
 export interface OnboardingIn {
   goals?: string[]
   world?: string

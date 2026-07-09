@@ -179,13 +179,14 @@ src/
     coachMemory.ts  Local-first coach memory: curate() (recency + long-ago recall),
                     recordCommitment/applyMemo/mergeWeeklyDelta. Bounded.  ← TESTED
     onboarding.ts   Guided-intake → profile seed + deterministic First Read.  ← TESTED
-    ai.ts           Online-only Coach: sends entry + curated memory; returns reply + memo.
+    guidance.ts     The occasional nudge: irregular gate + evidence-based library + lifecycle.  ← TESTED
+    ai.ts           Online-only Coach: sends entry + curated memory; returns reply + memo. Also fetchNudge().
     supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth.
     storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
-    store.ts        useFacet() — the single app hook. Owns online/offline + deferral + memory merge.
+    store.ts        useFacet() — the single app hook. Owns online/offline + deferral + memory merge + nudges.
     milestones.ts   The five Stone colourways (Night 7/30/90/180/365) + stage words.
   components/
-    Onboarding · DailyRitual (Tonight) · AfterReflection · Stone · Reviews · Vault
+    Onboarding · DailyRitual (Tonight) · AfterReflection · Stone · Guidance · Reviews · Vault
 supabase/
   migrations/0001_init.sql   Schema + Row-Level Security.
   functions/coach/
@@ -254,6 +255,27 @@ Stone forms. Online, `mode:'onboarding'` gets an **Opus 4.8** First Read + a pro
 (`onboarding.ts` seed is enriched by the AI `profileDelta`); offline, `deterministicFirstRead()`
 stitches a specific read from their answers so the moment still lands. Colour stays scarce — Night 1
 is a greyscale Rough stone; the wow is the read + the object, never an early gradient.
+
+### Guidance = the occasional nudge, not a content feed
+The **Guidance** tab is where Coach leaves *one* thing worth trying — a tip, action, habit,
+routine, or reading — the way a good coach mentions a single idea between sessions. It is
+deliberately **not** a catalogue the user grinds through:
+- **Irregular & rare.** `dueForNudge()` gates on the Night clock: never two nights running,
+  an irregular 2–5-Night gap, and only **one open nudge at a time**. `lastNudgeCheck` advances
+  on every check (even when nothing surfaces), so it never feels scheduled or daily.
+- **Only when it counts.** Online, `mode:'guidance'` sends recent nights + memory to **Opus 4.8**
+  (with thinking) which returns one bespoke nudge fitted to the user *or* `{skip:true}` when
+  nothing meaningful applies — holding back is the common, correct answer. Offline (or if the
+  model can't be reached), `pickOfflineNudge()` draws from an **evidence-based library** in
+  `guidance.ts` (methods: Pennebaker/Kross/Eurich/Goldsmith/Ferriss/Oettingen/Clear; plus real,
+  credible readings — books, podcasts, blogs, films — goal-gated so only the user's aims show).
+- **Every nudge explains its value** and is interactive: **I'll try this** (commit → Coach checks
+  in a few nights on, "how did it go?", never punishing), **Not for me** (set aside), plus an
+  optional note to push back or ask for help. Lifecycle is pure + tested; state is local
+  (`state.nudges`), persisted and synced like everything else — no new table.
+
+**Retune anytime.** `components/Onboarding.tsx` runs in `mode:'retune'` from the Vault's "Revisit
+setup" — updates settings and augments the profile (`store.retune`), no new entry, no Night change.
 
 ### The API key never touches the browser
 Anthropic is called from the Supabase Edge Function (`supabase/functions/coach/`) holding
