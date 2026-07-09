@@ -7,7 +7,10 @@ import { triage, routeModel, buildDailyUser, extractJson, type MemoryIn } from '
 import { dailySystem } from '../supabase/functions/coach/prompts'
 import { curate, recordCommitment, applyMemo, mergeWeeklyDelta } from '../src/lib/coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, obstaclePhrase } from '../src/lib/onboarding'
-import { intentionForToday, missedNights, needsComeback } from '../src/lib/morning'
+import {
+  intentionForToday, isMorningWindow, missedNights, needsComeback,
+  nextDay, offlineMorningQuestion, upsertMorning,
+} from '../src/lib/morning'
 import {
   SEEDS, dueForNudge, pickOfflineNudge, toNudge,
   commitNudge, declineNudge, resolveNudge, markSeen,
@@ -275,6 +278,45 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   ok('comeback shows once per lapse', needsComeback('2026-07-06', '2026-07-09', '2026-07-06') === false)
   ok('a new lapse gets a new comeback', needsComeback('2026-07-06', '2026-07-09', '2026-07-01') === true)
   ok('never reflected → onboarding, not comeback', needsComeback(null, '2026-07-09', null) === false)
+}
+
+// ---------- the Today bookend: win + adaptive question ----------
+{
+  ok('nextDay rolls a day', nextDay('2026-07-09') === '2026-07-10')
+  ok('nextDay rolls a month', nextDay('2026-07-31') === '2026-08-01')
+  ok('morning window holds at 9', isMorningWindow(9))
+  ok('morning window closed at 23', !isMorningWindow(23))
+  ok('morning window closed at 3', !isMorningWindow(3))
+
+  const N = (date: string, win: string) => ({ date, win })
+  let ms = upsertMorning([], N('2026-07-09', 'ship pricing'))
+  ok('upsert adds the day', ms.length === 1 && ms[0].win === 'ship pricing')
+  ms = upsertMorning(ms, N('2026-07-09', 'ship pricing v2'))
+  ok('upsert replaces the same day', ms.length === 1 && ms[0].win === 'ship pricing v2')
+  for (let i = 1; i <= 20; i++) ms = upsertMorning(ms, N(`2026-06-${String(i).padStart(2, '0')}`, 'x'))
+  ok('mornings are bounded', ms.length <= 14)
+
+  const base = { chargedYesterday: false, owed: null, theme: null }
+  ok('a clean day gets NO question', offlineMorningQuestion(base) === null)
+  ok('a hot yesterday gets the steady question',
+    offlineMorningQuestion({ ...base, chargedYesterday: true })?.includes('steady') === true)
+  ok('a slipping intention gets the inevitable question',
+    offlineMorningQuestion({ ...base, owed: { text: 'email the lawyer', age: 2 } })?.includes('email the lawyer') === true)
+  ok('a fresh intention is NOT re-asked (the carry-over line owns it)',
+    offlineMorningQuestion({ ...base, owed: { text: 'x', age: 1 } }) === null)
+  ok('a recurring theme gets the blocking question',
+    offlineMorningQuestion({ ...base, theme: 'investor' })?.includes('investor') === true)
+  ok('charged outranks owed',
+    offlineMorningQuestion({ chargedYesterday: true, owed: { text: 'x', age: 3 }, theme: 'y' })?.includes('steady') === true)
+
+  // the night weighs against the morning: data block + memo contract
+  const u = buildDailyUser('David', En({}), [], [], NOMEM,
+    { win: 'ship the pricing page', question: 'What keeps today steady?', answer: 'one meeting max' })
+  ok('daily user block carries the morning win', u.includes('THIS MORNING') && u.includes('ship the pricing page'))
+  ok('daily prompt knows the morning-question contract',
+    dailySystem(NOMEM, triage(En({}), NOMEM)).includes('morningQuestion'))
+  ok('daily prompt weighs a morning win without guilt',
+    dailySystem(NOMEM, triage(En({}), NOMEM)).includes('MORNING WIN'))
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL COACH TESTS PASSED')

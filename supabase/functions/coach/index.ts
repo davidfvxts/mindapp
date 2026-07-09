@@ -18,6 +18,7 @@ import {
   type EntryIn,
   type MemoryIn,
   type Model,
+  type MorningIn,
   type OnboardingIn,
 } from './logic.ts'
 import { dailySystem, guidanceSystem, onboardingSystem, weeklySystem } from './prompts.ts'
@@ -38,6 +39,7 @@ interface DailyBody {
   name: string
   tone?: string
   entry: EntryIn
+  morning?: MorningIn | null
   history?: { date: string; event: string; emotions: string[]; well: string; next: string; rating?: 0 | 1; kind?: string }[]
   recall?: { date: string; event: string }[]
   memory?: MemoryIn
@@ -157,7 +159,7 @@ Deno.serve(async (req) => {
     let system = dailySystem(memory, t)
     if (body.tone === 'gentler') system += '\n\nKeep it especially gentle tonight; ease the pressure.'
 
-    const user = buildDailyUser(body.name, body.entry, body.history ?? [], body.recall ?? [], memory)
+    const user = buildDailyUser(body.name, body.entry, body.history ?? [], body.recall ?? [], memory, body.morning)
     const raw = await callClaude(model, system, user, 600, false)
     const parsed =
       extractJson<{ text?: string; lesson?: string; kind?: string; memo?: unknown }>(raw) ?? { text: raw.trim() }

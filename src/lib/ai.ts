@@ -60,6 +60,7 @@ export async function fetchCoachReply(
         name: settings.name,
         tone: settings.tone,
         entry: { event: entry.event, emotions: entry.emotions, well: entry.well, next: entry.next },
+        morning: entry.morning ?? null,
         history: curated.history,
         recall: curated.recall,
         memory: curated.memory,

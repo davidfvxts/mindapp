@@ -54,6 +54,7 @@ export async function syncEntries(entries: Entry[]): Promise<Entry[]> {
       well: e.well,
       next_step: e.next,
       coach: e.coach ?? null,
+      morning: e.morning ?? null,
       rating: e.rating ?? null,
       created_at: new Date(e.ts).toISOString(),
     })),

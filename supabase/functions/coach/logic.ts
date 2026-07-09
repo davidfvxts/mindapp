@@ -112,6 +112,12 @@ export function routeModel(t: Triage): { model: Model; route: string } {
 
 const ratedTag = (r?: 0 | 1): string => (r === 1 ? ' | rated: landed' : r === 0 ? ' | rated: off' : '')
 
+export interface MorningIn {
+  win: string
+  question?: string
+  answer?: string
+}
+
 /** The DATA block for the daily call — recency, long-ago recall, and what's owed. */
 export function buildDailyUser(
   name: string,
@@ -119,12 +125,20 @@ export function buildDailyUser(
   history: { date: string; event: string; emotions: string[]; well: string; next: string; rating?: 0 | 1; kind?: string }[],
   recall: { date: string; event: string }[],
   memory: MemoryIn,
+  morning?: MorningIn | null,
 ): string {
   const lines: string[] = [`Reflector: ${name || 'the user'}`, '', 'TONIGHT']
   lines.push(`Event: ${entry.event}`)
   lines.push(`Emotions: ${entry.emotions.join(', ') || '(none named)'}`)
   lines.push(`What went well / their contribution: ${entry.well || '(left blank)'}`)
   lines.push(`What they'll do differently: ${entry.next || '(left blank)'}`)
+
+  if (morning?.win) {
+    let m = `THIS MORNING they set a win: "${morning.win}"`
+    if (morning.question) m += ` — Coach asked: "${morning.question}"`
+    if (morning.answer) m += ` — they answered: "${morning.answer}"`
+    lines.push('', m)
+  }
 
   if (memory.openCommitment?.text) {
     lines.push('', `OWED — on ${memory.openCommitment.date} they intended: "${memory.openCommitment.text}". Does tonight's entry act on it? Report kept/dropped/unknown in memo.commitment.`)

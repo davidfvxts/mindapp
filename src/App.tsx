@@ -76,6 +76,10 @@ export default function App() {
               cue={m.state.settings.cue}
               thinking={m.thinking}
               todayIntention={m.derived.todayIntention}
+              morningNote={m.derived.morningNote}
+              morningQuestion={m.derived.morningQuestion}
+              morningWindow={m.derived.morningWindow}
+              onSetMorning={m.setMorning}
               comeback={m.derived.comeback}
               onComebackSeen={m.acknowledgeComeback}
               onSubmit={(d) => void m.submitEntry(d)}

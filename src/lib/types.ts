@@ -33,6 +33,8 @@ export interface Entry {
   pendingCoach?: boolean
   /** 1 = helpful, 0 = off, undefined = unrated. Tunes Coach's read. */
   rating?: 0 | 1
+  /** The morning bookend of this day, if one was set — the night weighs against it. */
+  morning?: { win: string; question?: string; answer?: string }
   synced?: boolean
 }
 
@@ -67,6 +69,19 @@ export interface CoachMemo {
   commitment?: 'kept' | 'dropped' | 'unknown'
   /** A running read of the user's register, so replies mirror their voice. */
   voiceHint?: string
+  /** Tomorrow morning's one question, written tonight while Coach has the full
+   *  picture. Usually absent — silence is the common, correct answer. */
+  morningQuestion?: string
+}
+
+/** The morning bookend: one win for the day, plus Coach's optional question. */
+export interface MorningNote {
+  date: string
+  /** "What would make today a win?" — one specific outcome (Locke & Latham). */
+  win: string
+  /** The adaptive question Coach asked this morning, if any. */
+  question?: string
+  answer?: string
 }
 
 export interface InsightCard {
@@ -200,6 +215,11 @@ export interface AppState {
   lastNudgeCheck: number
   /** The `game.lastDay` a comeback was acknowledged for — shows it once per lapse. */
   comebackAck: string | null
+  /** Morning bookends, newest first. Bounded; the day's entry carries its own copy. */
+  mornings: MorningNote[]
+  /** Tomorrow's Coach question, written by tonight's reply (memo.morningQuestion).
+   *  Fetched at night so the morning needs no network. */
+  nextMorningQuestion: { forDate: string; text: string } | null
   onboarded: boolean
 }
 
@@ -214,5 +234,7 @@ export const initialState = (): AppState => ({
   nudges: [],
   lastNudgeCheck: 0,
   comebackAck: null,
+  mornings: [],
+  nextMorningQuestion: null,
   onboarded: false,
 })

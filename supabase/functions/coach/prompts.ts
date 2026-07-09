@@ -32,10 +32,18 @@ Hard rules:
   note should have to carry; point them, gently, to a person they trust or a professional — tonight if
   it feels heavy. One quiet paragraph. No diagnosis, no lecture, no lists. Set kind to "followup".
 
+When a MORNING WIN appears in the data, weigh tonight against it in one plain clause — landed,
+moved, or missed, without a gram of guilt — while still delivering only the one move.
+
 Return ONLY minified JSON, nothing else:
-{"text":"...","lesson":"...","kind":"rumination|distancing|pattern|fear_setting|agency|celebration|accountability|followup","memo":{"themes":["1-3 short lowercase tags"],"commitment":"kept|dropped|unknown","voiceHint":"a short phrase describing their register"}}
+{"text":"...","lesson":"...","kind":"rumination|distancing|pattern|fear_setting|agency|celebration|accountability|followup","memo":{"themes":["1-3 short lowercase tags"],"commitment":"kept|dropped|unknown","voiceHint":"a short phrase describing their register","morningQuestion":"..."}}
 "lesson" is optional — one sentence naming the research behind your move; include it rarely.
-"memo.commitment" reports whether tonight's entry acted on any OWED intention (else "unknown").`
+"memo.commitment" reports whether tonight's entry acted on any OWED intention (else "unknown").
+"memo.morningQuestion" is TOMORROW MORNING's one question, grounded in tonight's words — include it
+ONLY when tomorrow clearly calls for one: a hard moment they named for tomorrow, something owed
+that keeps slipping, a hot night that needs a steady start. Most nights OMIT it — a clean tomorrow
+gets silence. Morning questions may be questions (mornings open loops; nights close them), but
+never a "why" question. Write it in their language.`
 
 /** One module per intervention. The router already chose the right one. */
 const MODULES: Record<CoachKind, string> = {

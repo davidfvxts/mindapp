@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { EMOTIONS, type Emotion } from '../lib/types'
+import { EMOTIONS, type Emotion, type MorningNote } from '../lib/types'
 import type { Draft } from '../lib/store'
 
 interface Props {
@@ -8,6 +8,13 @@ interface Props {
   thinking: boolean
   /** Last night's intention, when it's due today — one quiet line, no box. */
   todayIntention?: string | null
+  /** Today's bookend, once set. */
+  morningNote?: MorningNote | null
+  /** Coach's one adaptive morning question — often none; silence is fine. */
+  morningQuestion?: string | null
+  /** The bookend belongs to daylight; at night the ritual owns the screen. */
+  morningWindow?: boolean
+  onSetMorning?: (win: string, answer?: string) => void
   /** A real lapse (≥2 missed nights) → the guilt-free re-entry, once. */
   comeback?: { best: number } | null
   onComebackSeen?: () => void
@@ -21,7 +28,9 @@ const STEPS = [
 ]
 
 export function DailyRitual({
-  reflectedToday, cue, thinking, todayIntention, comeback, onComebackSeen, onSubmit,
+  reflectedToday, cue, thinking, todayIntention,
+  morningNote, morningQuestion, morningWindow, onSetMorning,
+  comeback, onComebackSeen, onSubmit,
 }: Props) {
   const [step, setStep] = useState(0)
   const [event, setEvent] = useState('')
@@ -30,6 +39,8 @@ export function DailyRitual({
   const [next, setNext] = useState('')
   const [err, setErr] = useState('')
   const [adding, setAdding] = useState(false)
+  const [win, setWin] = useState('')
+  const [prep, setPrep] = useState('')
 
   const toggle = (e: Emotion) =>
     setEmotions((cur) =>
@@ -77,10 +88,47 @@ export function DailyRitual({
     )
   }
 
+  // The Today bookend (~2 min): last night's intention, one win for the day,
+  // and Coach's one adaptive question. Type only — no boxes, no icons, no
+  // numbers. Entirely skippable; skipping costs nothing.
+  const today = (
+    <div className="today-block">
+      {(todayIntention || morningNote || morningWindow) && <span className="ambient">Today</span>}
+      {todayIntention && <p className="morning-line">From last night: {todayIntention}</p>}
+      {morningNote?.win ? (
+        <p className="morning-line">A win today: {morningNote.win}</p>
+      ) : morningWindow ? (
+        <>
+          <input
+            value={win}
+            onChange={(e) => setWin(e.target.value)}
+            placeholder="What would make today a win?"
+            aria-label="What would make today a win?"
+          />
+          {morningQuestion && (
+            <>
+              <p className="morning-q">{morningQuestion}</p>
+              <input
+                value={prep}
+                onChange={(e) => setPrep(e.target.value)}
+                placeholder="One line."
+                aria-label={morningQuestion}
+              />
+            </>
+          )}
+          {win.trim() && (
+            <button className="btn text" onClick={() => onSetMorning?.(win, prep)}>
+              Set for today
+            </button>
+          )}
+        </>
+      ) : null}
+    </div>
+  )
+
   return (
     <div className="develop" key={step}>
-      {/* Last night's intention, back in daylight. Plain text — no box, no icon. */}
-      {todayIntention && <p className="morning-line">Today: {todayIntention}</p>}
+      {today}
 
       <div className="dots">
         {STEPS.map((_, i) => (
@@ -128,12 +176,18 @@ export function DailyRitual({
       )}
 
       {step === 1 && (
-        <textarea
-          value={well}
-          onChange={(e) => setWell(e.target.value)}
-          placeholder="Name your contribution. Agency, not luck."
-          autoFocus
-        />
+        <>
+          {/* The declared objective the debrief runs against (AAR). */}
+          {morningNote?.win && (
+            <p className="morning-line">This morning’s win: “{morningNote.win}”</p>
+          )}
+          <textarea
+            value={well}
+            onChange={(e) => setWell(e.target.value)}
+            placeholder="Name your contribution. Agency, not luck."
+            autoFocus
+          />
+        </>
       )}
 
       {step === 2 && (

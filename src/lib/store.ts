@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { applyEntry, todayStr, weekCount } from './game'
+import { applyEntry, daysBetween, todayStr, weekCount } from './game'
 import { loadState, resetState, saveState, syncEntries } from './storage'
 import { aiEnabled, fetchCoachReply, fetchFirstRead, fetchNudge, getWeeklyInsight } from './ai'
-import { applyMemo, recordCommitment, mergeWeeklyDelta } from './coachMemory'
+import { applyMemo, isCharged, recordCommitment, mergeWeeklyDelta } from './coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, type OnboardingAnswers } from './onboarding'
 import {
   dueForNudge, pickOfflineNudge, toNudge, markSeen,
   commitNudge as commit, declineNudge as decline, resolveNudge as resolve,
 } from './guidance'
-import { intentionForToday, needsComeback } from './morning'
+import {
+  intentionForToday, isMorningWindow, needsComeback, nextDay,
+  offlineMorningQuestion, upsertMorning,
+} from './morning'
 import { ensureSession } from './supabase'
 import { cancelMorningIntention, scheduleDailyReminder, scheduleMorningIntention } from './notifications'
-import type { AppState, CoachReply, Emotion, Entry, InsightCard, Settings } from './types'
+import type { AppState, CoachReply, Emotion, Entry, InsightCard, MorningNote, Settings } from './types'
 
 const uid = (): string =>
   globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -216,6 +219,11 @@ export function useFacet() {
         next: draft.next.trim(),
         ts: Date.now(),
       }
+      // The night carries its morning: the win (and Coach's question) it's weighed against.
+      const morning = state.mornings.find((m) => m.date === today)
+      if (morning?.win) {
+        entry.morning = { win: morning.win, question: morning.question, answer: morning.answer }
+      }
       const history = state.entries
 
       // The reflection is saved no matter what. Direct feedback is online-only:
@@ -223,6 +231,9 @@ export function useFacet() {
       let reply: CoachReply | null = null
       let pending = false
       let coach = state.coach
+      // Tomorrow's morning question is written tonight (or not at all) — a
+      // stale one must never carry over.
+      let nextMorningQuestion: AppState['nextMorningQuestion'] = null
       if (aiEnabled()) {
         if (online) {
           const result = await fetchCoachReply(entry, history, state.settings, state.coach)
@@ -231,6 +242,8 @@ export function useFacet() {
             entry.coach = result.reply
             // Resolve the previously-owed intention, then fold themes/voice.
             coach = applyMemo(coach, result.memo, today, true)
+            const mq = result.memo?.morningQuestion?.trim()
+            if (mq) nextMorningQuestion = { forDate: nextDay(today), text: mq }
           } else { pending = true; entry.pendingCoach = true }
         } else {
           pending = true
@@ -241,7 +254,7 @@ export function useFacet() {
       coach = recordCommitment(coach, entry, today)
 
       const { game, freezeUsed } = applyEntry(state.game, entry, history.length + 1)
-      setState((s) => ({ ...s, game, entries: [entry, ...s.entries], coach }))
+      setState((s) => ({ ...s, game, entries: [entry, ...s.entries], coach, nextMorningQuestion }))
       setReveal({ night: game.streak, reply, pending })
       setThinking(false)
 
@@ -250,7 +263,7 @@ export function useFacet() {
 
       if (freezeUsed) setToast('Last night is covered.')
     },
-    [state.entries, state.game, state.settings, state.coach, online],
+    [state.entries, state.game, state.settings, state.coach, state.mornings, online],
   )
 
   const rateReply = useCallback((rating: 0 | 1) => {
@@ -334,14 +347,51 @@ export function useFacet() {
     const comeback = needsComeback(state.game.lastDay, today, state.comebackAck)
       ? { best: state.game.best }
       : null
-    return { reflectedToday, thisWeek, todayIntention, comeback }
-  }, [state.entries, state.game, state.coach.commitments, state.comebackAck])
+
+    // The Today bookend: the day's note, and (until a win is set) Coach's one
+    // morning question — written last night when possible, else drawn from the
+    // deterministic library. A clean day rightly gets none.
+    const morningNote = state.mornings.find((m) => m.date === today) ?? null
+    let morningQuestion: string | null = null
+    if (!morningNote && !reflectedToday) {
+      if (state.nextMorningQuestion?.forDate === today) {
+        morningQuestion = state.nextMorningQuestion.text
+      } else {
+        const last = state.entries[0]
+        const open = state.coach.commitments.find((c) => c.status === 'open')
+        const topTheme = [...state.coach.themes].sort((a, b) => b.count - a.count)[0]
+        morningQuestion = offlineMorningQuestion({
+          chargedYesterday: !!last && daysBetween(last.date, today) === 1 && isCharged(last.emotions),
+          owed: open ? { text: open.text, age: daysBetween(open.date, today) } : null,
+          theme: topTheme && topTheme.count >= 3 ? topTheme.key : null,
+        })
+      }
+    }
+    const morningWindow = isMorningWindow(new Date().getHours())
+
+    return { reflectedToday, thisWeek, todayIntention, comeback, morningNote, morningQuestion, morningWindow }
+  }, [state.entries, state.game, state.coach, state.comebackAck, state.mornings, state.nextMorningQuestion])
+
+  /** Set the Today bookend: one win, optionally an answer to Coach's question. */
+  const setMorning = useCallback((win: string, answer?: string) => {
+    const w = win.trim()
+    if (!w) return
+    const today = todayStr()
+    const note: MorningNote = {
+      date: today,
+      win: w,
+      question: derived.morningQuestion ?? undefined,
+      answer: answer?.trim() || undefined,
+    }
+    setState((s) => ({ ...s, mornings: upsertMorning(s.mornings, note) }))
+    setToast('Noted for today.')
+  }, [derived.morningQuestion])
 
   return {
     state, derived, toast, thinking, reveal, online,
     completeOnboarding, beginJourney, retune, submitEntry, rateReply, mintCard,
     markGuidanceSeen, commitNudge, declineNudge, resolveNudge,
-    acknowledgeComeback, hardReset,
+    acknowledgeComeback, setMorning, hardReset,
     setToast, clearReveal: () => setReveal(null),
   }
 }

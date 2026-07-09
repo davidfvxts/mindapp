@@ -180,13 +180,24 @@ textarea.error, input.error { border-color: var(--line-control); }
   transition: width var(--t-standard) var(--ease-settle);
 }
 
-/* ---------- the morning line: last night's intention, in daylight ---------- */
+/* ---------- the Today bookend: intention · win · Coach's question ---------- */
 .morning-line {
   margin: 0 0 var(--s-6);
   font-size: var(--type-secondary-size);
   color: var(--ink-secondary);
   line-height: var(--type-body-lh);
 }
+.today-block { margin-bottom: var(--s-6); }
+.today-block .ambient { display: block; margin-bottom: var(--s-3); }
+.today-block .morning-line { margin-bottom: var(--s-3); }
+.today-block input { margin-bottom: var(--s-3); }
+.today-block .morning-q {
+  margin: var(--s-2) 0 var(--s-3);
+  font-size: var(--type-secondary-size);
+  color: var(--ink-body);
+  line-height: var(--type-body-lh);
+}
+.today-block .btn.text { padding-left: 0; }
 
 /* ---------- step dots ---------- */
 .dots { display: flex; gap: var(--s-2); margin-bottom: var(--s-5); }

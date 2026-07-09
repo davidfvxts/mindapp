@@ -180,7 +180,7 @@ src/
                     recordCommitment/applyMemo/mergeWeeklyDelta. Bounded.  ← TESTED
     onboarding.ts   Guided-intake → profile seed + deterministic First Read.  ← TESTED
     guidance.ts     The occasional nudge: irregular gate + evidence-based library + lifecycle.  ← TESTED
-    morning.ts      The loop beyond 11pm: today's-intention line + comeback detection. PURE.  ← TESTED
+    morning.ts      The loop beyond 11pm: Today bookend (win + adaptive question), intention line, comeback. PURE.  ← TESTED
     ai.ts           Online-only Coach: sends entry + curated memory; returns reply + memo. Also fetchNudge().
     supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth.
     storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
@@ -212,7 +212,7 @@ screen. Past Coach reads are always readable under their nights in the Vault lis
 weekly read is online-only too. This is deliberate: maximum value online, still fully
 usable offline.
 
-### The loop beyond 11pm — morning note + comeback
+### The loop beyond 11pm — the Today bookend, morning note + comeback
 The intention written at night ("one thing I'll do differently") comes back **the next
 morning**, when it can be acted on (Gollwitzer: cues work at execution time): a quiet
 `Today: <intention>` line on the Tonight screen (`morning.ts` → `intentionForToday`, shown
@@ -224,6 +224,19 @@ opens with a designed, guilt-free re-entry ("You're back. You reached Night N �
 is yours.") shown **once per lapse** (`state.comebackAck` records the `game.lastDay` it was
 acknowledged for) before flowing straight into the ritual. No guilt copy, no streak
 vocabulary, Night count the only number.
+
+**The Today bookend (~2 min, daylight only, fully skippable):** one specific **win** for the
+day ("What would make today a win?" — Locke & Latham: the evening AAR then debriefs against a
+declared objective) plus **Coach's one adaptive morning question**. The question is written
+THE NIGHT BEFORE by the daily reply (`memo.morningQuestion` — zero extra API calls, zero
+morning latency, works offline); offline nights fall back to a deterministic library in
+`morning.ts` keyed on real signals (charged yesterday / slipping intention / recurring
+theme) — and a clean day rightly gets NO question. The bookend is stored in
+`state.mornings` (bounded), stamped onto the night's entry (`entry.morning`, synced via the
+`morning` jsonb column, migration 0002), and sent with the daily call so Coach weighs
+tonight against the declared win — plainly, never with guilt. Step 2 of the ritual shows
+"This morning's win: …" so the debrief runs against it. Questions belong to mornings;
+nights close loops.
 
 ### Sync
 `supabase.ts` signs the device in **anonymously** (no magic-link UI needed) so reflections
