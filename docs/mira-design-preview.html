@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Mira — design preview</title>
+<style>
+  @page { size: 1300px 810px; margin: 0; }
+  body{margin:0;background:#f2f2f4;font-family:-apple-system,'SF Pro Text',BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;}
+  .sheet{padding:30px 24px;}
+  .head{margin:0 0 22px 4px}
+  .head h1{font-size:20px;font-weight:700;letter-spacing:-0.03em;margin:0 0 4px;color:#111}
+  .head p{margin:0;font-size:12.5px;color:#6b6b70}
+  .rowp{display:flex;gap:22px;align-items:flex-start}
+  .phone{width:352px;background:#000;border-radius:38px;padding:26px 24px 20px;color:#fff;position:relative;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+  .cap{margin:10px 0 0;text-align:center;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:#8a8a90;font-weight:600}
+
+  .bar{display:flex;justify-content:space-between;align-items:center;padding:2px 0 24px}
+  .wm{font-size:13px;font-weight:600;letter-spacing:.24em}
+  .chip2{display:flex;gap:5px;align-items:baseline}
+  .chip2 b{font-size:16px;font-weight:600}
+  .chip2 s{text-decoration:none;font-size:10.5px;color:rgba(255,255,255,.42);letter-spacing:.04em}
+
+  h2.big{font-size:30px;font-weight:700;letter-spacing:-0.04em;line-height:1.08;margin:0 0 9px}
+  .sub{color:#bcbbc0;font-size:14.5px;margin:0 0 22px;line-height:1.45}
+  .kick{font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.42);margin:0 0 11px}
+  .dots{display:flex;gap:5px;margin-bottom:22px}
+  .dots i{height:2px;flex:1;background:#3a3a3a;border-radius:2px}
+  .dots i.on{background:#fff}
+  .field{border-bottom:1px solid rgba(255,255,255,.1);padding:10px 0 12px;color:rgba(255,255,255,.42);font-size:15px;line-height:1.45}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}
+  .c{border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:7px 13px;font-size:12.5px;color:#bcbbc0;font-weight:500}
+  .c.on{background:#fff;color:#000;border-color:#fff;font-weight:600}
+  .btn{margin-top:22px;background:#fff;color:#000;border-radius:999px;padding:14px;text-align:center;font-weight:600;font-size:14.5px}
+  .btn.g{background:none;color:#fff;border:1px solid rgba(255,255,255,.1)}
+
+  .reply{display:flex;gap:12px;margin-top:6px}
+  .av{width:24px;height:24px;border-radius:50%;border:1px solid #fff;position:relative;flex:0 0 24px;margin-top:2px}
+  .av::after{content:'';position:absolute;inset:6px;border-radius:50%;background:#fff}
+  .who{font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:6px}
+  .txt{font-size:15px;line-height:1.5;letter-spacing:-0.01em}
+  .lesson{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);font-size:12.5px;color:#bcbbc0}
+  .rate{display:flex;gap:7px;margin-top:15px}
+  .rate span{border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:6px 12px;font-size:12px;color:#bcbbc0}
+  .track{height:2px;background:#3a3a3a;border-radius:2px;margin:22px 0 6px}
+  .track i{display:block;height:100%;width:35%;background:#fff;border-radius:2px}
+  .meta{display:flex;justify-content:space-between;font-size:10.5px;color:rgba(255,255,255,.42)}
+  .divider{border-top:1px solid rgba(255,255,255,.06);margin:22px 0}
+
+  .gemwrap{text-align:center;padding:6px 0 2px}
+  .gemcap{font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-top:12px}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:24px 14px;margin-bottom:6px}
+  .m b{display:block;font-size:28px;font-weight:300;letter-spacing:-0.02em}
+  .m s{text-decoration:none;font-size:10.5px;color:rgba(255,255,255,.42);letter-spacing:.04em}
+  .heat{display:grid;grid-template-columns:repeat(14,1fr);gap:5px;margin-top:6px}
+  .heat i{height:16px;border-radius:50%;background:#3a3a3a;display:block}
+  .heat i.on{background:#fff}
+  .tabs{display:flex;margin-top:24px;padding-top:14px}
+  .tabs span{flex:1;text-align:center;font-size:12px;color:rgba(255,255,255,.42);font-weight:500}
+  .tabs span.on{color:#fff;font-weight:600}
+  .note{margin:26px 4px 0;font-size:11.5px;color:#6b6b70}
+</style></head>
+<body><div class="sheet">
+  <div class="head">
+    <h1>Mira — design preview</h1>
+    <p>Pure black and white. SF Pro. Gradients appear only on earned milestones.</p>
+  </div>
+
+  <div class="rowp">
+
+    <!-- 1. Daily ritual -->
+    <div>
+      <div class="phone">
+        <div class="bar"><span class="wm">MIRA</span><span class="chip2"><b>7</b><s>DAYS</s></span></div>
+        <div class="dots"><i class="on"></i><i></i><i></i></div>
+        <p class="kick">Step 1 of 3</p>
+        <h2 class="big">The moment</h2>
+        <p class="sub">One concrete thing that happened today.</p>
+        <div class="field">A specific event, good or hard. Not how the day went — one moment.</div>
+        <div style="margin-top:22px;font-size:14.5px;font-weight:600">How did it leave you?</div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,.42);margin-top:3px">Name it to tame it. Up to three.</div>
+        <div class="chips">
+          <span class="c">Energized</span><span class="c on">Focused</span><span class="c">Calm</span>
+          <span class="c">Proud</span><span class="c on">Anxious</span><span class="c">Drained</span>
+        </div>
+        <div class="btn">Continue</div>
+        <div class="tabs"><span class="on">Reflect</span><span>Reviews</span><span>Progress</span></div>
+      </div>
+      <p class="cap">Daily ritual — no chrome, no colour</p>
+    </div>
+
+    <!-- 2. Milestone + Mira -->
+    <div>
+      <div class="phone">
+        <div class="bar"><span class="wm">MIRA</span><span class="chip2"><b>7</b><s>DAYS</s></span></div>
+        <div class="gemwrap">
+          <svg width="140" height="140" viewBox="0 0 100 100">
+            <defs>
+              <linearGradient id="gemAa" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#D9C7FF"/><stop offset="100%" stop-color="#8FF3DA"/></linearGradient>
+              <linearGradient id="gemAb" x1="1" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8FF3DA"/><stop offset="100%" stop-color="#D9C7FF"/></linearGradient>
+              <radialGradient id="gemAglow"><stop offset="40%" stop-color="#D9C7FF" stop-opacity="0.22"/><stop offset="100%" stop-color="#D9C7FF" stop-opacity="0"/></radialGradient>
+            </defs>
+            <circle cx="50" cy="52" r="36" fill="url(#gemAglow)"/>
+            <polygon points="50,10 22,38 50,46" fill="url(#gemAa)"/><polygon points="50,10 22,38 50,46" fill="#fff" opacity="0.20"/>
+            <polygon points="50,10 78,38 50,46" fill="url(#gemAa)"/><polygon points="50,10 78,38 50,46" fill="#fff" opacity="0.04"/>
+            <polygon points="22,38 50,46 50,92" fill="url(#gemAb)"/><polygon points="22,38 50,46 50,92" fill="#000" opacity="0.10"/>
+            <polygon points="78,38 50,46 50,92" fill="url(#gemAb)"/><polygon points="78,38 50,46 50,92" fill="#000" opacity="0.30"/>
+            <polyline points="22,38 50,46 78,38" fill="none" stroke="#fff" stroke-opacity="0.28" stroke-width="0.8"/>
+            <polyline points="22,38 50,10 78,38" fill="none" stroke="#fff" stroke-opacity="0.18" stroke-width="0.8"/>
+          </svg>
+          <div class="gemcap">7-day streak</div>
+        </div>
+        <div class="divider"></div>
+        <div class="reply">
+          <div class="av"></div>
+          <div>
+            <div class="who">Mira</div>
+            <div class="txt">That sounds genuinely heavy. Step outside it: “David, what would you tell a founder you respect who was in this exact spot?”</div>
+            <div class="lesson">Kross: addressing yourself by name lowers emotional reactivity under stress.</div>
+            <div class="rate"><span>Helpful</span><span>Not quite</span></div>
+          </div>
+        </div>
+        <div class="track"><i></i></div>
+        <div class="meta"><span>Level 2</span><span>+35 · 70/200</span></div>
+        <div class="btn">Done for today</div>
+      </div>
+      <p class="cap">Milestone — the only colour in the app</p>
+    </div>
+
+    <!-- 3. Progress -->
+    <div>
+      <div class="phone">
+        <div class="bar"><span class="wm">MIRA</span><span class="chip2"><b>7</b><s>DAYS</s></span></div>
+        <h2 class="big">Your practice</h2>
+        <div style="height:16px"></div>
+        <div class="metrics">
+          <div class="m"><b>7</b><s>CURRENT STREAK</s></div>
+          <div class="m"><b>12</b><s>BEST STREAK</s></div>
+          <div class="m"><b>34</b><s>REFLECTIONS</s></div>
+          <div class="m"><b>1</b><s>FREEZES LEFT</s></div>
+        </div>
+        <div class="divider"></div>
+        <p class="kick">Last 28 days</p>
+        <div class="heat">
+          <i></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i>
+          <i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i>
+          <i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i>
+          <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i>
+        </div>
+        <div style="font-size:12.5px;color:#bcbbc0;margin-top:14px;line-height:1.5">Miss once and Mira spends a freeze, so your streak survives. Never miss twice.</div>
+        <div class="divider"></div>
+        <p class="kick">Insight cards</p>
+        <div style="display:flex;gap:12px;align-items:center">
+          <svg width="30" height="30" viewBox="0 0 100 100">
+            <defs><linearGradient id="gemBa" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#9FC4FF"/><stop offset="100%" stop-color="#C0A8FF"/></linearGradient>
+            <linearGradient id="gemBb" x1="1" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#C0A8FF"/><stop offset="100%" stop-color="#9FC4FF"/></linearGradient></defs>
+            <polygon points="50,10 22,38 50,46" fill="url(#gemBa)"/><polygon points="50,10 22,38 50,46" fill="#fff" opacity="0.20"/>
+            <polygon points="50,10 78,38 50,46" fill="url(#gemBa)"/>
+            <polygon points="22,38 50,46 50,92" fill="url(#gemBb)"/><polygon points="22,38 50,46 50,92" fill="#000" opacity="0.10"/>
+            <polygon points="78,38 50,46 50,92" fill="url(#gemBb)"/><polygon points="78,38 50,46 50,92" fill="#000" opacity="0.30"/>
+          </svg>
+          <div><div style="font-size:13.5px;font-weight:500">Your best ideas landed before 9am.</div>
+          <div style="font-size:10.5px;color:rgba(255,255,255,.42);margin-top:3px">2026-07-06</div></div>
+        </div>
+        <div class="tabs"><span>Reflect</span><span>Reviews</span><span class="on">Progress</span></div>
+      </div>
+      <p class="cap">Progress — display numerals in Light</p>
+    </div>
+
+  </div>
+  <p class="note">Gem gradients are Mira's own palette, inspired by Opal's design language. No Opal brand assets are used.</p>
+</div></body></html>
