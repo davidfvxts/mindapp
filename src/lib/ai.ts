@@ -1,34 +1,43 @@
-import { localCoach } from './coach'
 import type { CoachReply, Entry, Settings } from './types'
-import { supabase } from './supabase'
+import { anonKey, supabase } from './supabase'
 
 const COACH_URL = import.meta.env.VITE_COACH_URL as string | undefined
 
+/** A real Coach endpoint is configured. Without it, direct feedback is skipped entirely. */
 export const aiEnabled = (): boolean => Boolean(COACH_URL)
 
-async function authHeader(): Promise<Record<string, string>> {
-  if (!supabase) return {}
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token
-  return token ? { Authorization: `Bearer ${token}` } : {}
+/**
+ * Prefer the signed-in user's token; fall back to the anon key so the
+ * function is callable even before the anonymous session resolves. Both are
+ * valid JWTs to the Functions gateway.
+ */
+async function authHeaders(): Promise<Record<string, string>> {
+  let token = anonKey
+  if (supabase) {
+    const { data } = await supabase.auth.getSession()
+    token = data.session?.access_token ?? anonKey
+  }
+  if (!token) return {}
+  return { Authorization: `Bearer ${token}`, apikey: anonKey ?? token }
 }
 
 /**
- * Ask Coach for a read. Calls the Edge Function (which holds the Anthropic
- * key server-side). Falls back to the offline coach on any failure, so the
- * app is never blocked by the network or a missing key.
+ * Direct feedback is an ONLINE-ONLY event. Ask Coach (the Edge Function that
+ * holds the Anthropic key server-side) for a read. Returns null on any failure
+ * — offline, missing key, network blip — and the caller simply skips the reply
+ * rather than showing a degraded stand-in. The reflection itself is already
+ * saved locally; nothing here can cost the user their words or their Night.
  */
-export async function getCoachReply(
+export async function fetchCoachReply(
   entry: Entry,
   history: Entry[],
   settings: Settings,
-): Promise<CoachReply> {
-  if (!COACH_URL) return localCoach(entry, history, settings.name)
-
+): Promise<CoachReply | null> {
+  if (!COACH_URL) return null
   try {
     const res = await fetch(COACH_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({
         mode: 'daily',
         name: settings.name,
@@ -49,34 +58,26 @@ export async function getCoachReply(
     if (!res.ok) throw new Error(`coach ${res.status}`)
     const data = (await res.json()) as Partial<CoachReply>
     if (!data.text) throw new Error('empty reply')
-    return {
-      text: data.text,
-      lesson: data.lesson,
-      kind: data.kind ?? 'followup',
-      source: 'ai',
-    }
+    return { text: data.text, lesson: data.lesson, kind: data.kind ?? 'followup', source: 'ai' }
   } catch (err) {
-    console.warn('[facet] AI coach unavailable, using local coach:', err)
-    return localCoach(entry, history, settings.name)
+    console.warn('[facet] Coach unavailable, will read this on reconnect:', err)
+    return null
   }
 }
 
-/** Weekly synthesis -> an Insight Card. Uses the stronger model server-side. */
+/**
+ * Weekly synthesis — also online-only. Returns null when offline or unconfigured
+ * so the Reviews screen can skip minting rather than fabricate a read.
+ */
 export async function getWeeklyInsight(
   entries: Entry[],
   settings: Settings,
-): Promise<string> {
-  const fallback = [
-    'Your best entries this week were the most specific ones. Keep naming the moment.',
-    'Energy dipped on the days you skipped the reflection. The habit is the lever.',
-    'You shipped when you shrank the task. "Smallest version" is working for you.',
-  ]
-  if (!COACH_URL) return fallback[entries.length % fallback.length]
-
+): Promise<string | null> {
+  if (!COACH_URL) return null
   try {
     const res = await fetch(COACH_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({
         mode: 'weekly',
         name: settings.name,
@@ -87,9 +88,9 @@ export async function getWeeklyInsight(
     })
     if (!res.ok) throw new Error(`coach ${res.status}`)
     const data = (await res.json()) as { text?: string }
-    return data.text ?? fallback[0]
+    return data.text ?? null
   } catch (err) {
     console.warn('[facet] weekly read unavailable:', err)
-    return fallback[entries.length % fallback.length]
+    return null
   }
 }

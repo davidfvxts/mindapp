@@ -24,6 +24,13 @@ export interface Entry {
   ts: number
   /** Coach's reply, cached so we don't re-bill the API. */
   coach?: CoachReply
+  /**
+   * Written while offline (or a transient online failure): the reflection is
+   * saved and the Night advances, but Coach hasn't read it yet. Cleared once a
+   * reply is fetched on reconnect. Only set when a Coach endpoint is configured
+   * — a fully local-only install never flags this, so it never bills later.
+   */
+  pendingCoach?: boolean
   /** 1 = helpful, 0 = off, undefined = unrated. Tunes Coach's read. */
   rating?: 0 | 1
   synced?: boolean

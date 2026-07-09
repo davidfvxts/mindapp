@@ -148,8 +148,14 @@ Wants decisive senior recommendations over menus. Be concise; skip hedging.
 **Stack:** installable PWA (React + TypeScript + Vite), wrapped to iOS with
 Capacitor. Local-first, with optional Supabase sync and optional Claude coaching.
 
-**Blocked on David:** Supabase URL + anon key; Anthropic API key. With none of
-these the app runs fully local: localStorage + the offline rule-based Coach.
+**Backend (Supabase project "Mindapp", ref `sxcuolzzigxzertblhlt`):** schema + RLS applied,
+the `coach` edge function is deployed (verify_jwt on), and `.env.local` is wired (URL + anon
+key + coach URL). Two manual steps remain, both in the Supabase dashboard:
+1. **Paste `ANTHROPIC_API_KEY`** as an Edge Function secret (Project → Edge Functions →
+   Secrets, or `supabase secrets set ANTHROPIC_API_KEY=sk-ant-…`) → turns on real Coach.
+2. **Enable "Anonymous sign-ins"** (Authentication → Sign In / Providers) → turns on sync.
+Until (1), online reflections show "Coach reads this when you're back online" and catch up
+once the key is set. Until (2), the app is local-only (still fully usable).
 
 ### Commands
 ```bash
@@ -170,11 +176,11 @@ src/
   lib/
     types.ts        Domain model. EMOTIONS, CHARGED (drives self-distancing).
     game.ts         Habit engine: the Night mechanic, never-miss-twice, internal XP.  ← TESTED
-    coach.ts        Offline rule-based Coach. Mirrors the production prompt's priority order.
-    ai.ts           Calls the edge function; falls back to coach.ts on any error.
-    supabase.ts     Null client when unconfigured → app runs local-only.
-    storage.ts      Local-first persistence + opportunistic sync.
-    store.ts        useFacet() — the single app hook.
+    ai.ts           Online-only Coach: fetches the edge function when online; returns
+                    null (skip) offline. Never a rule-based stand-in.
+    supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth.
+    storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
+    store.ts        useFacet() — the single app hook. Owns online/offline + deferral.
     milestones.ts   The five Stone colourways (Night 7/30/90/180/365) + stage words.
   components/
     Onboarding · DailyRitual (Tonight) · AfterReflection · Stone · Reviews · Vault
@@ -183,9 +189,24 @@ supabase/
   functions/coach/index.ts   Anthropic proxy. Holds ANTHROPIC_API_KEY server-side.
 ```
 
-`coach.ts` (offline) and the system prompt in `functions/coach/index.ts` encode the
-**same** intervention priority (rumination → distancing → pattern → agency → follow-up).
-If you change one, change the other.
+The intervention priority (rumination → distancing → pattern → agency → follow-up) lives in
+one place now: the system prompt in `functions/coach/index.ts`. There is no offline
+rule-based coach — see "Online / offline" below.
+
+### Online / offline — the core contract
+The reflection is **local-first and always works offline**: it's saved the instant it's
+written and the Night advances, with no network in the path. **Direct feedback (Coach's
+reply) is online-only** — fetched live when online, and *skipped* when offline rather than
+faked with a stand-in. An offline reflection is flagged `pendingCoach`; the moment
+connectivity returns, `store.ts` quietly fetches the owed reply and attaches it (no
+hijacking tonight's screen). The weekly read is online-only too. This is deliberate: maximum
+value online, still fully usable offline.
+
+### Sync
+`supabase.ts` signs the device in **anonymously** (no magic-link UI needed) so reflections
+sync under RLS when online; `storage.ts` pushes any unsynced entries on reconnect. A real
+sign-in can later be linked to the anonymous user, carrying history over. Requires
+"Anonymous sign-ins" enabled in the project's Auth settings.
 
 ### Engine invariant — do not "fix"
 `game.ts` still computes `xp`/`level`/`streak` internally. **`xp` and `level` are
@@ -202,10 +223,10 @@ push (`@capacitor/local-notifications`) — no APNs, no server, works offline.
 Model routing: Haiku for daily coaching, Sonnet for weekly synthesis.
 
 ### Next steps, in order
-1. Wire Supabase (keys pending) → magic-link auth UI, then enable sync.
-2. Deploy the `coach` edge function with the Anthropic key → real Coach.
-3. Ship the PWA to David + ~10 founders. **Watch 30-day retention** — the only
+1. Paste `ANTHROPIC_API_KEY` (secret) + enable Anonymous sign-ins — see the two steps above.
+2. Ship the PWA to David + ~10 founders. **Watch 30-day retention** — the only
    metric that matters right now. Don't over-build ahead of it.
+3. Later: magic-link auth UI (link it to the anonymous user so history carries over).
 
 ### Reference docs
 `docs/design-system.md` (full visual spec), `docs/Reflection-System-2026.md` (the

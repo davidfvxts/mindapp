@@ -16,11 +16,19 @@ npm run dev
 
 Open the printed URL. **It works immediately** with no accounts and no API keys:
 
-- reflections persist in `localStorage`
-- Coach falls back to a **rule-based offline coach** that implements the exact same
-  intervention priority as the real one
+- reflections persist in `localStorage` and the Night mechanic runs entirely on-device
+- direct feedback (Coach) is **online-only** — with no key configured it's simply skipped;
+  the reflection and the Stone still work
 
 You only need the steps below to turn on cloud sync and real Claude coaching.
+
+### Online / offline
+
+The reflection is local-first and always works offline — saved instantly, Night advances, no
+network in the path. **Coach's reply is fetched only when online and skipped when offline**
+(never a canned stand-in); an offline reflection is quietly read the moment you reconnect.
+Reflections sync to Supabase under Row-Level Security via an anonymous session — no sign-in
+screen required.
 
 Other commands:
 
@@ -128,11 +136,10 @@ src/
   lib/
     types.ts      Domain model. EMOTIONS, CHARGED (drives self-distancing).
     game.ts       The habit engine: Night mechanic, never-miss-twice, internal XP.  ← tested
-    coach.ts      Offline rule-based Coach (fallback + reference implementation).
-    ai.ts         Calls the edge function; falls back to coach.ts on any error.
-    supabase.ts   Null client when unconfigured → app runs local-only.
+    ai.ts         Online-only Coach: fetches the edge function when online, skips offline.
+    supabase.ts   Null client when unconfigured → local-only. Anonymous session for sync.
     storage.ts    Local-first persistence + opportunistic cloud sync.
-    store.ts      useFacet() — the single app hook.
+    store.ts      useFacet() — the single app hook. Owns online/offline + deferred catch-up.
     milestones.ts The five Stone colourways + the Rough→Cut→Polished→Brilliant stages.
   components/
     Onboarding.tsx      Captures the if-then cue (Gollwitzer).
@@ -168,8 +175,9 @@ Nothing here is decorative. Each mechanic traces to a finding.
 | **Implementation intentions** (Gollwitzer) | Onboarding captures "After I ___, I reflect" + a reminder time |
 | **Agency** (Goldsmith) | Step 2 asks what *you* did to cause the good outcome |
 
-The production system prompt in `supabase/functions/coach/index.ts` encodes the same priority
-order as `coach.ts`, so the offline and online coaches behave consistently.
+The intervention priority lives in one place — the system prompt in
+`supabase/functions/coach/index.ts`. Offline, direct feedback is skipped rather than
+approximated, and caught up on reconnect.
 
 ## Deliberately excluded
 

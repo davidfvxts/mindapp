@@ -38,12 +38,13 @@ export default function App() {
 
       <main>
         {tab === 'today' &&
-          (m.lastReply ? (
+          (m.reveal ? (
             <AfterReflection
-              reply={m.lastReply}
-              night={game.streak}
+              reply={m.reveal.reply}
+              pending={m.reveal.pending}
+              night={m.reveal.night}
               onRate={m.rateReply}
-              onDone={() => { m.clearReply(); setTab('vault') }}
+              onDone={() => { m.clearReveal(); setTab('vault') }}
             />
           ) : (
             <DailyRitual
@@ -68,9 +69,9 @@ export default function App() {
 
         {(!aiEnabled() || !cloudEnabled()) && (
           <p className="mode-note center">
-            {!aiEnabled() && 'Offline coach. '}
+            {!aiEnabled() && 'Coach is off. '}
             {!cloudEnabled() && 'On this device only. '}
-            Add keys to <code>.env.local</code> for AI coaching and sync.
+            Add keys to <code>.env.local</code> to turn on Coach and sync.
           </p>
         )}
       </main>
