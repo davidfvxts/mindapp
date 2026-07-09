@@ -53,7 +53,11 @@ export async function syncEntries(entries: Entry[]): Promise<Entry[]> {
       emotions: e.emotions,
       well: e.well,
       next_step: e.next,
-      coach: e.coach ?? null,
+      // Keep the full bounded exchange in the existing JSONB column. This avoids
+      // a schema change while keeping the answer and close available to sync.
+      coach: e.coach
+        ? { ...e.coach, answer: e.coachAnswer, close: e.coachClose ?? undefined }
+        : null,
       morning: e.morning ?? null,
       rating: e.rating ?? null,
       created_at: new Date(e.ts).toISOString(),

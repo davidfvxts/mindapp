@@ -66,6 +66,18 @@ export function Vault({ state, onReset, onRevisit }: { state: AppState; onReset:
                   <p>{e.coach.text}</p>
                 </div>
               )}
+              {e.coachAnswer && (
+                <div className="item-coach item-answer">
+                  <span className="ambient">You</span>
+                  <p>{e.coachAnswer}</p>
+                </div>
+              )}
+              {e.coachClose && (
+                <div className="item-coach item-close">
+                  <span className="ambient">Coach</span>
+                  <p>{e.coachClose.text}</p>
+                </div>
+              )}
             </div>
           ))
         )}

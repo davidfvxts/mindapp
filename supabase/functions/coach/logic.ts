@@ -45,6 +45,13 @@ export interface MemoryIn {
   openCommitment?: { text: string; date: string } | null
 }
 
+/** Optional context from the next-morning loop. */
+export interface MorningIn {
+  win: string
+  question?: string
+  answer?: string
+}
+
 export interface Triage {
   primary: CoachKind
   charged: boolean
@@ -110,6 +117,24 @@ export function routeModel(t: Triage): { model: Model; route: string } {
   return { model: 'claude-sonnet-5', route: 'standard→sonnet' }
 }
 
+/**
+ * The answer turn must stay on the same model tier as the nightly read. This
+ * translates the persisted intervention kind back into the normal router rather
+ * than trusting a model name sent from the browser.
+ */
+export function routeModelForKind(kind: CoachKind): { model: Model; route: string } {
+  return routeModel({
+    primary: kind,
+    charged: kind === 'distancing',
+    whySpiral: kind === 'rumination',
+    missingAgency: kind === 'agency',
+    decisionAvoidance: kind === 'fear_setting',
+    positive: kind === 'celebration',
+    patternEcho: kind === 'pattern' ? 'pattern' : null,
+    owedCommitment: kind === 'accountability',
+  })
+}
+
 const ratedTag = (r?: 0 | 1): string => (r === 1 ? ' | rated: landed' : r === 0 ? ' | rated: off' : '')
 
 export interface MorningIn {
@@ -122,7 +147,10 @@ export interface MorningIn {
 export function buildDailyUser(
   name: string,
   entry: EntryIn,
-  history: { date: string; event: string; emotions: string[]; well: string; next: string; rating?: 0 | 1; kind?: string }[],
+  history: {
+    date: string; event: string; emotions: string[]; well: string; next: string; rating?: 0 | 1; kind?: string
+    answer?: string; close?: string
+  }[],
   recall: { date: string; event: string }[],
   memory: MemoryIn,
   morning?: MorningIn | null,
@@ -134,10 +162,10 @@ export function buildDailyUser(
   lines.push(`What they'll do differently: ${entry.next || '(left blank)'}`)
 
   if (morning?.win) {
-    let m = `THIS MORNING they set a win: "${morning.win}"`
-    if (morning.question) m += ` — Coach asked: "${morning.question}"`
-    if (morning.answer) m += ` — they answered: "${morning.answer}"`
-    lines.push('', m)
+    let note = `THIS MORNING they set a win: "${morning.win}"`
+    if (morning.question) note += ` — Coach asked: "${morning.question}"`
+    if (morning.answer) note += ` — they answered: "${morning.answer}"`
+    lines.push('', note)
   }
 
   if (memory.openCommitment?.text) {
@@ -153,8 +181,37 @@ export function buildDailyUser(
   if (history.length) {
     lines.push('', 'RECENT NIGHTS:')
     for (const h of history) {
-      lines.push(`- ${h.date} [${h.emotions.join(', ')}] ${h.event} | well: ${h.well || '—'} | next: ${h.next || '—'}${ratedTag(h.rating)}`)
+      const exchange = h.answer ? ` | answer: ${h.answer}` : ''
+      const close = h.close ? ` | Coach close: ${h.close}` : ''
+      lines.push(`- ${h.date} [${h.emotions.join(', ')}] ${h.event} | well: ${h.well || '—'} | next: ${h.next || '—'}${ratedTag(h.rating)}${exchange}${close}`)
     }
+  }
+  return lines.join('\n')
+}
+
+export interface ReplyIn {
+  text: string
+  kind: CoachKind
+}
+
+/** The DATA block for the one optional answer turn. */
+export function buildAnswerUser(
+  name: string,
+  entry: EntryIn,
+  reply: ReplyIn,
+  answer: string,
+  memory: MemoryIn,
+): string {
+  const lines: string[] = [`Reflector: ${name || 'the user'}`, '', 'TONIGHT']
+  lines.push(`Event: ${entry.event}`)
+  lines.push(`Emotions: ${entry.emotions.join(', ') || '(none named)'}`)
+  lines.push(`What went well / their contribution: ${entry.well || '(left blank)'}`)
+  lines.push(`What they'll do differently: ${entry.next || '(left blank)'}`)
+  lines.push('', `COACH'S READ: ${reply.text}`)
+  lines.push('', `THEIR ONE ANSWER: ${answer}`)
+  if (memory.voice) lines.push('', `KNOWN VOICE: ${memory.voice}`)
+  if (memory.themes?.length) {
+    lines.push(`RECURRING THEMES: ${memory.themes.map((t) => `${t.key}×${t.count}`).join('; ')}`)
   }
   return lines.join('\n')
 }
@@ -255,6 +312,12 @@ export function buildOnboardingUser(name: string, a: OnboardingIn, entry: EntryI
   lines.push(`What went well / their contribution: ${entry.well || '(left blank)'}`)
   lines.push(`What they'll do differently: ${entry.next || '(left blank)'}`)
   return lines.join('\n')
+}
+
+/** Enforce the answer-turn contract even if the model over-explains. */
+export function boundedClose(text: string): string {
+  const sentences = text.trim().match(/[^.!?]+(?:[.!?]+|$)/g) ?? []
+  return sentences.slice(0, 2).join('').trim()
 }
 
 /** Robustly pull the JSON object out of a model response. */

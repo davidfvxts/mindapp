@@ -8,13 +8,17 @@
 // Secret:  supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 
 import {
+  boundedClose,
+  buildAnswerUser,
   buildDailyUser,
   buildGuidanceUser,
   buildOnboardingUser,
   buildWeeklyUser,
   extractJson,
   routeModel,
+  routeModelForKind,
   triage,
+  type CoachKind,
   type EntryIn,
   type MemoryIn,
   type Model,
@@ -23,10 +27,15 @@ import {
   type WeeklyReviewIn,
   type WoopIn,
 } from './logic.ts'
-import { dailySystem, guidanceSystem, onboardingSystem, weeklySystem } from './prompts.ts'
+import { answerSystem, dailySystem, guidanceSystem, onboardingSystem, weeklySystem } from './prompts.ts'
 
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const API = 'https://api.anthropic.com/v1/messages'
+const KINDS: CoachKind[] = [
+  'rumination', 'distancing', 'pattern', 'fear_setting',
+  'agency', 'celebration', 'accountability', 'followup',
+]
+const asKind = (kind: unknown): CoachKind => KINDS.includes(kind as CoachKind) ? kind as CoachKind : 'followup'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -44,6 +53,14 @@ interface DailyBody {
   morning?: MorningIn | null
   history?: { date: string; event: string; emotions: string[]; well: string; next: string; rating?: 0 | 1; kind?: string }[]
   recall?: { date: string; event: string }[]
+  memory?: MemoryIn
+}
+interface AnswerBody {
+  mode: 'answer'
+  name: string
+  entry: EntryIn
+  reply: { text: string; kind?: string }
+  answer: string
   memory?: MemoryIn
 }
 interface WeeklyBody {
@@ -114,7 +131,7 @@ Deno.serve(async (req) => {
   if (!ANTHROPIC_KEY) return json({ error: 'ANTHROPIC_API_KEY not set' }, 500)
 
   try {
-    const body = (await req.json()) as DailyBody | WeeklyBody | OnboardingBody | GuidanceBody
+    const body = (await req.json()) as DailyBody | AnswerBody | WeeklyBody | OnboardingBody | GuidanceBody
 
     if (body.mode === 'guidance') {
       // The occasional nudge — Opus scouts for one useful thing, or holds back.
@@ -156,6 +173,33 @@ Deno.serve(async (req) => {
       })
     }
 
+    if (body.mode === 'answer') {
+      if (!body.entry || !body.reply?.text || !body.answer?.trim()) {
+        return json({ error: 'entry, reply, and answer are required' }, 400)
+      }
+      const memory = body.memory ?? {}
+      const kind = asKind(body.reply.kind)
+      // Derive the same tier from the original intervention — never take a
+      // browser-supplied model name as authority.
+      const { model, route } = routeModelForKind(kind)
+      const user = buildAnswerUser(
+        body.name,
+        body.entry,
+        { text: body.reply.text, kind },
+        body.answer.trim().slice(0, 600),
+        memory,
+      )
+      const raw = await callClaude(model, answerSystem(memory), user, 260, false)
+      const parsed = extractJson<{ close?: string; memo?: unknown }>(raw)
+      const close = boundedClose(parsed?.close ?? raw)
+      if (!close) throw new Error('empty answer close')
+      return json({
+        close,
+        memo: parsed?.memo ?? null,
+        meta: { model, route: `${route}→answer` },
+      })
+    }
+
     // daily
     const memory = body.memory ?? {}
     const t = triage(body.entry, memory)
@@ -167,12 +211,13 @@ Deno.serve(async (req) => {
     const user = buildDailyUser(body.name, body.entry, body.history ?? [], body.recall ?? [], memory, body.morning)
     const raw = await callClaude(model, system, user, 600, false)
     const parsed =
-      extractJson<{ text?: string; lesson?: string; kind?: string; memo?: unknown }>(raw) ?? { text: raw.trim() }
+      extractJson<{ text?: string; lesson?: string; memo?: unknown }>(raw) ?? { text: raw.trim() }
 
     return json({
       text: parsed.text ?? raw.trim(),
       lesson: parsed.lesson,
-      kind: parsed.kind ?? t.primary,
+      // The router's intervention is the source of truth for a later answer turn.
+      kind: t.primary,
       memo: parsed.memo ?? null,
       meta: { model, route },
     })

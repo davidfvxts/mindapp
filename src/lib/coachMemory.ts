@@ -52,6 +52,9 @@ export interface HistoryLite {
   next: string
   rating?: 0 | 1
   kind?: string
+  /** The optional answer and close are part of the night's actual coaching record. */
+  answer?: string
+  close?: string
 }
 
 export interface Curated {
@@ -69,6 +72,8 @@ const liteOf = (e: Entry): HistoryLite => ({
   next: e.next,
   rating: e.rating,
   kind: e.coach?.kind,
+  answer: e.coachAnswer,
+  close: e.coachClose?.text,
 })
 
 const openCommitment = (m: CoachMemory): Commitment | null =>

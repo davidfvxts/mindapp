@@ -47,6 +47,7 @@ export default function App() {
   const { game } = m.state
   const guidanceNew = unseenCount(m.state) > 0
   const reviewNew = m.derived.reviewReady
+  const revealedEntry = m.reveal ? m.state.entries.find((entry) => entry.id === m.reveal?.entryId) : undefined
 
   return (
     <section className="wrap">
@@ -68,7 +69,10 @@ export default function App() {
               pending={m.reveal.pending}
               night={m.reveal.night}
               firstRead={m.reveal.firstRead}
+              answer={revealedEntry?.coachAnswer}
+              close={revealedEntry?.coachClose}
               onRate={m.rateReply}
+              onAnswer={(answer) => m.answerCoach(m.reveal!.entryId, answer)}
               onDone={() => { m.clearReveal(); setTab('vault') }}
             />
           ) : (

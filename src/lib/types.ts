@@ -24,6 +24,10 @@ export interface Entry {
   ts: number
   /** Coach's reply, cached so we don't re-bill the API. */
   coach?: CoachReply
+  /** The user's one optional answer to Coach's nightly read. Always saved first. */
+  coachAnswer?: string
+  /** Coach's one short closing line after the optional answer. Never fabricated locally. */
+  coachClose?: CoachClose
   /**
    * Written while offline (or a transient online failure): the reflection is
    * saved and the Night advances, but Coach hasn't read it yet. Cleared once a
@@ -56,6 +60,14 @@ export interface CoachReply {
   source: 'ai' | 'local'
   /** Which model produced it + why it was routed there. Debug only, never shown. */
   meta?: { model?: string; route?: string }
+}
+
+/** The final, AI-produced line that closes the optional answer turn. */
+export interface CoachClose {
+  text: string
+  source: 'ai'
+  /** Which model produced it + why it was routed there. Debug only, never shown. */
+  meta?: CoachReply['meta']
 }
 
 /**

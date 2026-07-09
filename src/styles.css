@@ -236,6 +236,20 @@ textarea.error, input.error { border-color: var(--line-control); }
 .rate button:hover:not(.pick) { background: var(--fill-pressed); }
 .rate button.pick { background: var(--surface-inverse); color: var(--ink-on-inverse); }
 
+/* One optional answer, then one closing line — a bounded exchange, not chat. */
+.answer-turn { margin-top: var(--s-5); }
+.answer-turn .btn.text { padding-left: 0; }
+.answer-turn textarea { min-height: var(--s-8); }
+.answer-send { margin-top: var(--s-3); }
+.reflection-answer {
+  margin-top: var(--s-5); padding-left: var(--s-4);
+  border-left: 2px solid var(--line-control);
+}
+.reflection-answer .ambient { display: block; margin-bottom: var(--s-3); }
+.reflection-answer p { margin: 0; color: var(--ink-body); font-size: var(--type-body-size); line-height: var(--type-body-lh); }
+.coach-close { margin-top: var(--s-5); }
+.answer-unavailable { margin-top: var(--s-4); }
+
 /* ---------- lists: the Vault, past nights ---------- */
 .vault-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-5); }
 .vault-cell {
@@ -253,11 +267,14 @@ textarea.error, input.error { border-color: var(--line-control); }
 .item .item-body { font-size: var(--type-secondary-size); color: var(--ink-body); }
 /* Coach's read of that night — kept with the words it read. Type only, no box. */
 .item .item-coach { margin-top: var(--s-3); }
+.item .item-coach + .item-coach { margin-top: var(--s-4); }
 .item .item-coach .ambient { display: block; margin-bottom: var(--s-1); }
 .item .item-coach p {
   margin: 0; font-size: var(--type-secondary-size);
   color: var(--ink-secondary); line-height: var(--type-body-lh);
 }
+.item .item-answer { padding-left: var(--s-3); border-left: 1px solid var(--line-control); }
+.item .item-close { padding-left: var(--s-3); border-left: 1px solid var(--ink-primary); }
 
 /* ---------- tab bar: text only, no icons ---------- */
 .tabs {

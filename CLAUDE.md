@@ -213,6 +213,20 @@ screen. Past Coach reads are always readable under their nights in the Vault lis
 weekly read is online-only too. This is deliberate: maximum value online, still fully
 usable offline.
 
+### The answer turn — one answer, one close
+After an **online** nightly Coach read, the user may optionally choose **Answer Coach** once.
+Their answer is saved to the `Entry` locally **before** any request starts, then synced inside
+the existing `entries.coach` JSONB payload along with the final close. `mode:'answer'` on the
+edge function receives the entry, original read, answer, and curated memory; it derives the
+same model tier from the original intervention via `routeModel`, runs thinking-off, and returns
+one closing line of at most two sentences plus a memo. The answer and close are part of future
+Coach context (history + memo) and appear with the original read in the Vault.
+
+This is deliberately not a chat thread: no second answer, no follow-up question in the close,
+and no retry queue. If the user is offline or the close request fails, the answer remains saved
+and the exchange ends without a fabricated close or reconnect catch-up. Keep this boundary
+simple; the nightly ritual must stay optional, short, and safe to leave at any point.
+
 ### The loop beyond 11pm — the Today bookend, morning note + comeback
 The intention written at night ("one thing I'll do differently") comes back **the next
 morning**, when it can be acted on (Gollwitzer: cues work at execution time): a quiet

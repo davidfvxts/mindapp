@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Stone } from './Stone'
 import { stoneForNight, stoneStage } from '../lib/milestones'
-import type { CoachReply } from '../lib/types'
+import type { CoachClose, CoachReply } from '../lib/types'
 
 interface Props {
   /** Coach's read. Null when skipped (offline / not configured). */
@@ -12,17 +12,36 @@ interface Props {
   night: number
   /** The onboarding First Read — labelled, and not rated (it's a welcome). */
   firstRead?: boolean
+  /** The user's one saved answer and Coach's optional final line. */
+  answer?: string
+  close?: CoachClose
   onRate: (r: 0 | 1) => void
+  onAnswer: (answer: string) => Promise<boolean>
   onDone: () => void
 }
 
-export function AfterReflection({ reply, pending, night, firstRead, onRate, onDone }: Props) {
+export function AfterReflection({
+  reply, pending, night, firstRead, answer, close, onRate, onAnswer, onDone,
+}: Props) {
   const [rated, setRated] = useState<0 | 1 | null>(null)
+  const [composerOpen, setComposerOpen] = useState(false)
+  const [answerDraft, setAnswerDraft] = useState('')
+  const [answerStatus, setAnswerStatus] = useState<'idle' | 'sending' | 'closed' | 'unavailable'>('idle')
   const milestone = stoneForNight(night)
+  const savedAnswer = answer ?? (answerStatus === 'idle' ? '' : answerDraft.trim())
 
   const rate = (r: 0 | 1) => {
     setRated(r)
     onRate(r)
+  }
+
+  const sendAnswer = async () => {
+    const text = answerDraft.trim()
+    if (!text || answerStatus === 'sending') return
+    setAnswerStatus('sending')
+    const closed = await onAnswer(text)
+    setComposerOpen(false)
+    setAnswerStatus(closed ? 'closed' : 'unavailable')
   }
 
   return (
@@ -58,6 +77,51 @@ export function AfterReflection({ reply, pending, night, firstRead, onRate, onDo
               </div>
             )}
           </div>
+
+          {!firstRead && !savedAnswer && !composerOpen && (
+            <div className="answer-turn">
+              <button className="btn text" onClick={() => setComposerOpen(true)}>Answer Coach</button>
+            </div>
+          )}
+
+          {!firstRead && !savedAnswer && composerOpen && (
+            <div className="answer-turn develop">
+              <label className="field-label ambient" htmlFor="coach-answer">Your answer</label>
+              <textarea
+                id="coach-answer"
+                value={answerDraft}
+                maxLength={600}
+                placeholder="Write it down."
+                onChange={(event) => setAnswerDraft(event.target.value)}
+                disabled={answerStatus === 'sending'}
+              />
+              <button
+                className="btn answer-send"
+                onClick={() => void sendAnswer()}
+                disabled={!answerDraft.trim() || answerStatus === 'sending'}
+              >
+                {answerStatus === 'sending' ? 'Coach is reading' : 'Send'}
+              </button>
+            </div>
+          )}
+
+          {savedAnswer && (
+            <div className="reflection-answer develop">
+              <span className="ambient">You</span>
+              <p>{savedAnswer}</p>
+            </div>
+          )}
+
+          {close && (
+            <div className="coach coach-close develop">
+              <span className="coach-label ambient">Coach</span>
+              <p>{close.text}</p>
+            </div>
+          )}
+
+          {savedAnswer && !close && answerStatus === 'unavailable' && (
+            <p className="secondary answer-unavailable" role="status">Saved. Coach couldn’t close this one.</p>
+          )}
         </div>
       ) : pending ? (
         <div className="section">

@@ -3,8 +3,10 @@
  * assembly, and the local memory (theme ledger + commitment chain).
  * Run: npm run test:coach
  */
-import { triage, routeModel, buildDailyUser, buildWeeklyUser, extractJson, type MemoryIn } from '../supabase/functions/coach/logic'
-import { dailySystem } from '../supabase/functions/coach/prompts'
+import {
+  boundedClose, buildAnswerUser, buildDailyUser, buildWeeklyUser, extractJson, routeModel, routeModelForKind, triage, type MemoryIn,
+} from '../supabase/functions/coach/logic'
+import { answerSystem, dailySystem } from '../supabase/functions/coach/prompts'
 import { curate, recordCommitment, applyMemo, mergeWeeklyDelta } from '../src/lib/coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, obstaclePhrase } from '../src/lib/onboarding'
 import {
@@ -58,6 +60,13 @@ ok('route standard → sonnet',
   routeModel(triage(En({ event: 'shipped', emotions: ['Proud'], well: '' }), NOMEM)).model === 'claude-sonnet-5')
 ok('route light → sonnet (floor)',
   routeModel(triage(En({ event: 'calm admin day', emotions: ['Focused'], well: 'inbox zero' }), NOMEM)).model === 'claude-sonnet-5')
+{
+  const original = triage(En({ event: 'hard investor call', emotions: ['Frustrated'] }), NOMEM)
+  ok('answer turn keeps the original model tier',
+    routeModelForKind(original.primary).model === routeModel(original).model)
+  ok('answer turn keeps a standard model tier',
+    routeModelForKind('agency').model === 'claude-sonnet-5')
+}
 
 // ---------- prompt assembly: the right expert loads ----------
 ok('daily prompt loads the distancing module',
@@ -80,6 +89,10 @@ ok('daily prompt adds an owed-intention clause',
   ok('followup module closes, not questions',
     dailySystem(NOMEM, triage(En({ event: 'quiet admin day', emotions: ['Focused'], well: 'inbox' }), NOMEM))
       .includes('CLOSE THE DAY'))
+
+  const answer = answerSystem({ voice: 'terse, lowercase' })
+  ok('answer prompt closes without another question',
+    answer.includes('Do NOT ask another question') && answer.includes('Maximum 2 short sentences'))
 }
 
 // ---------- user data block ----------
@@ -89,12 +102,29 @@ ok('daily prompt adds an owed-intention clause',
     [{ date: '2026-06-01', event: 'old investor thing' }],
     { openCommitment: { text: 'ship it', date: '2026-07-08' }, themes: [{ key: 'investor', count: 2, first: 'a', last: 'b' }] })
   ok('daily user block has OWED / EARLIER / RECURRING', u.includes('OWED') && u.includes('EARLIER') && u.includes('RECURRING'))
+
+  const withMorning = buildDailyUser('David', En({}), [], [], {}, {
+    win: 'send the follow-up', question: 'What needs to be true before noon?', answer: 'A rough first line.',
+  })
+  ok('daily user block preserves morning context',
+    withMorning.includes('THIS MORNING') && withMorning.includes('A rough first line.'))
+
+  const a = buildAnswerUser(
+    'David', En({ event: 'missed the investor follow-up' }),
+    { text: 'What would you tell a founder you respect here?', kind: 'rumination' },
+    'I would tell them to send the note before they can rehearse the failure again.',
+    { voice: 'terse, lowercase', themes: [{ key: 'avoidance', count: 2, first: 'a', last: 'b' }] },
+  )
+  ok('answer user block carries the full exchange',
+    a.includes("COACH'S READ") && a.includes('THEIR ONE ANSWER') && a.includes('KNOWN VOICE'))
 }
 
 // ---------- extractJson robustness ----------
 ok('extractJson parses clean', (extractJson<{ a: number }>('{"a":1}')?.a) === 1)
 ok('extractJson digs out embedded', (extractJson<{ a: number }>('noise {"a":2} tail')?.a) === 2)
 ok('extractJson returns null on junk', extractJson('not json at all') === null)
+ok('answer close is capped at two sentences',
+  boundedClose('One clear line. A second settles it. A third must not land.') === 'One clear line. A second settles it.')
 
 // ---------- local memory: theme ledger + commitment chain ----------
 const E = (date: string, o: Partial<Entry> = {}): Entry => ({
@@ -111,6 +141,13 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   const c = curate(entries, mem)
   ok('curate keeps 8 recent', c.history.length === 8)
   ok('curate recalls an older themed night', c.recall.some((r) => r.event.includes('investor')))
+
+  const exchange = curate([E('2026-07-21', {
+    coachAnswer: 'send the note before fear makes it larger',
+    coachClose: { text: 'That is the move. Let it be enough tonight.', source: 'ai' },
+  })], emptyCoachMemory())
+  ok('curate carries the answer and close forward',
+    exchange.history[0].answer?.includes('send the note') === true && exchange.history[0].close?.includes('That is the move') === true)
 }
 
 // commitment chain: record tonight, resolve it next night

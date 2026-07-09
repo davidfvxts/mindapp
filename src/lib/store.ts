@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { applyEntry, daysBetween, todayStr, weekCount } from './game'
 import { loadState, resetState, saveState, syncEntries } from './storage'
-import { aiEnabled, fetchCoachReply, fetchFirstRead, fetchNudge, getWeeklyInsight } from './ai'
+import { aiEnabled, fetchCoachClose, fetchCoachReply, fetchFirstRead, fetchNudge, getWeeklyInsight } from './ai'
 import { applyMemo, isCharged, recordCommitment, mergeWeeklyDelta } from './coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, type OnboardingAnswers } from './onboarding'
 import {
@@ -20,6 +20,8 @@ import type { AppState, CoachReply, Emotion, Entry, InsightCard, MorningNote, Se
 const uid = (): string =>
   globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
+const ANSWER_LIMIT = 600
+
 export interface Draft {
   event: string
   emotions: Emotion[]
@@ -29,6 +31,8 @@ export interface Draft {
 
 /** What the post-reflection screen shows. reply is null when Coach was skipped. */
 export interface Reveal {
+  /** The saved entry, so an optional answer can only close this one night. */
+  entryId: string
   night: number
   reply: CoachReply | null
   /** True when a reply is owed but couldn't be fetched (offline / transient). */
@@ -201,7 +205,7 @@ export function useFacet() {
       void scheduleDailyReminder(settings.reminderTime, settings.cue)
       void scheduleMorningIntention(settings.morningTime, entry.next)
       setState((s) => ({ ...s, settings, onboarded: true, coach, entries: [entry], game }))
-      setReveal({ night: game.streak, reply, pending: false, firstRead: true })
+      setReveal({ entryId: entry.id, night: game.streak, reply, pending: false, firstRead: true })
       setThinking(false)
     },
     [state.game, online],
@@ -256,7 +260,7 @@ export function useFacet() {
 
       const { game, freezeUsed } = applyEntry(state.game, entry, history.length + 1)
       setState((s) => ({ ...s, game, entries: [entry, ...s.entries], coach, nextMorningQuestion }))
-      setReveal({ night: game.streak, reply, pending })
+      setReveal({ entryId: entry.id, night: game.streak, reply, pending })
       setThinking(false)
 
       // Tonight's intention comes back tomorrow morning, when it can be acted on.
@@ -335,6 +339,55 @@ export function useFacet() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online, state.entries.length, state.lastWeeklyReview, state.lastWeeklySynthesis, thinking])
+
+  /**
+   * One optional answer, saved to the entry before any network work begins.
+   * A missing close is final for this night: no synthetic line and no reconnect
+   * queue, so the nightly ritual never becomes a chat thread.
+   */
+  const answerCoach = useCallback(async (entryId: string, rawAnswer: string): Promise<boolean> => {
+    const answer = rawAnswer.trim().slice(0, ANSWER_LIMIT)
+    const entry = state.entries.find((e) => e.id === entryId)
+    if (!answer || !entry?.coach || entry.coachAnswer || entry.coachClose) return false
+
+    const answeredEntry: Entry = { ...entry, coachAnswer: answer, synced: false }
+    const locallySaved = {
+      ...state,
+      entries: state.entries.map((e) => (e.id === entryId ? answeredEntry : e)),
+    }
+    // Persist synchronously before starting the optional online close.
+    saveState(locallySaved)
+    setState((s) => ({
+      ...s,
+      entries: s.entries.map((e) => (e.id === entryId ? { ...e, coachAnswer: answer, synced: false } : e)),
+    }))
+
+    if (!online || !aiEnabled()) return false
+
+    const result = await fetchCoachClose(
+      answeredEntry,
+      state.entries.filter((e) => e.id !== entryId),
+      state.settings,
+      state.coach,
+    )
+    if (!result) return false
+
+    const today = todayStr()
+    setState((s) => {
+      const target = s.entries.find((e) => e.id === entryId)
+      if (!target || target.coachAnswer !== answer || target.coachClose) return s
+      return {
+        ...s,
+        entries: s.entries.map((e) =>
+          e.id === entryId ? { ...e, coachClose: result.close, synced: false } : e,
+        ),
+        // The answer can sharpen themes and voice, but must not re-resolve an
+        // intention already handled by the nightly read.
+        coach: applyMemo(s.coach, result.memo, today, false),
+      }
+    })
+    return true
+  }, [state, online])
 
   /** Re-run the intake at any time: update settings + augment the profile.
    *  No new entry, no Night change — just re-tune what Coach knows. */
@@ -441,7 +494,7 @@ export function useFacet() {
 
   return {
     state, derived, toast, thinking, reveal, online,
-    completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly,
+    completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly, answerCoach,
     markGuidanceSeen, commitNudge, declineNudge, resolveNudge,
     acknowledgeComeback, setMorning, hardReset,
     setToast, clearReveal: () => setReveal(null),
