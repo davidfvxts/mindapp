@@ -158,11 +158,13 @@ export interface ThemeLedgerEntry {
   last: string
 }
 
-/** A "one thing I'll do differently" intention, tracked to close the loop. */
+/** A "one thing I'll do differently" intention, tracked to close the loop.
+ *  'stale' = it aged out unresolved and awaits the user's call — still on, or
+ *  let go — instead of dying silently (a real coach would ask). */
 export interface Commitment {
   date: string
   text: string
-  status: 'open' | 'kept' | 'dropped'
+  status: 'open' | 'kept' | 'dropped' | 'stale'
 }
 
 /**
@@ -170,6 +172,10 @@ export interface Commitment {
  * nudged by daily replies. Every field is bounded (see coachMemory.ts).
  */
 export interface CoachProfile {
+  /** Coach's running note on who this person is and how they're changing —
+   *  ~120 words, revised by the weekly pass, prepended to every coaching call.
+   *  Narrative carries what flat lists can't: trajectory, tension, change. */
+  narrative?: string
   /** Learned register: terse/warm/technical/lowercase/etc. Drives voice-mirroring. */
   voice?: string
   values?: string[]

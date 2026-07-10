@@ -38,6 +38,7 @@ export default function App() {
           cue: p.cue,
           reminderTime: p.reminderTime,
           morningTime: p.morningTime,
+          tone: p.tone,
         }}
         onRetune={(settings, answers) => { m.retune(settings, answers); setRetuning(false); setTab('today') }}
       />
@@ -97,6 +98,7 @@ export default function App() {
             onCommit={m.commitNudge}
             onDecline={m.declineNudge}
             onResolve={m.resolveNudge}
+            onRenegotiate={m.renegotiateIntention}
             onSeen={m.markGuidanceSeen}
           />
         )}

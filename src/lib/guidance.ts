@@ -1,4 +1,5 @@
 import { CHARGED } from './types'
+import { staleCommitment } from './coachMemory'
 import type { AppState, Nudge, NudgeKind, NudgeSource } from './types'
 
 /*
@@ -484,10 +485,12 @@ export const inFlight = (state: AppState): Nudge[] => {
 export const resolvedNudges = (state: AppState): Nudge[] =>
   state.nudges.filter((n) => n.status === 'kept' || n.status === 'dropped' || n.status === 'declined')
 
-/** Attention worth a tab dot: an unseen open nudge, or a check-in newly due. */
+/** Attention worth a tab dot: an unseen open nudge, a check-in newly due, or
+ *  an intention adrift awaiting the user's call (still on / let go). */
 export const unseenCount = (state: AppState): number => {
   const open = openNudge(state)
   let c = open && !open.seen ? 1 : 0
   for (const x of checkInsDue(state)) if (!x.checkInSeen) c += 1
+  if (staleCommitment(state.coach)) c += 1
   return c
 }

@@ -177,7 +177,8 @@ src/
     types.ts        Domain model. EMOTIONS, CHARGED, CoachMemory (profile/themes/commitments).
     game.ts         Habit engine: the Night mechanic, never-miss-twice, internal XP.  ← TESTED
     coachMemory.ts  Local-first coach memory: curate() (recency + long-ago recall),
-                    recordCommitment/applyMemo/mergeWeeklyDelta. Bounded.  ← TESTED
+                    narrative, full weekly revision, renegotiation, rating folds,
+                    stem-lite theme matcher. Bounded.  ← TESTED
     onboarding.ts   Guided-intake → profile seed + deterministic First Read.  ← TESTED
     guidance.ts     The occasional nudge: irregular gate + evidence-based library + lifecycle.  ← TESTED
     morning.ts      The loop beyond 11pm: Today bookend (win + adaptive question), intention line, comeback. PURE.  ← TESTED
@@ -288,14 +289,32 @@ CLOSE loops — never a question that demands an answer tonight; anything worth 
 to the morning ("Tomorrow, ask yourself…"), and charged nights end parked. Coach replies in the
 language the user writes in (German entry → German reply). An entry signalling acute distress
 gets a quiet signpost to a real person/professional instead of an intervention — no diagnosis,
-no lists. Reply ratings tune tone **symmetrically**: "Not quite" eases Coach to gentler,
-"That's right" lifts it back to default (a deliberate `sharper` is never overridden).
+no lists. Reply ratings tune tone **one step at a time** (sharper↔default↔gentler — never jumping
+over a level) and file the fired move under landed/avoided so Coach learns what works;
+the baseline comes from the calibration question in onboarding/retune.
 
 **Memory is local-first** (in app state, persisted, synced like entries — no server state, no
-new table): a `profile` (voice, values, goals, obstacles, people, projects, what lands vs. not,
-revised weekly by Opus), a **theme ledger** (first/last/count → recency *and* long-ago recall),
-and a **commitment ledger** (each "one thing I'll do differently" tracked to kept/dropped for
-accountability). `curate()` sends Coach the recent nights verbatim + older nights a live theme
+new table) **and it can change its mind (memory v2):**
+- **The narrative** (`profile.narrative`, ~120 words): Coach's running note on who the user is
+  and how they're CHANGING — written and revised by every weekly pass, prepended to every
+  coaching call. Narrative carries what flat lists can't: trajectory, tension, shifts.
+- **Full revision, not accretion:** the weekly pass receives the CURRENT profile and returns
+  the COMPLETE revised one (`applyWeeklyRevision`) — whatever it omits is deleted. Deliberate
+  forgetting; stale goals don't survive by accident. Daily memos still merge lightly
+  (`applyMemo`); onboarding/retune seeds still merge via `mergeWeeklyDelta`.
+- **Theme ledger** (first/last/count) with a **stem-lite matcher** (`themeMatches`, mirrored in
+  server `logic.ts` for the pattern echo): recall survives plurals, inflections, German
+  compounds — "investor" recalls "die Investoren".
+- **Commitment ledger** with **renegotiation**: an intention past its TTL goes `stale` instead
+  of dying silently; Guidance shows one "An intention, adrift" card — *Still on it* (re-armed,
+  dated today) or *Let it go* (retired, no guilt). One renegotiation at a time.
+- **Ratings teach the moves** (`foldRating`): "That's right"/"Not quite" files the fired
+  intervention under `landed`/`avoided` immediately (latest verdict wins) — Coach learns which
+  moves work on THIS person without waiting for the weekly pass. Tone drifts one step per
+  rating (sharper↔default↔gentler) and never jumps; the baseline is set by the **calibration
+  question** in onboarding/retune ("How should Coach push?" → gentler/default/sharper, all
+  three honored server-side).
+`curate()` sends Coach the narrative + recent nights verbatim + older nights a live theme
 echoes + what's owed — so it knows both tonight and what you said weeks ago, in your voice.
 
 ### Onboarding = coach intake + the wow moment

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { applyEntry, daysBetween, todayStr, weekCount } from './game'
 import { loadState, resetState, saveState, syncEntries } from './storage'
 import { aiEnabled, fetchCoachClose, fetchCoachReply, fetchFirstRead, fetchNudge, getWeeklyInsight } from './ai'
-import { applyMemo, isCharged, recordCommitment, mergeWeeklyDelta } from './coachMemory'
+import { applyMemo, applyWeeklyRevision, foldRating, isCharged, recordCommitment, renegotiateCommitment, mergeWeeklyDelta, staleCommitment } from './coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, type OnboardingAnswers } from './onboarding'
 import {
   dueForNudge, pickOfflineNudge, toNudge, markSeen, weeklyIntentionNudge,
@@ -275,11 +275,20 @@ export function useFacet() {
     setState((s) => {
       const [head, ...rest] = s.entries
       if (!head) return s
-      // Symmetric: a miss eases Coach off; a hit lifts the easing again.
-      // A deliberate 'sharper' setting is never overridden by ratings.
+      // Tone drifts one step at a time and recovers the same way; the user's
+      // deliberate calibration is only ever nudged, never jumped over.
       const tone: Settings['tone'] =
-        rating === 0 ? 'gentler' : s.settings.tone === 'gentler' ? 'default' : s.settings.tone
-      return { ...s, settings: { ...s.settings, tone }, entries: [{ ...head, rating }, ...rest] }
+        rating === 0
+          ? (s.settings.tone === 'sharper' ? 'default' : 'gentler')
+          : (s.settings.tone === 'gentler' ? 'default' : s.settings.tone)
+      return {
+        ...s,
+        settings: { ...s.settings, tone },
+        entries: [{ ...head, rating }, ...rest],
+        // The move itself is filed under landed/avoided — Coach learns which
+        // interventions work on THIS person, reply by reply.
+        coach: foldRating(s.coach, head.coach?.kind, rating),
+      }
     })
     setToast(rating ? 'Noted — Coach will keep this read.' : 'Noted — Coach will ease off.')
   }, [])
@@ -304,7 +313,7 @@ export function useFacet() {
       setState((s) => ({
         ...s,
         cards: [card, ...s.cards],
-        coach: mergeWeeklyDelta(s.coach, result.profileDelta ?? undefined, today),
+        coach: applyWeeklyRevision(s.coach, result.profile, today),
         nudges: woop.wish.trim() && woop.plan.trim()
           ? [weeklyIntentionNudge(woop, uid(), nights, today), ...s.nudges]
           : s.nudges,
@@ -333,7 +342,7 @@ export function useFacet() {
       if (!result) return // try again tomorrow (or next session)
       setState((s) => ({
         ...s,
-        coach: mergeWeeklyDelta(s.coach, result.profileDelta ?? undefined, today),
+        coach: applyWeeklyRevision(s.coach, result.profile, today),
         lastWeeklySynthesis: today,
       }))
     })()
@@ -422,6 +431,12 @@ export function useFacet() {
     setToast(kept ? 'That’s a good one to keep.' : 'No pressure — it’s off your plate.')
   }, [])
 
+  /** The user's call on an intention that aged out: still on it, or let it go. */
+  const renegotiateIntention = useCallback((keep: boolean) => {
+    setState((s) => ({ ...s, coach: renegotiateCommitment(s.coach, keep, todayStr()) }))
+    setToast(keep ? 'Still on. Coach will hold the thread.' : 'Let go. Nothing carried forward.')
+  }, [])
+
   /** The comeback is shown once per lapse — acknowledging flows into the ritual. */
   const acknowledgeComeback = useCallback(() => {
     setState((s) => ({ ...s, comebackAck: s.game.lastDay }))
@@ -471,9 +486,12 @@ export function useFacet() {
     const openWeeklyIntention =
       state.nudges.find((n) => n.kind === 'intention' && n.status === 'committed') ?? null
 
+    // An intention that aged out unresolved — awaiting the user's call in Guidance.
+    const staleIntention = staleCommitment(state.coach)
+
     return {
       reflectedToday, thisWeek, todayIntention, comeback, morningNote, morningQuestion, morningWindow,
-      reviewReady, openWeeklyIntention,
+      reviewReady, openWeeklyIntention, staleIntention,
     }
   }, [state.entries, state.game, state.coach, state.comebackAck, state.mornings, state.nextMorningQuestion, state.nudges, state.lastWeeklyReview])
 
@@ -495,7 +513,7 @@ export function useFacet() {
   return {
     state, derived, toast, thinking, reveal, online,
     completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly, answerCoach,
-    markGuidanceSeen, commitNudge, declineNudge, resolveNudge,
+    markGuidanceSeen, commitNudge, declineNudge, resolveNudge, renegotiateIntention,
     acknowledgeComeback, setMorning, hardReset,
     setToast, clearReveal: () => setReveal(null),
   }

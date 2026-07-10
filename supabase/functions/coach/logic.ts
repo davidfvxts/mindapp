@@ -33,6 +33,8 @@ export interface EntryIn {
 
 export interface ThemeIn { key: string; count: number; first: string; last: string }
 export interface MemoryIn {
+  /** Coach's running note on who they are — prepended to every call. */
+  narrative?: string
   voice?: string
   values?: string[]
   goals?: string[]
@@ -63,6 +65,22 @@ export interface Triage {
   owedCommitment: boolean
 }
 
+// ---- recall matching: stem-lite, dependency-free ----
+// Mirror of src/lib/coachMemory.ts themeMatches — a theme echoes through
+// plurals, inflections and rephrasings, not just literal substrings.
+const STOP = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'on', 'for', 'with', 'my', 'our', 'der', 'die', 'das', 'und', 'mit', 'ein', 'eine'])
+const tokens = (s: string): string[] =>
+  s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((t) => t.length >= 3 && !STOP.has(t))
+const tokenMatch = (a: string, b: string): boolean =>
+  a === b || (a.length >= 5 && b.length >= 5 && a.slice(0, 5) === b.slice(0, 5))
+export function themeMatches(themeKey: string, text: string): boolean {
+  const keyToks = tokens(themeKey)
+  if (!keyToks.length) return false
+  const textToks = tokens(text)
+  const hits = keyToks.filter((k) => textToks.some((t) => tokenMatch(k, t))).length
+  return hits >= Math.ceil(keyToks.length / 2)
+}
+
 const WHY_SPIRAL = /\bwhy (am|do|did|is|are|can'?t|does|would) i\b/
 const SELF_BLAME = /(always screw|never able|what'?s wrong with me|i'?m such a|i always|why do i keep)/
 const AVOIDANCE = /(decision|decide|avoid|putting off|procrastinat|should talk|need to tell|keep dodging|been meaning to)/
@@ -78,7 +96,7 @@ export function triage(entry: EntryIn, memory: MemoryIn): Triage {
 
   const echoed = (memory.themes ?? [])
     .filter((t) => t.count >= 2)
-    .find((t) => blob.includes(t.key))
+    .find((t) => themeMatches(t.key, blob))
   const patternEcho = echoed ? echoed.key : null
 
   const positive =
@@ -149,7 +167,9 @@ export function buildDailyUser(
   memory: MemoryIn,
   morning?: MorningIn | null,
 ): string {
-  const lines: string[] = [`Reflector: ${name || 'the user'}`, '', 'TONIGHT']
+  const lines: string[] = [`Reflector: ${name || 'the user'}`]
+  if (memory.narrative) lines.push(`WHO THEY ARE — Coach's running note: ${memory.narrative}`)
+  lines.push('', 'TONIGHT')
   lines.push(`Event: ${entry.event}`)
   lines.push(`Emotions: ${entry.emotions.join(', ') || '(none named)'}`)
   lines.push(`What went well / their contribution: ${entry.well || '(left blank)'}`)
@@ -203,6 +223,7 @@ export function buildAnswerUser(
   lines.push(`What they'll do differently: ${entry.next || '(left blank)'}`)
   lines.push('', `COACH'S READ: ${reply.text}`)
   lines.push('', `THEIR ONE ANSWER: ${answer}`)
+  if (memory.narrative) lines.push('', `WHO THEY ARE: ${memory.narrative}`)
   if (memory.voice) lines.push('', `KNOWN VOICE: ${memory.voice}`)
   if (memory.themes?.length) {
     lines.push(`RECURRING THEMES: ${memory.themes.map((t) => `${t.key}×${t.count}`).join('; ')}`)
@@ -247,14 +268,16 @@ export function buildWeeklyUser(
       + (woop.obstacle ? ` · obstacle "${woop.obstacle}"` : '')
       + (woop.plan ? ` · plan "${woop.plan}"` : ''))
   }
-  if (memory.voice) lines.push('', `KNOWN VOICE: ${memory.voice}`)
-  const known: string[] = []
-  if (memory.values?.length) known.push(`values: ${memory.values.join(', ')}`)
-  if (memory.goals?.length) known.push(`goals: ${memory.goals.join(', ')}`)
-  if (memory.obstacles?.length) known.push(`obstacles: ${memory.obstacles.join(', ')}`)
-  if (memory.projects?.length) known.push(`projects: ${memory.projects.join(', ')}`)
-  if (memory.relationships?.length) known.push(`people: ${memory.relationships.join(', ')}`)
-  if (known.length) lines.push(`KNOWN PROFILE — ${known.join(' · ')}`)
+  lines.push('', 'CURRENT PROFILE ON RECORD (yours to revise — whatever you omit is removed):')
+  lines.push(`- narrative: ${memory.narrative || '(none yet)'}`)
+  lines.push(`- voice: ${memory.voice || '(unknown)'}`)
+  lines.push(`- values: ${memory.values?.join(', ') || '(none)'}`)
+  lines.push(`- goals: ${memory.goals?.join(', ') || '(none)'}`)
+  lines.push(`- obstacles: ${memory.obstacles?.join(', ') || '(none)'}`)
+  lines.push(`- projects: ${memory.projects?.join(', ') || '(none)'}`)
+  lines.push(`- people: ${memory.relationships?.join(', ') || '(none)'}`)
+  lines.push(`- moves that landed: ${memory.landed?.join('; ') || '(none)'}`)
+  lines.push(`- moves to ease off: ${memory.avoided?.join('; ') || '(none)'}`)
   return lines.join('\n')
 }
 
@@ -267,7 +290,9 @@ export function buildGuidanceUser(
   memory: MemoryIn,
   avoid: string[],
 ): string {
-  const lines = [`Reflector: ${name || 'the user'}`, `Nights so far: ${nights}`, '', 'RECENT NIGHTS:']
+  const lines = [`Reflector: ${name || 'the user'}`, `Nights so far: ${nights}`]
+  if (memory.narrative) lines.push(`WHO THEY ARE — Coach's running note: ${memory.narrative}`)
+  lines.push('', 'RECENT NIGHTS:')
   for (const e of entries) {
     lines.push(`- ${e.date} [${e.emotions.join(', ')}] ${e.event} | well: ${e.well || '—'} | next: ${e.next || '—'}${e.kind ? ` | coach: ${e.kind}` : ''}`)
   }

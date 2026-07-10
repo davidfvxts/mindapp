@@ -204,10 +204,10 @@ export async function fetchNudge(state: AppState): Promise<NudgeDraft | 'skip' |
   }
 }
 
-/** The weekly read plus the identity revision Opus proposes. */
+/** The weekly read plus the COMPLETE revised profile Opus returns. */
 export interface WeeklyResult {
   text: string
-  profileDelta: Partial<CoachProfile> | null
+  profile: Partial<CoachProfile> | null
 }
 
 /**
@@ -240,9 +240,9 @@ export async function getWeeklyInsight(
       }),
     })
     if (!res.ok) throw new Error(`coach ${res.status}`)
-    const data = (await res.json()) as { text?: string; profileDelta?: Partial<CoachProfile> }
+    const data = (await res.json()) as { text?: string; profile?: Partial<CoachProfile>; profileDelta?: Partial<CoachProfile> }
     if (!data.text) throw new Error('empty weekly read')
-    return { text: data.text, profileDelta: data.profileDelta ?? null }
+    return { text: data.text, profile: data.profile ?? data.profileDelta ?? null }
   } catch (err) {
     console.warn('[facet] weekly read unavailable:', err)
     return null

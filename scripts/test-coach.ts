@@ -7,7 +7,10 @@ import {
   boundedClose, buildAnswerUser, buildDailyUser, buildWeeklyUser, extractJson, routeModel, routeModelForKind, triage, type MemoryIn,
 } from '../supabase/functions/coach/logic'
 import { answerSystem, dailySystem } from '../supabase/functions/coach/prompts'
-import { curate, recordCommitment, applyMemo, mergeWeeklyDelta } from '../src/lib/coachMemory'
+import {
+  curate, recordCommitment, applyMemo, mergeWeeklyDelta,
+  applyWeeklyRevision, foldRating, renegotiateCommitment, staleCommitment, themeMatches,
+} from '../src/lib/coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, obstaclePhrase } from '../src/lib/onboarding'
 import {
   intentionForToday, isMorningWindow, missedNights, needsComeback,
@@ -389,6 +392,81 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   ok('weekly block carries their WOOP', u.includes('THEIR WOOP') && u.includes('close the pilot deal'))
   const u2 = buildWeeklyUser('David', [], NOMEM)
   ok('quiet pass sends no review block', !u2.includes('THEIR OWN REVIEW'))
+}
+
+// ---------- memory v2: a coach that changes its mind ----------
+{
+  // recall matcher: rephrasings, plurals, compounds — not literal substrings
+  ok('theme matches its plural', themeMatches('investor', 'the investors ghosted us'))
+  ok('theme matches an inflection', themeMatches('fundraising', 'we fundraise next month'))
+  ok('theme survives German compounds', themeMatches('investor', 'die Investoren haben abgesagt'))
+  ok('short words need an exact hit', !themeMatches('call', 'they may recall the board meeting'))
+  ok('multi-word theme needs half its words', themeMatches('investor call', 'another call ran long'))
+  ok('unrelated text stays quiet', !themeMatches('investor', 'a quiet afternoon of code review'))
+
+  // curate() recalls a REPHRASED older night
+  const entries = Array.from({ length: 10 }, (_, i) => E(`2026-07-${String(20 - i).padStart(2, '0')}`, {
+    event: i === 9 ? 'die Investoren wollen neue Zahlen' : `night ${i}`,
+  }))
+  const mem: CoachMemory = { profile: {}, themes: [{ key: 'investor', count: 4, first: 'a', last: 'b' }], commitments: [] }
+  ok('recall finds the rephrased night', curate(entries, mem).recall.some((r) => r.event.includes('Investoren')))
+
+  // curate() carries the narrative on every call
+  const withNote: CoachMemory = { profile: { narrative: 'Building Facet; avoidance is the pattern.' }, themes: [], commitments: [] }
+  ok('curate carries the narrative', curate([], withNote).memory.narrative?.includes('avoidance') === true)
+
+  // renegotiation: stale instead of silent death, then the user's call
+  let m = recordCommitment(emptyCoachMemory(), E('2026-07-01', { next: 'email the lawyer' }), '2026-07-01')
+  m = recordCommitment(m, E('2026-07-09', { next: 'draft the deck' }), '2026-07-09')
+  ok('an aged intention goes stale, not dropped', staleCommitment(m)?.text === 'email the lawyer')
+  ok('tonight’s intention stays open', curate([], m).memory.openCommitment?.text === 'draft the deck')
+  const kept = renegotiateCommitment(m, true, '2026-07-09')
+  ok('“still on it” re-arms it', kept.commitments.find((c) => c.text === 'email the lawyer')?.status === 'open')
+  const letgo = renegotiateCommitment(m, false, '2026-07-09')
+  ok('“let it go” retires it', letgo.commitments.find((c) => c.text === 'email the lawyer')?.status === 'dropped')
+  ok('only one renegotiation at a time', (() => {
+    let mm = recordCommitment(emptyCoachMemory(), E('2026-06-20', { next: 'a' }), '2026-06-20')
+    mm = { ...mm, commitments: [{ date: '2026-06-25', text: 'b', status: 'open' }, ...mm.commitments] }
+    mm = recordCommitment(mm, E('2026-07-09', { next: 'c' }), '2026-07-09')
+    return mm.commitments.filter((c) => c.status === 'stale').length === 1
+  })())
+
+  // ratings → the moves that land, reply by reply
+  let r = emptyCoachMemory()
+  r = foldRating(r, 'fear_setting', 1)
+  ok('a hit files the move under landed', r.profile.landed?.[0]?.includes('fear-setting') === true)
+  r = foldRating(r, 'fear_setting', 0)
+  ok('a later miss moves it to avoided', r.profile.avoided?.[0]?.includes('fear-setting') === true
+    && !(r.profile.landed ?? []).some((x) => x.includes('fear-setting')))
+  ok('unknown kinds fold to nothing', foldRating(r, undefined, 1) === r)
+
+  // the weekly pass owns the profile: full revision, omission = removal
+  const before: CoachMemory = {
+    profile: { goals: ['fundraising', 'hiring'], projects: ['old landing page'], voice: 'terse', landed: ['marking the win'] },
+    themes: [], commitments: [],
+  }
+  const revised = applyWeeklyRevision(before, {
+    narrative: 'Fundraising closed; the cofounder question is the new center of gravity.',
+    voice: 'terse, drier lately',
+    goals: ['hiring'],
+    obstacles: ['avoidance'],
+  }, '2026-07-09')
+  ok('revision keeps what was returned', revised.profile.goals?.join() === 'hiring')
+  ok('revision REMOVES what was omitted', !revised.profile.projects?.length)
+  ok('revision writes the narrative', revised.profile.narrative?.includes('cofounder') === true)
+  ok('landed/avoided survive unless revised', revised.profile.landed?.[0] === 'marking the win')
+  ok('a degenerate revision changes nothing', applyWeeklyRevision(before, {}, '2026-07-09') === before)
+  ok('revision caps lists', (applyWeeklyRevision(before,
+    { goals: Array.from({ length: 20 }, (_, i) => `g${i}`) }, '2026-07-09').profile.goals?.length ?? 99) <= 8)
+
+  // server: narrative + full profile travel with every call
+  ok('daily block opens with the running note',
+    buildDailyUser('David', En({}), [], [], { narrative: 'Ships fast, dodges the equity talk.' }).includes('WHO THEY ARE'))
+  ok('weekly block hands over the whole profile',
+    buildWeeklyUser('David', [], { narrative: 'x', landed: ['marking the win'] }).includes('CURRENT PROFILE ON RECORD'))
+  ok('server pattern echo survives rephrasing',
+    triage(En({ event: 'die Investoren wollen neue Zahlen', emotions: ['Focused'] }),
+      { themes: [{ key: 'investor', count: 3, first: 'a', last: 'b' }] }).primary === 'pattern')
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL COACH TESTS PASSED')

@@ -10,7 +10,7 @@ interface Props {
   onBegin?: (settings: Settings, answers: OnboardingAnswers, first: Draft) => Promise<void>
   /** Re-tune: intake only, update what Coach knows. */
   onRetune?: (settings: Settings, answers: OnboardingAnswers) => void
-  initial?: { name?: string; goals?: string[]; cue?: string; reminderTime?: string; morningTime?: string }
+  initial?: { name?: string; goals?: string[]; cue?: string; reminderTime?: string; morningTime?: string; tone?: Settings['tone'] }
 }
 
 /**
@@ -32,6 +32,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
   const [cue, setCue] = useState(initial?.cue ?? '')
   const [reminderTime, setTime] = useState(initial?.reminderTime ?? '21:30')
   const [morningTime, setMorning] = useState(initial?.morningTime ?? '08:30')
+  const [tone, setTone] = useState<Settings['tone']>(initial?.tone ?? 'default')
 
   const [event, setEvent] = useState('')
   const [emotions, setEmotions] = useState<Emotion[]>([])
@@ -52,7 +53,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
       cue: cue.trim() || 'close my laptop',
       reminderTime,
       morningTime,
-      tone: 'default',
+      tone,
     }
     if (retune) {
       onRetune?.(settings, buildAnswers(settings))
@@ -178,6 +179,20 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
                     {o}
                   </button>
                 ))}
+              </div>
+              <div className="section">
+                <label className="field-label">
+                  <span className="ambient">How should Coach push?</span>
+                  <span className="hint">You can change this any time.</span>
+                </label>
+                <div className="chips">
+                  {([['gentler', 'Gently'], ['default', 'Straight'], ['sharper', 'Sharper']] as const).map(([v, label]) => (
+                    <button key={v} type="button" className={`chip${tone === v ? ' on' : ''}`} aria-pressed={tone === v}
+                      onClick={() => setTone(v)}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           )}

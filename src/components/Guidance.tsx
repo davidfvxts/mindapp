@@ -7,12 +7,14 @@ import {
   inFlight,
   resolvedNudges,
 } from '../lib/guidance'
-import type { AppState, Nudge } from '../lib/types'
+import { staleCommitment } from '../lib/coachMemory'
+import type { AppState, Commitment, Nudge } from '../lib/types'
 
 interface Actions {
   onCommit: (id: string, note?: string) => void
   onDecline: (id: string, note?: string) => void
   onResolve: (id: string, kept: boolean) => void
+  onRenegotiate: (keep: boolean) => void
   onSeen: () => void
 }
 
@@ -75,9 +77,27 @@ function CheckInCard({ n, onResolve }: { n: Nudge } & Pick<Actions, 'onResolve'>
   )
 }
 
+/** An intention that aged out unresolved — the user decides, Coach never does. */
+function AdriftCard({ c, onRenegotiate }: { c: Commitment } & Pick<Actions, 'onRenegotiate'>) {
+  return (
+    <div className="nudge develop">
+      <span className="nudge-kind ambient">An intention, adrift</span>
+      <h2 className="g-title">“{c.text}”</h2>
+      <p className="secondary">
+        You set this a few nights ago and it hasn’t closed. Still on it, or let it go?
+        Either answer is a good one.
+      </p>
+      <div className="row nudge-actions">
+        <button className="btn primary" onClick={() => onRenegotiate(true)}>Still on it</button>
+        <button className="btn text" onClick={() => onRenegotiate(false)}>Let it go</button>
+      </div>
+    </div>
+  )
+}
+
 const STATUS_WORD: Record<string, string> = { kept: 'Kept', dropped: 'Set down', declined: 'Passed' }
 
-export function Guidance({ state, onCommit, onDecline, onResolve, onSeen }: { state: AppState } & Actions) {
+export function Guidance({ state, onCommit, onDecline, onResolve, onRenegotiate, onSeen }: { state: AppState } & Actions) {
   // Clear the tab marker once the user is looking at it.
   useEffect(() => { onSeen() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -85,12 +105,15 @@ export function Guidance({ state, onCommit, onDecline, onResolve, onSeen }: { st
   const due = checkInsDue(state)
   const flight = inFlight(state)
   const past = resolvedNudges(state)
-  const nothing = !open && due.length === 0 && flight.length === 0 && past.length === 0
+  const adrift = staleCommitment(state.coach)
+  const nothing = !open && !adrift && due.length === 0 && flight.length === 0 && past.length === 0
 
   return (
     <div className="develop">
       <h1>Guidance</h1>
       <p className="sub">One thing worth trying, now and then — only when Coach thinks it counts.</p>
+
+      {adrift && <AdriftCard c={adrift} onRenegotiate={onRenegotiate} />}
 
       {due.map((n) => (
         <CheckInCard key={n.id} n={n} onResolve={onResolve} />

@@ -22,6 +22,7 @@ const MAX_THEMES = 24
 const MAX_COMMITMENTS = 12
 const MAX_LIST = 8 // per profile array
 const VOICE_CAP = 280
+const NARRATIVE_CAP = 900 // ~130 words: the running note stays a note
 const COMMITMENT_TTL_DAYS = 3 // an unmet intention ages out rather than nagging forever
 
 const clean = (s: string): string => s.replace(/\s+/g, ' ').trim()
@@ -30,6 +31,8 @@ const cap = (xs: string[], n = MAX_LIST): string[] => xs.slice(0, n)
 
 /** The compact memory Coach receives with a daily reflection. */
 export interface CuratedMemory {
+  /** Coach's running note on who they are — prepended to every call. */
+  narrative?: string
   voice?: string
   values?: string[]
   goals?: string[]
@@ -79,6 +82,31 @@ const liteOf = (e: Entry): HistoryLite => ({
 const openCommitment = (m: CoachMemory): Commitment | null =>
   m.commitments.find((c) => c.status === 'open') ?? null
 
+/** The intention that aged out unresolved and awaits the user's call. */
+export const staleCommitment = (m: CoachMemory): Commitment | null =>
+  m.commitments.find((c) => c.status === 'stale') ?? null
+
+// ---- recall matching: stem-lite, dependency-free ----
+// A theme should recall "the investors ghosted us" from the key "investor".
+// Tokens match when equal, or when both run ≥5 chars and share their first
+// five — a crude stem that survives plurals, inflections, and compounds in
+// English and German alike. Multi-word themes need half their real words hit.
+// Mirrored in supabase/functions/coach/logic.ts for the server-side pattern echo.
+const STOP = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'on', 'for', 'with', 'my', 'our', 'der', 'die', 'das', 'und', 'mit', 'ein', 'eine'])
+const tokens = (s: string): string[] =>
+  s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((t) => t.length >= 3 && !STOP.has(t))
+const tokenMatch = (a: string, b: string): boolean =>
+  a === b || (a.length >= 5 && b.length >= 5 && a.slice(0, 5) === b.slice(0, 5))
+
+/** True when the text plausibly echoes the theme, rephrasings included. */
+export function themeMatches(themeKey: string, text: string): boolean {
+  const keyToks = tokens(themeKey)
+  if (!keyToks.length) return false
+  const textToks = tokens(text)
+  const hits = keyToks.filter((k) => textToks.some((t) => tokenMatch(k, t))).length
+  return hits >= Math.ceil(keyToks.length / 2)
+}
+
 /**
  * Build everything Coach needs about the past: recent nights verbatim (recency),
  * older nights that echo a live theme (long-ago recall), and the memory profile.
@@ -93,7 +121,7 @@ export function curate(entries: Entry[], m: CoachMemory): Curated {
     .map((t) => t.key)
   const recall = entries
     .slice(RECENT)
-    .filter((e) => topKeys.some((k) => e.event.toLowerCase().includes(k)))
+    .filter((e) => topKeys.some((k) => themeMatches(k, e.event)))
     .slice(0, OLDER_RECALL)
     .map((e) => ({ date: e.date, event: e.event }))
 
@@ -103,6 +131,7 @@ export function curate(entries: Entry[], m: CoachMemory): Curated {
     history,
     recall,
     memory: {
+      narrative: p.narrative,
       voice: p.voice,
       values: p.values,
       goals: p.goals,
@@ -144,8 +173,15 @@ function foldThemes(themes: ThemeLedgerEntry[], tags: string[], today: string): 
  */
 export function recordCommitment(m: CoachMemory, entry: Entry, today: string): CoachMemory {
   const commitments = m.commitments.map((c) => ({ ...c }))
+  // An intention past its TTL doesn't die silently — the newest one goes
+  // STALE and waits for the user's call in Guidance (still on / let go);
+  // anything older than that quietly retires. One renegotiation at a time.
+  let staled = commitments.some((c) => c.status === 'stale')
   for (const c of commitments) {
-    if (c.status === 'open' && daysBetween(c.date, today) > COMMITMENT_TTL_DAYS) c.status = 'dropped'
+    if (c.status === 'open' && daysBetween(c.date, today) > COMMITMENT_TTL_DAYS) {
+      c.status = staled ? 'dropped' : 'stale'
+      staled = true
+    }
   }
   const text = clean(entry.next)
   const hasSame = commitments.some((c) => c.status === 'open' && c.text === text)
@@ -205,6 +241,85 @@ export function mergeWeeklyDelta(
       projects: mergeList(p.projects, delta.projects),
       landed: mergeList(p.landed, delta.landed),
       avoided: mergeList(p.avoided, delta.avoided),
+      updatedAt: today,
+    },
+  }
+}
+
+/**
+ * The user's call on a stale intention: still on (re-armed as tonight's owed
+ * intention, dated today) or let go (retired, no guilt, no trace of blame).
+ */
+export function renegotiateCommitment(m: CoachMemory, keep: boolean, today: string): CoachMemory {
+  const commitments = m.commitments.map((c) =>
+    c.status === 'stale' ? { ...c, status: keep ? ('open' as const) : ('dropped' as const), date: keep ? today : c.date } : c,
+  )
+  return { ...m, commitments }
+}
+
+/** What each intervention feels like from the user's side — the vocabulary of
+ *  landed/avoided, so ratings teach Coach which MOVES work on this person. */
+const KIND_MOVE: Record<string, string> = {
+  rumination: 'the "what, not why" rewrite',
+  distancing: 'the second-person reframe',
+  pattern: 'naming a recurring pattern',
+  fear_setting: 'the fear-setting push',
+  agency: 'pointing at their own hand in it',
+  celebration: 'marking the win',
+  accountability: 'holding them to an intention',
+  followup: 'sharpening tomorrow\u2019s move',
+}
+
+/**
+ * Fold a reply rating into what Coach knows lands. Deliberate and rare, so one
+ * signal is enough: "That's right" files the move under landed (and clears it
+ * from avoided); "Not quite" the reverse. Latest verdict wins. This is how
+ * Coach gets measurably better per week of use — without waiting for the
+ * weekly pass.
+ */
+export function foldRating(m: CoachMemory, kind: string | undefined, rating: 0 | 1): CoachMemory {
+  const move = kind ? KIND_MOVE[kind] : undefined
+  if (!move) return m
+  const p = m.profile
+  const landed = (p.landed ?? []).filter((x) => x !== move)
+  const avoided = (p.avoided ?? []).filter((x) => x !== move)
+  if (rating === 1) landed.unshift(move)
+  else avoided.unshift(move)
+  return { ...m, profile: { ...p, landed: cap(landed), avoided: cap(avoided) } }
+}
+
+/**
+ * The weekly pass owns the profile: it receives the CURRENT profile and returns
+ * the COMPLETE revised one — keeping what holds, revising what shifted, and
+ * REMOVING what no longer fits (an omitted field is a removal). Deliberate
+ * forgetting, instead of stale goals surviving by accident. A degenerate reply
+ * (nothing recognisable in it) leaves memory untouched.
+ */
+export function applyWeeklyRevision(
+  m: CoachMemory,
+  revision: Partial<CoachProfile> | null | undefined,
+  today: string,
+): CoachMemory {
+  if (!revision) return m
+  const any =
+    !!revision.narrative?.trim() || !!revision.voice?.trim() ||
+    !!revision.values?.length || !!revision.goals?.length || !!revision.obstacles?.length ||
+    !!revision.projects?.length || !!revision.relationships?.length
+  if (!any) return m
+  const list = (xs?: string[]): string[] | undefined =>
+    xs?.length ? cap(uniq(xs.map(clean).filter(Boolean))) : undefined
+  return {
+    ...m,
+    profile: {
+      narrative: revision.narrative ? clean(revision.narrative).slice(0, NARRATIVE_CAP) : undefined,
+      voice: revision.voice ? clean(revision.voice).slice(0, VOICE_CAP) : m.profile.voice,
+      values: list(revision.values),
+      goals: list(revision.goals),
+      obstacles: list(revision.obstacles),
+      relationships: list(revision.relationships),
+      projects: list(revision.projects),
+      landed: list(revision.landed) ?? m.profile.landed,
+      avoided: list(revision.avoided) ?? m.profile.avoided,
       updatedAt: today,
     },
   }

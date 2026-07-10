@@ -164,11 +164,12 @@ Deno.serve(async (req) => {
     if (body.mode === 'weekly') {
       const memory = body.memory ?? {}
       const user = buildWeeklyUser(body.name, body.entries ?? [], memory, body.review, body.woop)
-      const raw = await callClaude('claude-opus-4-8', weeklySystem(), user, 2000, true)
-      const parsed = extractJson<{ text?: string; profileDelta?: unknown }>(raw) ?? { text: raw.trim() }
+      const raw = await callClaude('claude-opus-4-8', weeklySystem(), user, 2200, true)
+      const parsed = extractJson<{ text?: string; profile?: unknown; profileDelta?: unknown }>(raw) ?? { text: raw.trim() }
       return json({
         text: parsed.text ?? raw.trim(),
-        profileDelta: parsed.profileDelta ?? null,
+        // Full revision (see weeklySystem); profileDelta kept as a legacy alias.
+        profile: parsed.profile ?? parsed.profileDelta ?? null,
         meta: { model: 'claude-opus-4-8', route: 'weekly→opus' },
       })
     }
@@ -207,6 +208,7 @@ Deno.serve(async (req) => {
 
     let system = dailySystem(memory, t)
     if (body.tone === 'gentler') system += '\n\nKeep it especially gentle tonight; ease the pressure.'
+    if (body.tone === 'sharper') system += '\n\nThey asked for the direct version: skip the cushioning, keep the respect. Blunter than usual, never colder.'
 
     const user = buildDailyUser(body.name, body.entry, body.history ?? [], body.recall ?? [], memory, body.morning)
     const raw = await callClaude(model, system, user, 600, false)
