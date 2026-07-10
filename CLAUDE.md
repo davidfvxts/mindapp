@@ -151,8 +151,9 @@ Capacitor. Local-first, with optional Supabase sync and optional Claude coaching
 **Backend (Supabase project "Mindapp", ref `sxcuolzzigxzertblhlt`):** schema + RLS applied,
 the `coach` edge function is deployed (verify_jwt on), and `.env.local` is wired (URL + anon
 key + coach URL). Two manual steps remain, both in the Supabase dashboard:
-1. **Paste `ANTHROPIC_API_KEY`** as an Edge Function secret (Project → Edge Functions →
-   Secrets, or `supabase secrets set ANTHROPIC_API_KEY=sk-ant-…`) → turns on real Coach.
+1. **Paste `claude_secret_api_key`** as an Edge Function secret (Project → Edge Functions →
+   Secrets, or `supabase secrets set claude_secret_api_key=sk-ant-…`) → turns on real Coach.
+   `ANTHROPIC_API_KEY` remains supported as a fallback for existing environments.
 2. **Enable "Anonymous sign-ins"** (Authentication → Sign In / Providers) → turns on sync.
 Until (1), online reflections show "Coach reads this when you're back online" and catch up
 once the key is set. Until (2), the app is local-only (still fully usable).
@@ -388,11 +389,12 @@ setup" — updates settings and augments the profile (`store.retune`), no new en
 
 ### The API key never touches the browser
 Anthropic is called from the Supabase Edge Function (`supabase/functions/coach/`) holding
-`ANTHROPIC_API_KEY` as a server-side secret. Notifications are **local**, not push
+`claude_secret_api_key` as a server-side secret (`ANTHROPIC_API_KEY` is a compatibility
+fallback). Notifications are **local**, not push
 (`@capacitor/local-notifications`) — no APNs, no server, works offline; the evening cue reminder and the one-shot morning note both schedule on-device.
 
 ### Next steps, in order
-1. Paste `ANTHROPIC_API_KEY` (secret) + enable Anonymous sign-ins — see the two steps above.
+1. Paste `claude_secret_api_key` (secret) + enable Anonymous sign-ins — see the two steps above.
 2. Ship the PWA to David + ~10 founders. **Watch 30-day retention** — the only
    metric that matters right now. Don't over-build ahead of it.
 3. Later: magic-link auth UI (link it to the anonymous user so history carries over).

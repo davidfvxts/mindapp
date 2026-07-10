@@ -1,11 +1,11 @@
 // Facet — Coach edge function (Deno / Supabase Edge Functions).
 //
-// Stateless and expert-driven. Holds ANTHROPIC_API_KEY server-side so it never
+// Stateless and expert-driven. Holds the Claude API key server-side so it never
 // reaches the browser. All memory is local-first in the client; this function
 // just triages, routes to the right model, loads the right expert, and replies.
 //
 // Deploy:  supabase functions deploy coach
-// Secret:  supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+// Secret:  supabase secrets set claude_secret_api_key=sk-ant-...
 
 import {
   boundedClose,
@@ -31,7 +31,11 @@ import {
 } from './logic.ts'
 import { answerSystem, dailySystem, guidanceSystem, monthlySystem, onboardingSystem, weeklySystem } from './prompts.ts'
 
-const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY')
+// claude_secret_api_key is the deployed project secret. Retain the conventional
+// name as a fallback so existing environments keep working during a rotation.
+const ANTHROPIC_KEY =
+  Deno.env.get('claude_secret_api_key') ??
+  Deno.env.get('ANTHROPIC_API_KEY')
 const API = 'https://api.anthropic.com/v1/messages'
 const KINDS: CoachKind[] = [
   'rumination', 'distancing', 'pattern', 'fear_setting',
@@ -138,7 +142,7 @@ async function callClaude(model: Model, system: string, user: string, maxTokens:
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  if (!ANTHROPIC_KEY) return json({ error: 'ANTHROPIC_API_KEY not set' }, 500)
+  if (!ANTHROPIC_KEY) return json({ error: 'Coach API key not set' }, 500)
 
   try {
     const body = (await req.json()) as DailyBody | AnswerBody | WeeklyBody | MonthlyBody | OnboardingBody | GuidanceBody
