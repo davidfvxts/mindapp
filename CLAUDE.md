@@ -149,14 +149,11 @@ Wants decisive senior recommendations over menus. Be concise; skip hedging.
 Capacitor. Local-first, with optional Supabase sync and optional Claude coaching.
 
 **Backend (Supabase project "Mindapp", ref `sxcuolzzigxzertblhlt`):** schema + RLS applied,
-the `coach` edge function is deployed (verify_jwt on), and `.env.local` is wired (URL + anon
-key + coach URL). Two manual steps remain, both in the Supabase dashboard:
-1. **Paste `claude_secret_api_key`** as an Edge Function secret (Project → Edge Functions →
-   Secrets, or `supabase secrets set claude_secret_api_key=sk-ant-…`) → turns on real Coach.
-   `ANTHROPIC_API_KEY` remains supported as a fallback for existing environments.
-2. **Enable "Anonymous sign-ins"** (Authentication → Sign In / Providers) → turns on sync.
-Until (1), online reflections show "Coach reads this when you're back online" and catch up
-once the key is set. Until (2), the app is local-only (still fully usable).
+the `coach` edge function is deployed (verify_jwt on, reading `claude_secret_api_key`, currently
+v17), `.env.local` is wired (URL + anon key + coach URL), and both manual dashboard steps are
+done: the `claude_secret_api_key` secret is set (real Coach is live) and "Anonymous sign-ins" is
+enabled (Authentication → Sign In / Providers — sync is live). `ANTHROPIC_API_KEY` remains
+supported as a fallback for existing environments.
 
 ### Commands
 ```bash
@@ -394,10 +391,9 @@ fallback). Notifications are **local**, not push
 (`@capacitor/local-notifications`) — no APNs, no server, works offline; the evening cue reminder and the one-shot morning note both schedule on-device.
 
 ### Next steps, in order
-1. Paste `claude_secret_api_key` (secret) + enable Anonymous sign-ins — see the two steps above.
-2. Ship the PWA to David + ~10 founders. **Watch 30-day retention** — the only
+1. Ship the PWA to David + ~10 founders. **Watch 30-day retention** — the only
    metric that matters right now. Don't over-build ahead of it.
-3. Later: magic-link auth UI (link it to the anonymous user so history carries over).
+2. Later: magic-link auth UI (link it to the anonymous user so history carries over).
 
 ### Reference docs
 `docs/design-system.md` (full visual spec), `docs/Reflection-System-2026.md` (the
