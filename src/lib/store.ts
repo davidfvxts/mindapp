@@ -14,7 +14,8 @@ import {
 } from './morning'
 import { quietSynthesisDue, weeklyReady, type WeeklyAnswers, type Woop } from './weekly'
 import { liveDecision, monthlyReady, type MonthlyAnswers } from './monthly'
-import { ensureSession } from './supabase'
+import { ensureSession, supabase } from './supabase'
+import { clearAllDrafts } from './drafts'
 import { cancelMorningIntention, scheduleDailyReminder, scheduleMorningIntention } from './notifications'
 import type { AppState, CoachReply, Emotion, Entry, InsightCard, MonthTheme, MorningNote, Settings } from './types'
 
@@ -75,8 +76,24 @@ export function useFacet() {
     return () => clearTimeout(t)
   }, [toast])
 
-  // Give this device a sync identity once (anonymous — no sign-in UI needed).
-  useEffect(() => { void ensureSession() }, [])
+  // Backup & sync is explicit opt-in (settings.sync). Legacy states predate the
+  // setting (sync: null): decide once, honestly — a device that was already
+  // syncing keeps syncing; one that never had a session stays local until asked.
+  useEffect(() => {
+    if (state.settings.sync !== null || !state.onboarded) return
+    void (async () => {
+      let hadSession = false
+      if (supabase) {
+        try {
+          const { data } = await supabase.auth.getSession()
+          hadSession = !!data.session
+        } catch { /* stay local */ }
+      }
+      setState((s) =>
+        s.settings.sync === null ? { ...s, settings: { ...s.settings, sync: hadSession } } : s,
+      )
+    })()
+  }, [state.settings.sync, state.onboarded])
 
   // The occasional nudge. When Coach is due (irregular, never daily, one at a
   // time), consider surfacing one thing worth trying. Online, Opus decides what —
@@ -110,8 +127,10 @@ export function useFacet() {
 
   // Local-first sync: push any unsynced reflections whenever they change or we
   // come back online. Never blocks a write; failures just retry next time.
+  // Runs ONLY with the user's explicit consent (settings.sync) — the anonymous
+  // account is created the first time sync is on, never before.
   useEffect(() => {
-    if (!online) return
+    if (!online || state.settings.sync !== true) return
     let cancelled = false
     void (async () => {
       await ensureSession()
@@ -120,7 +139,7 @@ export function useFacet() {
     })()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.entries.length, online])
+  }, [state.entries.length, online, state.settings.sync])
 
   // Deferred coaching: reflections written offline are read by Coach the moment
   // connectivity returns. Quiet — attaches replies to past entries and folds
@@ -477,10 +496,41 @@ export function useFacet() {
     setState((s) => ({ ...s, comebackAck: s.game.lastDay }))
   }, [])
 
-  const hardReset = useCallback(() => {
+  /**
+   * Erase everything — deliberate and COMPLETE. If this device ever synced,
+   * the backup rows are deleted first (online only — a local wipe that leaves
+   * cloud copies behind would make "erase everything" a lie). Returns false
+   * when the erase couldn't finish, so the confirm screen can stay put.
+   */
+  const eraseEverything = useCallback(async (): Promise<boolean> => {
+    if (supabase) {
+      try {
+        const { data } = await supabase.auth.getSession()
+        const userId = data.session?.user.id
+        if (userId) {
+          if (!online) {
+            setToast('You’re offline — erasing the backup needs a connection.')
+            return false
+          }
+          const { error } = await supabase.from('entries').delete().eq('user_id', userId)
+          if (error) {
+            setToast('Couldn’t erase the backup. Try again in a moment.')
+            return false
+          }
+          await supabase.auth.signOut()
+        }
+      } catch {
+        setToast('Couldn’t erase the backup. Try again in a moment.')
+        return false
+      }
+    }
+    void cancelMorningIntention()
+    clearAllDrafts()
     resetState()
+    setReveal(null)
     setState(loadState())
-  }, [])
+    return true
+  }, [online])
 
   const derived = useMemo(() => {
     const today = todayStr()
@@ -553,7 +603,7 @@ export function useFacet() {
     state, derived, toast, thinking, reveal, online,
     completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly, answerCoach,
     markGuidanceSeen, commitNudge, declineNudge, resolveNudge, renegotiateIntention,
-    beginMonthly, completeMonthly, acknowledgeComeback, setMorning, hardReset,
+    beginMonthly, completeMonthly, acknowledgeComeback, setMorning, eraseEverything,
     setToast, clearReveal: () => setReveal(null),
   }
 }

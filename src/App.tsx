@@ -25,12 +25,15 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('today')
   const [retuning, setRetuning] = useState(false)
 
-  if (!m.state.onboarded) return <Onboarding onBegin={m.beginJourney} />
+  // Distinct keys: first-run and retune must never share component state —
+  // an erase ends retune and lands on a FRESH welcome.
+  if (!m.state.onboarded) return <Onboarding key="first" onBegin={m.beginJourney} />
 
   if (retuning) {
     const p = m.state.settings
     return (
       <Onboarding
+        key="retune"
         mode="retune"
         initial={{
           name: p.name === 'there' ? '' : p.name,
@@ -39,8 +42,14 @@ export default function App() {
           reminderTime: p.reminderTime,
           morningTime: p.morningTime,
           tone: p.tone,
+          sync: p.sync,
         }}
         onRetune={(settings, answers) => { m.retune(settings, answers); setRetuning(false); setTab('today') }}
+        onErase={async () => {
+          const done = await m.eraseEverything()
+          if (done) { setRetuning(false); setTab('today') }
+          return done
+        }}
       />
     )
   }
@@ -66,6 +75,7 @@ export default function App() {
         {tab === 'today' &&
           (m.reveal ? (
             <AfterReflection
+              entryId={m.reveal.entryId}
               reply={m.reveal.reply}
               pending={m.reveal.pending}
               night={m.reveal.night}
@@ -120,9 +130,11 @@ export default function App() {
           />
         )}
 
-        {tab === 'vault' && <Vault state={m.state} onReset={m.hardReset} onRevisit={() => setRetuning(true)} />}
+        {tab === 'vault' && <Vault state={m.state} onRevisit={() => setRetuning(true)} />}
 
-        {(!aiEnabled() || !cloudEnabled()) && (
+        {/* Developer plumbing never reaches end users: local-only is a designed
+            mode in production, not an error to explain. */}
+        {import.meta.env.DEV && (!aiEnabled() || !cloudEnabled()) && (
           <p className="mode-note center">
             {!aiEnabled() && 'Coach is off. '}
             {!cloudEnabled() && 'On this device only. '}

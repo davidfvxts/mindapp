@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Stone } from './Stone'
 import { stoneForNight, stoneStage } from '../lib/milestones'
+import { clearDraft, loadDraft, saveDraft } from '../lib/drafts'
 import type { CoachClose, CoachReply } from '../lib/types'
 
 interface Props {
+  /** The entry this screen belongs to — keys the answer draft. */
+  entryId: string
   /** Coach's read. Null when skipped (offline / not configured). */
   reply: CoachReply | null
   /** A read is owed but wasn't reachable — it'll arrive on reconnect. */
@@ -21,14 +24,21 @@ interface Props {
 }
 
 export function AfterReflection({
-  reply, pending, night, firstRead, answer, close, onRate, onAnswer, onDone,
+  entryId, reply, pending, night, firstRead, answer, close, onRate, onAnswer, onDone,
 }: Props) {
+  const draftKey = `answer.${entryId}`
   const [rated, setRated] = useState<0 | 1 | null>(null)
-  const [composerOpen, setComposerOpen] = useState(false)
-  const [answerDraft, setAnswerDraft] = useState('')
+  // An in-progress answer survives a refresh; a non-empty draft reopens the composer.
+  const [answerDraft, setAnswerDraft] = useState(() => (answer ? '' : loadDraft<string>(draftKey) ?? ''))
+  const [composerOpen, setComposerOpen] = useState(() => !answer && !!answerDraft.trim())
   const [answerStatus, setAnswerStatus] = useState<'idle' | 'sending' | 'closed' | 'unavailable'>('idle')
   const milestone = stoneForNight(night)
   const savedAnswer = answer ?? (answerStatus === 'idle' ? '' : answerDraft.trim())
+
+  useEffect(() => {
+    if (answerStatus !== 'idle' || answer) return
+    saveDraft(draftKey, answerDraft)
+  }, [draftKey, answerDraft, answerStatus, answer])
 
   const rate = (r: 0 | 1) => {
     setRated(r)
@@ -40,6 +50,8 @@ export function AfterReflection({
     if (!text || answerStatus === 'sending') return
     setAnswerStatus('sending')
     const closed = await onAnswer(text)
+    // The answer is saved to the entry either way — the draft has done its job.
+    clearDraft(draftKey)
     setComposerOpen(false)
     setAnswerStatus(closed ? 'closed' : 'unavailable')
   }

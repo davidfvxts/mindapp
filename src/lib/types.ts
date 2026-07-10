@@ -216,6 +216,14 @@ export interface Settings {
    *  Empty string = off. */
   morningTime: string
   tone: 'default' | 'gentler' | 'sharper'
+  /**
+   * Backup & sync is EXPLICIT OPT-IN. false = reflections are never stored
+   * off the device (Coach still reads a night live to reply — a separate,
+   * visible act, not storage). true = entries back up under the anonymous
+   * account. null = undecided: legacy states, migrated once on load to true
+   * only if this device already had a sync session.
+   */
+  sync: boolean | null
 }
 
 export interface GameState {
@@ -263,7 +271,7 @@ export interface AppState {
 export const emptyCoachMemory = (): CoachMemory => ({ profile: {}, themes: [], commitments: [] })
 
 export const initialState = (): AppState => ({
-  settings: { name: '', cue: '', reminderTime: '21:30', morningTime: '08:30', tone: 'default' },
+  settings: { name: '', cue: '', reminderTime: '21:30', morningTime: '08:30', tone: 'default', sync: null },
   game: { xp: 0, level: 1, streak: 0, best: 0, freezes: 1, lastDay: null },
   entries: [],
   cards: [],

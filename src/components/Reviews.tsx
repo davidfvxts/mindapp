@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { KIND_LABEL } from '../lib/guidance'
+import { clearDraft, loadDraft, saveDraft } from '../lib/drafts'
 import type { WeeklyAnswers, Woop } from '../lib/weekly'
 import type { MonthlyAnswers } from '../lib/monthly'
 import type { MonthlyResult } from '../lib/ai'
@@ -27,6 +28,29 @@ interface Props {
 type StepId = 'checkin' | 'wins' | 'friction' | 'avoided' | 'wish' | 'plan'
 type MonthStep = 'trajectory' | 'gap' | 'fear' | 'theme'
 
+/** In-progress review writing, persisted so ten minutes of typing can never be lost. */
+interface WeeklyDraft {
+  at: StepId
+  wins: string
+  friction: string
+  avoided: string
+  wish: string
+  outcome: string
+  obstacle: string
+  plan: string
+}
+interface MonthlyDraft {
+  result: MonthlyResult
+  at: MonthStep
+  trajectory: string
+  gap: string
+  fear: string
+  theme: string
+}
+
+const weeklyDraftText = (d: WeeklyDraft | null): boolean =>
+  !!d && [d.wins, d.friction, d.avoided, d.wish, d.outcome, d.obstacle, d.plan].some((v) => v.trim())
+
 /**
  * The weekly review — the user's own work, structured by Coach (AAR: the
  * participant does the review) — plus the monthly arc, the deepest layer
@@ -42,25 +66,45 @@ export function Reviews({
   const [err, setErr] = useState('')
   const [card, setCard] = useState<InsightCard | null>(null)
 
-  const [wins, setWins] = useState('')
-  const [friction, setFriction] = useState('')
-  const [avoided, setAvoided] = useState('')
-  const [wish, setWish] = useState('')
-  const [outcome, setOutcome] = useState('')
-  const [obstacle, setObstacle] = useState('')
-  const [plan, setPlan] = useState('')
+  // Ten minutes of typing must survive anything: both flows persist as drafts
+  // and resume from the landing. Cleared only when the review is banked.
+  const [savedWeekly] = useState<WeeklyDraft | null>(() => loadDraft<WeeklyDraft>('weekly'))
+  const [savedMonthly] = useState<MonthlyDraft | null>(() => loadDraft<MonthlyDraft>('monthly'))
+
+  const [wins, setWins] = useState(savedWeekly?.wins ?? '')
+  const [friction, setFriction] = useState(savedWeekly?.friction ?? '')
+  const [avoided, setAvoided] = useState(savedWeekly?.avoided ?? '')
+  const [wish, setWish] = useState(savedWeekly?.wish ?? '')
+  const [outcome, setOutcome] = useState(savedWeekly?.outcome ?? '')
+  const [obstacle, setObstacle] = useState(savedWeekly?.obstacle ?? '')
+  const [plan, setPlan] = useState(savedWeekly?.plan ?? '')
 
   // ---- monthly arc state ----
-  const [draft, setDraft] = useState<MonthlyResult | null>(null)
-  const [mStep, setMStep] = useState<MonthStep>('trajectory')
-  const [trajectory, setTrajectory] = useState('')
-  const [gap, setGap] = useState('')
-  const [fear, setFear] = useState('')
-  const [theme, setTheme] = useState('')
+  const [draft, setDraft] = useState<MonthlyResult | null>(savedMonthly?.result ?? null)
+  const [mStep, setMStep] = useState<MonthStep>(savedMonthly?.at ?? 'trajectory')
+  const [trajectory, setTrajectory] = useState(savedMonthly?.trajectory ?? '')
+  const [gap, setGap] = useState(savedMonthly?.gap ?? '')
+  const [fear, setFear] = useState(savedMonthly?.fear ?? '')
+  const [theme, setTheme] = useState(savedMonthly?.theme ?? '')
+
+  useEffect(() => {
+    if (phase !== 'flow') return
+    saveDraft('weekly', {
+      at: steps[step] ?? 'wins', wins, friction, avoided, wish, outcome, obstacle, plan,
+    } satisfies WeeklyDraft)
+  }, [phase, steps, step, wins, friction, avoided, wish, outcome, obstacle, plan])
+
+  useEffect(() => {
+    if (phase !== 'month' || !draft) return
+    saveDraft('monthly', { result: draft, at: mStep, trajectory, gap, fear, theme } satisfies MonthlyDraft)
+  }, [phase, draft, mStep, trajectory, gap, fear, theme])
 
   const start = () => {
-    setSteps([...(openIntention ? (['checkin'] as StepId[]) : []), 'wins', 'friction', 'avoided', 'wish', 'plan'])
-    setStep(0)
+    const order: StepId[] = [...(openIntention ? (['checkin'] as StepId[]) : []), 'wins', 'friction', 'avoided', 'wish', 'plan']
+    setSteps(order)
+    // Resume where the draft left off; a resolved check-in can't come back.
+    const at = savedWeekly ? order.indexOf(savedWeekly.at) : 0
+    setStep(at > 0 ? at : 0)
     setErr('')
     setPhase('flow')
   }
@@ -70,7 +114,7 @@ export function Reviews({
       { wins: wins.trim(), friction: friction.trim(), avoided: avoided.trim() },
       { wish: wish.trim(), outcome: outcome.trim(), obstacle: obstacle.trim(), plan: plan.trim() },
     )
-    if (minted) { setCard(minted); setPhase('card') }
+    if (minted) { clearDraft('weekly'); setCard(minted); setPhase('card') }
   }
 
   const advance = () => {
@@ -90,6 +134,12 @@ export function Reviews({
 
   // ---- monthly: begin (one AI draft), then the guided sub-flow ----
   const beginMonth = async () => {
+    // A saved arc-in-progress resumes with the user's edits — no second AI call.
+    if (savedMonthly && draft) {
+      setErr('')
+      setPhase('month')
+      return
+    }
     const d = await onBeginMonthly()
     if (!d) return // store toasts on failure
     setDraft(d)
@@ -109,6 +159,7 @@ export function Reviews({
     setErr('')
     const i = monthOrder.indexOf(mStep)
     if (i < monthOrder.length - 1) return setMStep(monthOrder[i + 1])
+    clearDraft('monthly')
     onCompleteMonthly(
       { trajectory: trajectory.trim(), gap: gap.trim(), fear: fear.trim(), theme: theme.trim() },
       draft?.profile ?? null,
@@ -339,10 +390,13 @@ export function Reviews({
         {ready ? (
           <>
             <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
-              The week is gathered. You do the review — three questions and an
-              intention — and Coach reads it against your nights. About ten minutes.
+              {weeklyDraftText(savedWeekly)
+                ? 'Your review is where you left it — every word kept.'
+                : 'The week is gathered. You do the review — three questions and an intention — and Coach reads it against your nights. About ten minutes.'}
             </p>
-            <button className="btn" onClick={start}>Review my week</button>
+            <button className="btn" onClick={start}>
+              {weeklyDraftText(savedWeekly) ? 'Continue the review' : 'Review my week'}
+            </button>
           </>
         ) : (
           <>
@@ -380,7 +434,9 @@ export function Reviews({
           Trajectory and what you’re building toward — drafted from your own words.
           You set next month’s theme.
         </p>
-        {monthReady ? (
+        {savedMonthly && draft ? (
+          <button className="btn" onClick={beginMonth}>Continue the monthly arc</button>
+        ) : monthReady ? (
           <button className="btn" onClick={beginMonth} disabled={thinking}>
             {thinking ? 'Coach is reading your month…' : 'Begin the monthly arc'}
           </button>

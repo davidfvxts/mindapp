@@ -4,7 +4,7 @@ import { STONES, bankedStones, nextStone, type Stone as StoneModel } from '../li
 import { inclusionsForStone, prevMilestoneNight, type Inclusion } from '../lib/inclusions'
 import type { AppState } from '../lib/types'
 
-export function Vault({ state, onReset, onRevisit }: { state: AppState; onReset: () => void; onRevisit: () => void }) {
+export function Vault({ state, onRevisit }: { state: AppState; onRevisit: () => void }) {
   const { game, entries } = state
   // Stones are banked off the best Night ever reached — they never regress.
   const banked = bankedStones(game.best)
@@ -106,10 +106,9 @@ export function Vault({ state, onReset, onRevisit }: { state: AppState; onReset:
       </div>
 
       <div className="section">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <button className="btn text" onClick={onRevisit}>Revisit setup</button>
-          <button className="btn text" onClick={onReset}>Reset everything</button>
-        </div>
+        {/* Erasing lives behind Revisit setup — deliberate, confirmed, complete.
+            A destructive action never sits one thumb-width from a routine one. */}
+        <button className="btn text" onClick={onRevisit}>Revisit setup</button>
       </div>
     </div>
   )

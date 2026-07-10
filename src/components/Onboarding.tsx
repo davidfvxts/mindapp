@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { EMOTIONS, type Emotion, type Settings } from '../lib/types'
 import { GOAL_OPTIONS, OBSTACLE_OPTIONS, type OnboardingAnswers } from '../lib/onboarding'
+import { clearDraft, draftHasText, loadDraft, saveDraft } from '../lib/drafts'
 import type { Draft } from '../lib/store'
 import { Stone } from './Stone'
 
@@ -10,7 +11,28 @@ interface Props {
   onBegin?: (settings: Settings, answers: OnboardingAnswers, first: Draft) => Promise<void>
   /** Re-tune: intake only, update what Coach knows. */
   onRetune?: (settings: Settings, answers: OnboardingAnswers) => void
-  initial?: { name?: string; goals?: string[]; cue?: string; reminderTime?: string; morningTime?: string; tone?: Settings['tone'] }
+  /** Erase everything — offered only from the re-tune flow, behind a confirm. */
+  onErase?: () => Promise<boolean>
+  initial?: { name?: string; goals?: string[]; cue?: string; reminderTime?: string; morningTime?: string; tone?: Settings['tone']; sync?: Settings['sync'] }
+}
+
+/** First-run writing persists as it's typed — setup is short, but the first
+ *  reflection is real words that must survive a refresh or eviction. */
+interface OnboardingDraft {
+  step: number
+  name: string
+  goals: string[]
+  world: string
+  obstacle: string
+  cue: string
+  reminderTime: string
+  morningTime: string
+  tone: Settings['tone']
+  sync: boolean
+  event: string
+  emotions: Emotion[]
+  well: string
+  next: string
 }
 
 /**
@@ -18,27 +40,41 @@ interface Props {
  * Coach who you are, runs your first real reflection, and returns the First
  * Read as Night 1's Stone forms. Re-tune (any time): the intake steps only.
  */
-export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props) {
+export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial }: Props) {
   const retune = mode === 'retune'
   const LAST = retune ? 5 : 8 // steps 1..LAST; step 0 is the welcome
 
-  const [step, setStep] = useState(0)
+  const [saved] = useState<OnboardingDraft | null>(() => (retune ? null : loadDraft<OnboardingDraft>('onboarding')))
+  const restored = draftHasText(saved as Record<string, unknown> | null)
+
+  const [step, setStep] = useState(saved?.step ?? 0)
   const [reading, setReading] = useState(false)
+  const [erasing, setErasing] = useState(false)
 
-  const [name, setName] = useState(initial?.name ?? '')
-  const [goals, setGoals] = useState<string[]>(initial?.goals ?? [])
-  const [world, setWorld] = useState('')
-  const [obstacle, setObstacle] = useState('')
-  const [cue, setCue] = useState(initial?.cue ?? '')
-  const [reminderTime, setTime] = useState(initial?.reminderTime ?? '21:30')
-  const [morningTime, setMorning] = useState(initial?.morningTime ?? '08:30')
-  const [tone, setTone] = useState<Settings['tone']>(initial?.tone ?? 'default')
+  const [name, setName] = useState(saved?.name ?? initial?.name ?? '')
+  const [goals, setGoals] = useState<string[]>(saved?.goals ?? initial?.goals ?? [])
+  const [world, setWorld] = useState(saved?.world ?? '')
+  const [obstacle, setObstacle] = useState(saved?.obstacle ?? '')
+  const [cue, setCue] = useState(saved?.cue ?? initial?.cue ?? '')
+  const [reminderTime, setTime] = useState(saved?.reminderTime ?? initial?.reminderTime ?? '21:30')
+  const [morningTime, setMorning] = useState(saved?.morningTime ?? initial?.morningTime ?? '08:30')
+  const [tone, setTone] = useState<Settings['tone']>(saved?.tone ?? initial?.tone ?? 'default')
+  // Backup & sync is explicit opt-in: "on this device only" is the default.
+  const [sync, setSync] = useState<boolean>(saved?.sync ?? initial?.sync ?? false)
 
-  const [event, setEvent] = useState('')
-  const [emotions, setEmotions] = useState<Emotion[]>([])
-  const [well, setWell] = useState('')
-  const [next, setNext] = useState('')
+  const [event, setEvent] = useState(saved?.event ?? '')
+  const [emotions, setEmotions] = useState<Emotion[]>(saved?.emotions ?? [])
+  const [well, setWell] = useState(saved?.well ?? '')
+  const [next, setNext] = useState(saved?.next ?? '')
   const [err, setErr] = useState('')
+
+  useEffect(() => {
+    if (retune || reading) return
+    saveDraft('onboarding', {
+      step, name, goals, world, obstacle, cue, reminderTime, morningTime, tone, sync,
+      event, emotions, well, next,
+    } satisfies OnboardingDraft)
+  }, [retune, reading, step, name, goals, world, obstacle, cue, reminderTime, morningTime, tone, sync, event, emotions, well, next])
 
   const toggle = <T,>(list: T[], set: (v: T[]) => void, v: T, max: number) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : list.length < max ? [...list, v] : list)
@@ -54,11 +90,13 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
       reminderTime,
       morningTime,
       tone,
+      sync,
     }
     if (retune) {
       onRetune?.(settings, buildAnswers(settings))
       return
     }
+    clearDraft('onboarding')
     setReading(true)
     void onBegin?.(settings, buildAnswers(settings), { event, emotions, well, next })
   }
@@ -93,6 +131,31 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
     )
   }
 
+  // ---- erase everything: deliberate, two-step, complete ----
+  if (erasing) {
+    return (
+      <section className="wrap">
+        <header className="bar"><span className="wordmark">FACET</span></header>
+        <main className="develop">
+          <h1>Erase everything?</h1>
+          <p className="sub">
+            Every night, every read, every stone — gone from this phone and from your backup.
+            There’s no way back.
+          </p>
+          <div className="spacer" />
+          <button className="btn" onClick={() => setErasing(false)}>Keep everything</button>
+          <div className="spacer" />
+          <button
+            className="btn ghost"
+            onClick={() => { void onErase?.().then((done) => { if (!done) setErasing(false) }) }}
+          >
+            Erase everything
+          </button>
+        </main>
+      </section>
+    )
+  }
+
   // ---- welcome ----
   if (step === 0) {
     return (
@@ -111,6 +174,27 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
                 Two minutes to set up — then your first real reflection, read by Coach.
                 Let’s shape your first stone.
               </p>
+              <div className="section">
+                <label className="field-label">
+                  <span className="ambient">Your words</span>
+                  <span className="hint">
+                    Reflections are yours. Coach reads a night only to reply to it — nothing is kept on a server unless you choose backup.
+                  </span>
+                </label>
+                <div className="chips">
+                  <button type="button" className={`chip${!sync ? ' on' : ''}`} aria-pressed={!sync} onClick={() => setSync(false)}>
+                    On this device only
+                  </button>
+                  <button type="button" className={`chip${sync ? ' on' : ''}`} aria-pressed={sync} onClick={() => setSync(true)}>
+                    Backed up + synced
+                  </button>
+                </div>
+                {sync && (
+                  <p className="secondary" style={{ marginTop: 'var(--s-3)' }}>
+                    Backed up under an anonymous account — no email needed. Survives a lost phone. Change this any time.
+                  </p>
+                )}
+              </div>
             </>
           )}
           <div className="spacer" />
@@ -129,6 +213,9 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
         <div className="meter" aria-hidden><i style={{ width: `${(step / LAST) * 100}%` }} /></div>
 
         <div className="develop" key={step}>
+          {restored && step === (saved?.step ?? 0) && (
+            <p className="morning-line">Picked up where you left off.</p>
+          )}
           {step === 1 && (
             <>
               <span className="ambient">You</span>
@@ -221,6 +308,26 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
                   <button type="button" className="btn text" onClick={() => setMorning('08:30')}>Add a morning note</button>
                 )}
               </div>
+              {retune && (
+                <div className="section">
+                  <label className="field-label">
+                    <span className="ambient">Backup & sync</span>
+                    <span className="hint">
+                      {sync
+                        ? 'Your nights back up under an anonymous account. Turning this off stops future backups; what’s already backed up stays until you erase everything.'
+                        : 'On this device only. Turn on backup so your nights survive a lost phone — anonymous, no email needed.'}
+                    </span>
+                  </label>
+                  <div className="chips">
+                    <button type="button" className={`chip${!sync ? ' on' : ''}`} aria-pressed={!sync} onClick={() => setSync(false)}>
+                      On this device only
+                    </button>
+                    <button type="button" className={`chip${sync ? ' on' : ''}`} aria-pressed={sync} onClick={() => setSync(true)}>
+                      Backed up + synced
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -286,9 +393,19 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, initial }: Props
             </button>
           </div>
 
+          {retune && step === LAST && (
+            <div className="center" style={{ marginTop: 'var(--s-8)' }}>
+              <button type="button" className="btn text" onClick={() => setErasing(true)}>
+                Erase everything…
+              </button>
+            </div>
+          )}
+
           {step === 5 && !retune && (
             <p className="mode-note center">
-              Your reflections stay on this device. Nothing leaves it unless you turn on sync.
+              {sync
+                ? 'Your nights back up under an anonymous account — no email needed. You can turn this off any time.'
+                : 'Your reflections stay on this phone. You can turn on backup any time.'}
             </p>
           )}
         </div>

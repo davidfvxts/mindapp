@@ -186,6 +186,7 @@ src/
     ai.ts           Online-only Coach: sends entry + curated memory; returns reply + memo. Also fetchNudge().
     supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth.
     storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
+    drafts.ts       In-progress writing survives anything: debounced per-flow drafts.  ← TESTED
     store.ts        useFacet() — the single app hook. Owns online/offline + deferral + memory merge + nudges.
     milestones.ts   The five Stone colourways (Night 7/30/90/180/365) + stage words.
   components/
@@ -254,11 +255,30 @@ tonight against the declared win — plainly, never with guilt. Step 2 of the ri
 "This morning's win: …" so the debrief runs against it. Questions belong to mornings;
 nights close loops.
 
-### Sync
-`supabase.ts` signs the device in **anonymously** (no magic-link UI needed) so reflections
-sync under RLS when online; `storage.ts` pushes any unsynced entries on reconnect. A real
-sign-in can later be linked to the anonymous user, carrying history over. Requires
-"Anonymous sign-ins" enabled in the project's Auth settings.
+### Sync — explicit opt-in (the privacy contract)
+Backup & sync is **user consent, not a default**: `settings.sync` (chosen on the welcome
+screen, changeable in Revisit setup) gates ALL of it. Only when it's `true` does
+`supabase.ts` sign the device in **anonymously** (no magic-link UI needed) and
+`storage.ts` push unsynced entries under RLS. With sync off, **no account is created and
+no reflection is ever stored off the device** — Coach still reads a night live to reply
+(a separate, visible act; `authHeaders` falls back to the anon key). Legacy states
+(`sync: null`) migrate once on load: `true` only if the device already had a session.
+A real sign-in can later be linked to the anonymous user, carrying history over.
+Requires "Anonymous sign-ins" enabled in the project's Auth settings.
+
+**Erase everything** lives at the end of the retune flow behind a two-step confirm
+(never beside a routine action): it deletes the user's backup rows FIRST when a session
+exists (online required — refuses rather than half-erase), then signs out, clears all
+drafts, and wipes local state. Never claim at-rest encryption in copy — it isn't built.
+
+### Drafts — words are never lost
+`lib/drafts.ts` (TESTED) persists every writing surface's in-progress text to
+localStorage, debounced, keyed per flow (`tonight.<date>`, `onboarding`,
+`answer.<entryId>`, `weekly`, `monthly`). Surfaces hydrate from their draft on mount
+(one quiet "Picked up where you left off." line — no box), save on change, and clear on
+successful submit. The weekly/monthly reviews resume from the Reviews landing
+("Continue the review"), and the monthly resume reuses the saved AI draft — no second
+call. Keep this wired on any NEW writing surface.
 
 ### Engine invariant — do not "fix"
 `game.ts` still computes `xp`/`level`/`streak` internally. **`xp` and `level` are

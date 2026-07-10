@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { EMOTIONS, type Emotion, type MorningNote } from '../lib/types'
+import { todayStr } from '../lib/game'
+import { clearDraft, draftHasText, loadDraft, saveDraft } from '../lib/drafts'
 import type { Draft } from '../lib/store'
 
 interface Props {
@@ -27,20 +29,42 @@ const STEPS = [
   { n: 'The next step', hint: 'One thing you’ll do differently tomorrow.' },
 ]
 
+/** What tonight's in-progress writing looks like on disk. */
+interface TonightDraft {
+  step: number
+  event: string
+  emotions: Emotion[]
+  well: string
+  next: string
+  win: string
+  prep: string
+}
+
 export function DailyRitual({
   reflectedToday, cue, thinking, todayIntention,
   morningNote, morningQuestion, morningWindow, onSetMorning,
   comeback, onComebackSeen, onSubmit,
 }: Props) {
-  const [step, setStep] = useState(0)
-  const [event, setEvent] = useState('')
-  const [emotions, setEmotions] = useState<Emotion[]>([])
-  const [well, setWell] = useState('')
-  const [next, setNext] = useState('')
+  // Words are never lost: tonight's writing persists as it's typed and is
+  // restored silently if the page is refreshed or evicted mid-ritual.
+  const draftKey = useMemo(() => `tonight.${todayStr()}`, [])
+  const [saved] = useState<TonightDraft | null>(() => (reflectedToday ? null : loadDraft<TonightDraft>(draftKey)))
+  const restored = draftHasText(saved as Record<string, unknown> | null)
+
+  const [step, setStep] = useState(saved?.step ?? 0)
+  const [event, setEvent] = useState(saved?.event ?? '')
+  const [emotions, setEmotions] = useState<Emotion[]>(saved?.emotions ?? [])
+  const [well, setWell] = useState(saved?.well ?? '')
+  const [next, setNext] = useState(saved?.next ?? '')
   const [err, setErr] = useState('')
   const [adding, setAdding] = useState(false)
-  const [win, setWin] = useState('')
-  const [prep, setPrep] = useState('')
+  const [win, setWin] = useState(saved?.win ?? '')
+  const [prep, setPrep] = useState(saved?.prep ?? '')
+
+  useEffect(() => {
+    if (reflectedToday) return
+    saveDraft(draftKey, { step, event, emotions, well, next, win, prep } satisfies TonightDraft)
+  }, [draftKey, reflectedToday, step, event, emotions, well, next, win, prep])
 
   const toggle = (e: Emotion) =>
     setEmotions((cur) =>
@@ -54,6 +78,8 @@ export function DailyRitual({
     }
     setErr('')
     if (step < 2) return setStep(step + 1)
+    // The entry becomes the real save the moment it's submitted.
+    clearDraft(draftKey)
     onSubmit({ event, emotions, well, next })
   }
 
@@ -129,6 +155,8 @@ export function DailyRitual({
   return (
     <div className="develop" key={step}>
       {today}
+
+      {restored && <p className="morning-line">Picked up where you left off.</p>}
 
       <div className="dots">
         {STEPS.map((_, i) => (
