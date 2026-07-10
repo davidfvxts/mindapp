@@ -199,6 +199,15 @@ textarea.error, input.error { border-color: var(--line-control); }
 }
 .today-block .btn.text { padding-left: 0; }
 
+/* the month's theme, shown once at the arc's close — type only, never colour */
+.display-word {
+  font-size: var(--type-headline-size);
+  font-weight: var(--type-headline-weight);
+  letter-spacing: var(--type-headline-track);
+  line-height: 1.1;
+  color: var(--ink-primary);
+}
+
 /* ---------- step dots ---------- */
 .dots { display: flex; gap: var(--s-2); margin-bottom: var(--s-5); }
 .dots i {
@@ -330,6 +339,25 @@ textarea.error, input.error { border-color: var(--line-control); }
 .nudge-note { margin-top: var(--s-5); min-height: 64px; }
 .nudge-actions { gap: var(--s-4); margin-top: var(--s-5); align-items: center; }
 .nudge-actions .btn.primary { width: auto; padding-left: var(--s-7); padding-right: var(--s-7); }
+
+/* inclusions — the marked points inside a banked stone, type only */
+.inclusion {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  appearance: none; background: none; font-family: inherit;
+  border: none; border-top: 1px solid var(--line-hairline);
+  padding: var(--s-4) 0;
+}
+.inclusion:first-of-type { border-top: none; }
+.inclusion-label {
+  display: block; color: var(--ink-primary);
+  font-size: var(--type-secondary-size); font-weight: 500;
+}
+.inclusion.on .inclusion-label { color: var(--ink-secondary); }
+.inclusion-words {
+  display: block; margin-top: var(--s-3);
+  color: var(--ink-body); font-size: var(--type-secondary-size);
+  line-height: var(--type-body-lh);
+}
 
 /* new-nudge marker on the Guidance tab */
 .tabs button .tab-dot {

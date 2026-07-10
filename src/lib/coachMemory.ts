@@ -119,11 +119,14 @@ export function curate(entries: Entry[], m: CoachMemory): Curated {
     .sort((a, b) => b.count - a.count)
     .slice(0, 3)
     .map((t) => t.key)
-  const recall = entries
-    .slice(RECENT)
-    .filter((e) => topKeys.some((k) => themeMatches(k, e.event)))
-    .slice(0, OLDER_RECALL)
-    .map((e) => ({ date: e.date, event: e.event }))
+  // Older nights that echo a live theme — the raw material for a then-vs-now
+  // callback. Bias toward SPAN: keep the most-recent old echoes AND the very
+  // oldest one, so Coach can set tonight's words against words from weeks ago.
+  const matches = entries.slice(RECENT).filter((e) => topKeys.some((k) => themeMatches(k, e.event)))
+  const picked = matches.length > OLDER_RECALL
+    ? [...matches.slice(0, OLDER_RECALL - 1), matches[matches.length - 1]]
+    : matches
+  const recall = picked.map((e) => ({ date: e.date, event: e.event }))
 
   const p = m.profile
   const open = openCommitment(m)

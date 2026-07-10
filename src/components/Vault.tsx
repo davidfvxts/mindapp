@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Stone } from './Stone'
-import { bankedStones, nextStone, type Stone as StoneModel } from '../lib/milestones'
+import { STONES, bankedStones, nextStone, type Stone as StoneModel } from '../lib/milestones'
+import { inclusionsForStone, prevMilestoneNight, type Inclusion } from '../lib/inclusions'
 import type { AppState } from '../lib/types'
 
 export function Vault({ state, onReset, onRevisit }: { state: AppState; onReset: () => void; onRevisit: () => void }) {
@@ -9,16 +10,37 @@ export function Vault({ state, onReset, onRevisit }: { state: AppState; onReset:
   const banked = bankedStones(game.best)
   const upcoming = nextStone(game.best)
   const [open, setOpen] = useState<StoneModel | null>(null)
+  const [inclusion, setInclusion] = useState<Inclusion | null>(null)
 
   if (open) {
+    // The stone as a container of reflections: tapping an inclusion surfaces
+    // the user's own words from a night within the stone's span.
+    const points = inclusionsForStone(entries, open, prevMilestoneNight(STONES, open), state.coach.themes)
     return (
       <div className="develop">
-        <button className="btn text" onClick={() => setOpen(null)}>← The Vault</button>
+        <button className="btn text" onClick={() => { setOpen(null); setInclusion(null) }}>← The Vault</button>
         <div className="section center">
           {/* Colour blooms here, on the detail view. */}
           <Stone colored stone={open} size={200} caption={open.name} />
           <p className="sub" style={{ marginTop: 'var(--s-5)' }}>Night {open.night}.</p>
         </div>
+
+        {points.length > 0 && (
+          <div className="section">
+            <span className="ambient">Inside this stone</span>
+            <div className="spacer" />
+            {points.map((p) => (
+              <button
+                key={p.date}
+                className={`inclusion${inclusion?.date === p.date ? ' on' : ''}`}
+                onClick={() => setInclusion(inclusion?.date === p.date ? null : p)}
+              >
+                <span className="inclusion-label">{p.label}</span>
+                {inclusion?.date === p.date && <span className="inclusion-words develop">{p.event}</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     )
   }

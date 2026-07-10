@@ -55,6 +55,7 @@ export async function fetchCoachReply(
   history: Entry[],
   settings: Settings,
   coach: CoachMemory,
+  monthTheme?: string,
 ): Promise<DailyResult | null> {
   if (!COACH_URL) return null
   const curated = curate(history, coach)
@@ -70,7 +71,7 @@ export async function fetchCoachReply(
         morning: entry.morning ?? null,
         history: curated.history,
         recall: curated.recall,
-        memory: curated.memory,
+        memory: { ...curated.memory, monthTheme },
       }),
     })
     if (!res.ok) throw new Error(`coach ${res.status}`)
@@ -245,6 +246,53 @@ export async function getWeeklyInsight(
     return { text: data.text, profile: data.profile ?? data.profileDelta ?? null }
   } catch (err) {
     console.warn('[facet] weekly read unavailable:', err)
+    return null
+  }
+}
+
+/** The monthly arc's drafted trajectory + a suggested theme + the full revision. */
+export interface MonthlyResult {
+  text: string
+  theme: string | null
+  profile: Partial<CoachProfile> | null
+}
+
+/**
+ * The monthly arc — online-only, Opus 4.8 with thinking. Coach drafts the
+ * month's trajectory + a theme suggestion + a full profile revision from the
+ * month's nights, the weekly reads, and (when re-sent) the user's own work.
+ * Returns null offline/unconfigured so the flow can hold.
+ */
+export async function getMonthlyArc(
+  entries: Entry[],
+  cards: string[],
+  settings: Settings,
+  coach: CoachMemory,
+  answers?: { trajectory: string; gap: string; fear: string; theme: string },
+): Promise<MonthlyResult | null> {
+  if (!COACH_URL) return null
+  const { memory } = curate(entries, coach)
+  try {
+    const res = await fetch(COACH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({
+        mode: 'monthly',
+        name: settings.name,
+        entries: entries.slice(0, 30).map((e) => ({
+          date: e.date, event: e.event, emotions: e.emotions, well: e.well, next: e.next,
+        })),
+        cards: cards.slice(0, 6),
+        memory,
+        answers: answers ?? null,
+      }),
+    })
+    if (!res.ok) throw new Error(`coach ${res.status}`)
+    const data = (await res.json()) as { text?: string; theme?: string; profile?: Partial<CoachProfile> }
+    if (!data.text) throw new Error('empty monthly read')
+    return { text: data.text, theme: data.theme ?? null, profile: data.profile ?? null }
+  } catch (err) {
+    console.warn('[facet] monthly arc unavailable:', err)
     return null
   }
 }

@@ -12,6 +12,7 @@ import {
   buildAnswerUser,
   buildDailyUser,
   buildGuidanceUser,
+  buildMonthlyUser,
   buildOnboardingUser,
   buildWeeklyUser,
   extractJson,
@@ -22,12 +23,13 @@ import {
   type EntryIn,
   type MemoryIn,
   type Model,
+  type MonthlyIn,
   type MorningIn,
   type OnboardingIn,
   type WeeklyReviewIn,
   type WoopIn,
 } from './logic.ts'
-import { answerSystem, dailySystem, guidanceSystem, onboardingSystem, weeklySystem } from './prompts.ts'
+import { answerSystem, dailySystem, guidanceSystem, monthlySystem, onboardingSystem, weeklySystem } from './prompts.ts'
 
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const API = 'https://api.anthropic.com/v1/messages'
@@ -77,6 +79,14 @@ interface OnboardingBody {
   name: string
   answers?: OnboardingIn
   entry: EntryIn
+}
+interface MonthlyBody {
+  mode: 'monthly'
+  name: string
+  entries?: { date: string; event: string; emotions: string[]; well: string; next: string }[]
+  cards?: string[]
+  memory?: MemoryIn
+  answers?: MonthlyIn | null
 }
 interface GuidanceBody {
   mode: 'guidance'
@@ -131,7 +141,7 @@ Deno.serve(async (req) => {
   if (!ANTHROPIC_KEY) return json({ error: 'ANTHROPIC_API_KEY not set' }, 500)
 
   try {
-    const body = (await req.json()) as DailyBody | AnswerBody | WeeklyBody | OnboardingBody | GuidanceBody
+    const body = (await req.json()) as DailyBody | AnswerBody | WeeklyBody | MonthlyBody | OnboardingBody | GuidanceBody
 
     if (body.mode === 'guidance') {
       // The occasional nudge — Opus scouts for one useful thing, or holds back.
@@ -171,6 +181,19 @@ Deno.serve(async (req) => {
         // Full revision (see weeklySystem); profileDelta kept as a legacy alias.
         profile: parsed.profile ?? parsed.profileDelta ?? null,
         meta: { model: 'claude-opus-4-8', route: 'weekly→opus' },
+      })
+    }
+
+    if (body.mode === 'monthly') {
+      const memory = body.memory ?? {}
+      const user = buildMonthlyUser(body.name, body.entries ?? [], body.cards ?? [], memory, body.answers)
+      const raw = await callClaude('claude-opus-4-8', monthlySystem(), user, 2400, true)
+      const parsed = extractJson<{ text?: string; theme?: string; profile?: unknown }>(raw) ?? { text: raw.trim() }
+      return json({
+        text: parsed.text ?? raw.trim(),
+        theme: parsed.theme ?? null,
+        profile: parsed.profile ?? null,
+        meta: { model: 'claude-opus-4-8', route: 'monthly→opus' },
       })
     }
 

@@ -102,6 +102,13 @@ export interface InsightCard {
   date: string
 }
 
+/** The theme the user sets for the coming month — Coach weighs nights against
+ *  it, lightly, through that month. The one number stays the Night count. */
+export interface MonthTheme {
+  text: string
+  date: string
+}
+
 /** 'intention' = the standing weekly WOOP intention, born committed from the
  *  weekly review — same lifecycle (check-in → kept/didn't stick), never AI-drawn. */
 export type NudgeKind = 'tip' | 'action' | 'habit' | 'routine' | 'reading' | 'intention'
@@ -244,6 +251,12 @@ export interface AppState {
   lastWeeklyReview: string | null
   /** Date of the last weekly synthesis of ANY kind (guided or quiet memory-only). */
   lastWeeklySynthesis: string | null
+  /** Past monthly-arc reads, newest first. */
+  arcs: InsightCard[]
+  /** The theme set at the last monthly arc — referenced in nightly reads. */
+  monthTheme: MonthTheme | null
+  /** Date of the last monthly arc — paces the next. */
+  lastMonthlyArc: string | null
   onboarded: boolean
 }
 
@@ -262,5 +275,8 @@ export const initialState = (): AppState => ({
   nextMorningQuestion: null,
   lastWeeklyReview: null,
   lastWeeklySynthesis: null,
+  arcs: [],
+  monthTheme: null,
+  lastMonthlyArc: null,
   onboarded: false,
 })

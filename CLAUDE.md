@@ -183,6 +183,8 @@ src/
     guidance.ts     The occasional nudge: irregular gate + evidence-based library + lifecycle.  ← TESTED
     morning.ts      The loop beyond 11pm: Today bookend (win + adaptive question), intention line, comeback. PURE.  ← TESTED
     weekly.ts       Weekly review pacing: readiness + quiet-synthesis clocks; WOOP types. PURE.  ← TESTED
+    monthly.ts      Monthly arc pacing (readiness) + the live-decision signal. PURE.  ← TESTED
+    inclusions.ts   The marked points inside a banked stone (deterministic). PURE.  ← TESTED
     ai.ts           Online-only Coach: sends entry + curated memory; returns reply + memo. Also fetchNudge().
     supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth.
     storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
@@ -359,6 +361,27 @@ guided review → quiet dot on the Reviews tab) and `quietSynthesisDue` — **me
 depends on the button**: a week left untouched gets a background memory-only synthesis
 (profileDelta folds in, no card, nothing shown, ready marker stays). Past reads list on
 the Reviews landing.
+
+### Visible growth — the callback, the monthly arc, inclusions
+Growth is made FELT, in words never numbers:
+- **The callback** (prompt-level, rare): a hard rule in `COACH_CORE` lets Coach set tonight's
+  words against the user's OWN words from weeks ago when a theme has spanned time and the
+  language has clearly shifted — quoting BOTH exactly, never inventing a quote. `curate()`
+  biases recall toward SPAN (keeps the oldest theme-echo, not just recent ones) so the raw
+  material exists. It still counts as the one nightly move.
+- **The monthly arc** (`Reviews.tsx` → `beginMonthly`/`completeMonthly`, server `mode:'monthly'`,
+  Opus 4.8 thinking): gated on ≥`MONTHLY_UNLOCK` weekly reads + spaced by `monthly.ts`
+  (`monthlyReady`, `ARC_GAP`). Coach drafts the month's **trajectory** (with callbacks) + a
+  **theme** suggestion + a full profile revision; the user edits the trajectory, names a
+  Clear **Integrity gap**, does **Ferriss fear-setting** *only if a decision is live*
+  (`liveDecision`), and sets **one theme** for the month. The theme is stored (`state.monthTheme`)
+  and rides every nightly read (`memory.monthTheme`) — weighed lightly, never forced. Past arcs
+  list on the Reviews landing; the read is banked to `state.arcs`.
+- **Inclusions** (`inclusions.ts`, Vault detail): a banked stone shows 1–4 marked points chosen
+  deterministically from the nights in its span (the night it formed, the hardest, the clearest,
+  where a theme began); tapping one surfaces the user's own words from that night. The i-th
+  oldest reflection maps to Night i (a light approximation that ignores exact freeze accounting).
+  The stone becomes a container of reflections; colour stays exactly as scarce.
 
 **Retune anytime.** `components/Onboarding.tsx` runs in `mode:'retune'` from the Vault's "Revisit
 setup" — updates settings and augments the profile (`store.retune`), no new entry, no Night change.

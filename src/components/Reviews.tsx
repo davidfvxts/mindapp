@@ -1,30 +1,42 @@
 import { useState } from 'react'
-import { MONTHLY_UNLOCK } from '../lib/game'
 import { KIND_LABEL } from '../lib/guidance'
 import type { WeeklyAnswers, Woop } from '../lib/weekly'
-import type { InsightCard, Nudge } from '../lib/types'
+import type { MonthlyAnswers } from '../lib/monthly'
+import type { MonthlyResult } from '../lib/ai'
+import type { CoachProfile, InsightCard, Nudge } from '../lib/types'
 
 interface Props {
   /** A week is gathered and the last guided review is far enough back. */
   ready: boolean
   cards: InsightCard[]
+  arcs: InsightCard[]
   thinking: boolean
+  /** Enough weekly reads gathered for a monthly arc, spaced from the last. */
+  monthReady: boolean
+  /** The decision the user keeps circling, if one is live — drives the fear step. */
+  liveDecision: string | null
   /** The standing weekly intention still in flight — checked in at the top of the next review. */
   openIntention: Nudge | null
   onResolveIntention: (id: string, kept: boolean) => void
   onComplete: (review: WeeklyAnswers, woop: Woop) => Promise<InsightCard | null>
+  onBeginMonthly: () => Promise<MonthlyResult | null>
+  onCompleteMonthly: (answers: MonthlyAnswers, profile: Partial<CoachProfile> | null) => void
   onGoToday: () => void
 }
 
 type StepId = 'checkin' | 'wins' | 'friction' | 'avoided' | 'wish' | 'plan'
+type MonthStep = 'trajectory' | 'gap' | 'fear' | 'theme'
 
 /**
  * The weekly review — the user's own work, structured by Coach (AAR: the
- * participant does the review). Three prompts, then a WOOP for next week.
- * One thing per screen, in the ritual's own style. ~10 minutes.
+ * participant does the review) — plus the monthly arc, the deepest layer
+ * (trajectory · identity · fear-setting · theme). One thing per screen.
  */
-export function Reviews({ ready, cards, thinking, openIntention, onResolveIntention, onComplete, onGoToday }: Props) {
-  const [phase, setPhase] = useState<'landing' | 'flow' | 'card'>('landing')
+export function Reviews({
+  ready, cards, arcs, thinking, monthReady, liveDecision, openIntention,
+  onResolveIntention, onComplete, onBeginMonthly, onCompleteMonthly, onGoToday,
+}: Props) {
+  const [phase, setPhase] = useState<'landing' | 'flow' | 'card' | 'month' | 'monthcard'>('landing')
   const [steps, setSteps] = useState<StepId[]>([])
   const [step, setStep] = useState(0)
   const [err, setErr] = useState('')
@@ -37,6 +49,14 @@ export function Reviews({ ready, cards, thinking, openIntention, onResolveIntent
   const [outcome, setOutcome] = useState('')
   const [obstacle, setObstacle] = useState('')
   const [plan, setPlan] = useState('')
+
+  // ---- monthly arc state ----
+  const [draft, setDraft] = useState<MonthlyResult | null>(null)
+  const [mStep, setMStep] = useState<MonthStep>('trajectory')
+  const [trajectory, setTrajectory] = useState('')
+  const [gap, setGap] = useState('')
+  const [fear, setFear] = useState('')
+  const [theme, setTheme] = useState('')
 
   const start = () => {
     setSteps([...(openIntention ? (['checkin'] as StepId[]) : []), 'wins', 'friction', 'avoided', 'wish', 'plan'])
@@ -51,7 +71,6 @@ export function Reviews({ ready, cards, thinking, openIntention, onResolveIntent
       { wish: wish.trim(), outcome: outcome.trim(), obstacle: obstacle.trim(), plan: plan.trim() },
     )
     if (minted) { setCard(minted); setPhase('card') }
-    // On failure the store toasts; the answers stay right here — try again.
   }
 
   const advance = () => {
@@ -69,7 +88,35 @@ export function Reviews({ ready, cards, thinking, openIntention, onResolveIntent
     setStep(step + 1)
   }
 
-  // ---- the minted read ----
+  // ---- monthly: begin (one AI draft), then the guided sub-flow ----
+  const beginMonth = async () => {
+    const d = await onBeginMonthly()
+    if (!d) return // store toasts on failure
+    setDraft(d)
+    setTrajectory(d.text)
+    setTheme(d.theme ?? '')
+    setGap(''); setFear('')
+    setMStep('trajectory')
+    setErr('')
+    setPhase('month')
+  }
+
+  const monthOrder: MonthStep[] = liveDecision ? ['trajectory', 'gap', 'fear', 'theme'] : ['trajectory', 'gap', 'theme']
+
+  const advanceMonth = () => {
+    if (mStep === 'trajectory' && !trajectory.trim()) return setErr('Error — the read should say something true.')
+    if (mStep === 'theme' && !theme.trim()) return setErr('Error — one theme to aim the month.')
+    setErr('')
+    const i = monthOrder.indexOf(mStep)
+    if (i < monthOrder.length - 1) return setMStep(monthOrder[i + 1])
+    onCompleteMonthly(
+      { trajectory: trajectory.trim(), gap: gap.trim(), fear: fear.trim(), theme: theme.trim() },
+      draft?.profile ?? null,
+    )
+    setPhase('monthcard')
+  }
+
+  // ---- the minted weekly read ----
   if (phase === 'card' && card) {
     return (
       <div className="develop">
@@ -81,16 +128,32 @@ export function Reviews({ ready, cards, thinking, openIntention, onResolveIntent
           </div>
         </div>
         <div className="spacer" />
-        <p className="secondary">
-          Your intention stands for the week — Coach will check in on it in Guidance.
-        </p>
+        <p className="secondary">Your intention stands for the week — Coach will check in on it in Guidance.</p>
         <div className="spacer" />
         <button className="btn" onClick={() => setPhase('landing')}>Done</button>
       </div>
     )
   }
 
-  // ---- the guided flow ----
+  // ---- the banked month ----
+  if (phase === 'monthcard') {
+    return (
+      <div className="develop">
+        <h1>The month is set.</h1>
+        {theme.trim() && (
+          <div className="section center">
+            <span className="ambient">The month ahead</span>
+            <p className="display-word" style={{ marginTop: 'var(--s-3)' }}>{theme.trim()}</p>
+          </div>
+        )}
+        <p className="secondary">Coach will weigh your nights against it — lightly, only when it fits.</p>
+        <div className="spacer" />
+        <button className="btn" onClick={() => setPhase('landing')}>Done</button>
+      </div>
+    )
+  }
+
+  // ---- the weekly guided flow ----
   if (phase === 'flow') {
     const id = steps[step]
     return (
@@ -198,8 +261,73 @@ export function Reviews({ ready, cards, thinking, openIntention, onResolveIntent
     )
   }
 
+  // ---- the monthly guided flow ----
+  if (phase === 'month') {
+    const last = monthOrder[monthOrder.length - 1]
+    return (
+      <div className="develop" key={mStep}>
+        <div className="dots">
+          {monthOrder.map((s) => (
+            <i key={s} className={s === mStep ? 'on' : monthOrder.indexOf(s) < monthOrder.indexOf(mStep) ? 'visited' : ''} />
+          ))}
+        </div>
+
+        {mStep === 'trajectory' && (
+          <>
+            <span className="ambient">The month</span>
+            <h1 style={{ marginTop: 'var(--s-3)' }}>Coach’s read of your month.</h1>
+            <p className="subhead">Make it yours — edit anything that isn’t quite true.</p>
+            <div className="spacer" />
+            <textarea value={trajectory} autoFocus onChange={(e) => setTrajectory(e.target.value)}
+              style={{ minHeight: 180 }} />
+          </>
+        )}
+
+        {mStep === 'gap' && (
+          <>
+            <span className="ambient">Identity</span>
+            <h1 style={{ marginTop: 'var(--s-3)' }}>Where are you out of step with what you value?</h1>
+            <p className="subhead">One specific gap between what you say matters and how the month went.</p>
+            <div className="spacer" />
+            <textarea value={gap} autoFocus onChange={(e) => setGap(e.target.value)}
+              placeholder="The one place you’re not living what you claim to." />
+          </>
+        )}
+
+        {mStep === 'fear' && (
+          <>
+            <span className="ambient">Fear-setting</span>
+            <h1 style={{ marginTop: 'var(--s-3)' }}>The decision you keep circling.</h1>
+            {liveDecision && <p className="morning-line">You’ve named: “{liveDecision}”</p>}
+            <p className="subhead">Worst case if you act — and the cost of not deciding in six months?</p>
+            <div className="spacer" />
+            <textarea value={fear} autoFocus onChange={(e) => setFear(e.target.value)}
+              placeholder="Define · Prevent · Repair · and the cost of inaction." />
+          </>
+        )}
+
+        {mStep === 'theme' && (
+          <>
+            <span className="ambient">The month ahead</span>
+            <h1 style={{ marginTop: 'var(--s-3)' }}>One theme to aim it.</h1>
+            <p className="subhead">A north star for the next four weeks. Coach suggested one — keep it or change it.</p>
+            <div className="spacer" />
+            <input value={theme} autoFocus onChange={(e) => setTheme(e.target.value)}
+              placeholder="e.g. Ship, don’t polish" />
+          </>
+        )}
+
+        {err && <p className="field-error">{err}</p>}
+
+        <div className="spacer" />
+        <div className="row">
+          <button className="btn" onClick={advanceMonth}>{mStep === last ? 'Set the month' : 'Continue'}</button>
+        </div>
+      </div>
+    )
+  }
+
   // ---- landing ----
-  const monthlyOpen = cards.length >= MONTHLY_UNLOCK
   return (
     <div className="develop">
       <h1>Reviews</h1>
@@ -252,10 +380,23 @@ export function Reviews({ ready, cards, thinking, openIntention, onResolveIntent
           Trajectory and what you’re building toward — drafted from your own words.
           You set next month’s theme.
         </p>
-        {monthlyOpen ? (
-          <button className="btn ghost" onClick={onGoToday}>Begin the monthly arc</button>
+        {monthReady ? (
+          <button className="btn" onClick={beginMonth} disabled={thinking}>
+            {thinking ? 'Coach is reading your month…' : 'Begin the monthly arc'}
+          </button>
         ) : (
           <p className="secondary">Opens once you’ve gathered a few weekly reads.</p>
+        )}
+        {arcs.length > 0 && (
+          <>
+            <div className="spacer" />
+            {arcs.slice(0, 4).map((a) => (
+              <div key={a.id} className="item">
+                <div className="item-meta ambient">{a.date}</div>
+                <div className="item-body">{a.text}</div>
+              </div>
+            ))}
+          </>
         )}
       </div>
     </div>

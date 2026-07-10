@@ -47,7 +47,7 @@ export default function App() {
 
   const { game } = m.state
   const guidanceNew = unseenCount(m.state) > 0
-  const reviewNew = m.derived.reviewReady
+  const reviewNew = m.derived.reviewReady || m.derived.monthReady
   const revealedEntry = m.reveal ? m.state.entries.find((entry) => entry.id === m.reveal?.entryId) : undefined
 
   return (
@@ -107,10 +107,15 @@ export default function App() {
           <Reviews
             ready={m.derived.reviewReady}
             cards={m.state.cards}
+            arcs={m.state.arcs}
             thinking={m.thinking}
+            monthReady={m.derived.monthReady}
+            liveDecision={m.derived.liveDecision}
             openIntention={m.derived.openWeeklyIntention}
             onResolveIntention={m.resolveNudge}
             onComplete={(r, w) => m.completeWeekly(r, w)}
+            onBeginMonthly={m.beginMonthly}
+            onCompleteMonthly={m.completeMonthly}
             onGoToday={() => setTab('today')}
           />
         )}

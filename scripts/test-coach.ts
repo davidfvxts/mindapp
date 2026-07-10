@@ -17,6 +17,10 @@ import {
   nextDay, offlineMorningQuestion, upsertMorning,
 } from '../src/lib/morning'
 import { quietSynthesisDue, weeklyReady } from '../src/lib/weekly'
+import { monthlyReady, liveDecision } from '../src/lib/monthly'
+import { inclusionsForStone, prevMilestoneNight } from '../src/lib/inclusions'
+import { STONES } from '../src/lib/milestones'
+import { buildMonthlyUser } from '../supabase/functions/coach/logic'
 import { weeklyIntentionNudge } from '../src/lib/guidance'
 import {
   SEEDS, dueForNudge, pickOfflineNudge, toNudge,
@@ -467,6 +471,61 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   ok('server pattern echo survives rephrasing',
     triage(En({ event: 'die Investoren wollen neue Zahlen', emotions: ['Focused'] }),
       { themes: [{ key: 'investor', count: 3, first: 'a', last: 'b' }] }).primary === 'pattern')
+}
+
+// ---------- visible growth: callback + monthly arc + inclusions ----------
+{
+  // the callback capability rides in COACH_CORE
+  const sys = dailySystem(NOMEM, triage(En({}), NOMEM))
+  ok('daily prompt carries the callback rule', sys.includes('THE CALLBACK'))
+  ok('callback demands exact quotes', sys.includes('never invent a quote'))
+
+  // month theme rides in the daily data block
+  ok('month theme reaches the daily block',
+    buildDailyUser('David', En({}), [], [], { monthTheme: 'Ship, don’t polish' }).includes("THIS MONTH'S THEME"))
+
+  // monthly gating: enough weekly reads, spaced from the last arc
+  ok('monthly not ready under the gate', !monthlyReady(3, null, '2026-07-31'))
+  ok('monthly ready with the reads gathered', monthlyReady(4, null, '2026-07-31'))
+  ok('a recent arc blocks another', !monthlyReady(6, '2026-07-20', '2026-07-31'))
+  ok('an old arc opens again', monthlyReady(6, '2026-06-01', '2026-07-31'))
+
+  // liveDecision drives whether the fear-setting step shows
+  ok('a live decision surfaces from memory',
+    liveDecision({ profile: {}, themes: [], commitments: [{ date: 'a', text: 'the equity talk', status: 'open' }] }) === 'the equity talk')
+  ok('no live decision when none is owed',
+    liveDecision({ profile: {}, themes: [], commitments: [{ date: 'a', text: 'x', status: 'kept' }] }) === null)
+
+  // the monthly data block carries nights + weekly reads + profile to revise
+  const mu = buildMonthlyUser('David',
+    [{ date: '2026-07-20', event: 'shipped the beta', emotions: ['Proud'], well: 'cut scope', next: 'demo' }],
+    ['week one read', 'week two read'],
+    { narrative: 'building fast', goals: ['ship'] },
+    { trajectory: 'a month of shipping', gap: 'said family, worked weekends', fear: '', theme: 'Steady the ship' })
+  ok('monthly block carries the weekly reads', mu.includes('THEIR WEEKLY READS') && mu.includes('week two read'))
+  ok('monthly block carries their own work', mu.includes('THEIR OWN WORK') && mu.includes('worked weekends'))
+  ok('monthly block hands over the profile', mu.includes('CURRENT PROFILE ON RECORD'))
+
+  // inclusions: deterministic points inside a banked stone, real past words
+  const stoneNights = (n: number) => Array.from({ length: n }, (_, i) =>
+    E(`2026-07-${String(i + 1).padStart(2, '0')}`, {
+      event: i === 2 ? 'the investor call ran long'
+        : i === 4 ? 'shipped the onboarding flow'
+        : `night ${i + 1}`,
+      emotions: i === 2 ? ['Frustrated'] : i === 4 ? ['Proud'] : ['Focused'],
+    }))
+  const ember = STONES[0] // Night 7
+  const incs = inclusionsForStone(stoneNights(7), ember, prevMilestoneNight(STONES, ember),
+    [{ key: 'investor', count: 3, first: 'a', last: 'b' }])
+  ok('inclusions are 1–4 real nights', incs.length >= 1 && incs.length <= 4)
+  ok('inclusions include the night it formed', incs.some((i) => i.label.includes('took shape')))
+  ok('inclusions surface the hard night', incs.some((i) => i.event.includes('investor call')))
+  ok('inclusions surface the clear night', incs.some((i) => i.event.includes('onboarding flow')))
+  ok('inclusions are the user’s real words', incs.every((i) => !!i.event && !!i.date))
+  ok('inclusions are chronological', incs.every((i, k) => k === 0 || incs[k - 1].date <= i.date))
+  ok('prevMilestoneNight is 0 for the first stone', prevMilestoneNight(STONES, STONES[0]) === 0)
+  ok('prevMilestoneNight steps back a stone', prevMilestoneNight(STONES, STONES[1]) === 7)
+  ok('an empty span yields no inclusions', inclusionsForStone([], ember, 0, []).length === 0)
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL COACH TESTS PASSED')

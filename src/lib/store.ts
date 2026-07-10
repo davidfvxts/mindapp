@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { applyEntry, daysBetween, todayStr, weekCount } from './game'
 import { loadState, resetState, saveState, syncEntries } from './storage'
-import { aiEnabled, fetchCoachClose, fetchCoachReply, fetchFirstRead, fetchNudge, getWeeklyInsight } from './ai'
+import { aiEnabled, fetchCoachClose, fetchCoachReply, fetchFirstRead, fetchNudge, getMonthlyArc, getWeeklyInsight } from './ai'
 import { applyMemo, applyWeeklyRevision, foldRating, isCharged, recordCommitment, renegotiateCommitment, mergeWeeklyDelta, staleCommitment } from './coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, type OnboardingAnswers } from './onboarding'
 import {
@@ -13,9 +13,10 @@ import {
   offlineMorningQuestion, upsertMorning,
 } from './morning'
 import { quietSynthesisDue, weeklyReady, type WeeklyAnswers, type Woop } from './weekly'
+import { liveDecision, monthlyReady, type MonthlyAnswers } from './monthly'
 import { ensureSession } from './supabase'
 import { cancelMorningIntention, scheduleDailyReminder, scheduleMorningIntention } from './notifications'
-import type { AppState, CoachReply, Emotion, Entry, InsightCard, MorningNote, Settings } from './types'
+import type { AppState, CoachReply, Emotion, Entry, InsightCard, MonthTheme, MorningNote, Settings } from './types'
 
 const uid = (): string =>
   globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -137,7 +138,7 @@ export function useFacet() {
         const caughtUp: string[] = []
         for (const entry of pending.slice(0, 5)) {
           const history = state.entries.filter((e) => e.ts < entry.ts)
-          const result = await fetchCoachReply(entry, history, state.settings, state.coach)
+          const result = await fetchCoachReply(entry, history, state.settings, state.coach, state.monthTheme?.text)
           if (!result) break // still unreachable — leave pending, try again later
           setState((s) => ({
             ...s,
@@ -241,7 +242,7 @@ export function useFacet() {
       let nextMorningQuestion: AppState['nextMorningQuestion'] = null
       if (aiEnabled()) {
         if (online) {
-          const result = await fetchCoachReply(entry, history, state.settings, state.coach)
+          const result = await fetchCoachReply(entry, history, state.settings, state.coach, state.monthTheme?.text)
           if (result) {
             reply = result.reply
             entry.coach = result.reply
@@ -324,6 +325,40 @@ export function useFacet() {
       return card
     },
     [online, state.entries, state.settings, state.coach, state.game],
+  )
+
+  /**
+   * The monthly arc — the deepest layer. Coach drafts the month's trajectory
+   * and a theme; the user edits/confirms, names their identity gap and (if a
+   * decision is live) a fear-setting note, and sets the month's theme. One AI
+   * call up front. Returns the draft (or null offline) so the flow can hold.
+   */
+  const beginMonthly = useCallback(async () => {
+    if (!online) { setToast('Coach reads your month when you’re online.'); return null }
+    setThinking(true)
+    const result = await getMonthlyArc(state.entries, state.cards.map((c) => c.text), state.settings, state.coach)
+    setThinking(false)
+    if (!result) { setToast('Coach couldn’t be reached. Try again in a moment.'); return null }
+    return result
+  }, [online, state.entries, state.cards, state.settings, state.coach])
+
+  /** Bank the arc: store the read, set the month's theme, fold the revision. */
+  const completeMonthly = useCallback(
+    (answers: MonthlyAnswers, profile: Parameters<typeof applyWeeklyRevision>[1]) => {
+      const today = todayStr()
+      const card: InsightCard = { id: uid(), text: answers.trajectory.trim(), date: today }
+      const theme = answers.theme.trim()
+      const monthTheme: MonthTheme | null = theme ? { text: theme, date: today } : null
+      setState((s) => ({
+        ...s,
+        arcs: [card, ...s.arcs],
+        coach: applyWeeklyRevision(s.coach, profile ?? undefined, today),
+        monthTheme: monthTheme ?? s.monthTheme,
+        lastMonthlyArc: today,
+      }))
+      setToast('The month is set.')
+    },
+    [],
   )
 
   // Quiet memory synthesis: a week that sat ready and untouched still teaches
@@ -489,11 +524,15 @@ export function useFacet() {
     // An intention that aged out unresolved — awaiting the user's call in Guidance.
     const staleIntention = staleCommitment(state.coach)
 
+    // The monthly arc: enough weekly reads gathered, spaced from the last arc.
+    const monthReady = monthlyReady(state.cards.length, state.lastMonthlyArc, today)
+    const liveDecisionText = liveDecision(state.coach)
+
     return {
       reflectedToday, thisWeek, todayIntention, comeback, morningNote, morningQuestion, morningWindow,
-      reviewReady, openWeeklyIntention, staleIntention,
+      reviewReady, openWeeklyIntention, staleIntention, monthReady, liveDecision: liveDecisionText,
     }
-  }, [state.entries, state.game, state.coach, state.comebackAck, state.mornings, state.nextMorningQuestion, state.nudges, state.lastWeeklyReview])
+  }, [state.entries, state.game, state.coach, state.comebackAck, state.mornings, state.nextMorningQuestion, state.nudges, state.lastWeeklyReview, state.cards.length, state.lastMonthlyArc])
 
   /** Set the Today bookend: one win, optionally an answer to Coach's question. */
   const setMorning = useCallback((win: string, answer?: string) => {
@@ -514,7 +553,7 @@ export function useFacet() {
     state, derived, toast, thinking, reveal, online,
     completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly, answerCoach,
     markGuidanceSeen, commitNudge, declineNudge, resolveNudge, renegotiateIntention,
-    acknowledgeComeback, setMorning, hardReset,
+    beginMonthly, completeMonthly, acknowledgeComeback, setMorning, hardReset,
     setToast, clearReveal: () => setReveal(null),
   }
 }

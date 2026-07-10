@@ -45,6 +45,8 @@ export interface MemoryIn {
   avoided?: string[]
   themes?: ThemeIn[]
   openCommitment?: { text: string; date: string } | null
+  /** The theme the user set for this month — weighed lightly against tonight. */
+  monthTheme?: string
 }
 
 /** Optional context from the next-morning loop. */
@@ -182,6 +184,9 @@ export function buildDailyUser(
     lines.push('', note)
   }
 
+  if (memory.monthTheme) {
+    lines.push('', `THIS MONTH'S THEME they set: "${memory.monthTheme}". Weigh tonight against it only when it genuinely fits — never force it.`)
+  }
   if (memory.openCommitment?.text) {
     lines.push('', `OWED — on ${memory.openCommitment.date} they intended: "${memory.openCommitment.text}". Does tonight's entry act on it? Report kept/dropped/unknown in memo.commitment.`)
   }
@@ -278,6 +283,47 @@ export function buildWeeklyUser(
   lines.push(`- people: ${memory.relationships?.join(', ') || '(none)'}`)
   lines.push(`- moves that landed: ${memory.landed?.join('; ') || '(none)'}`)
   lines.push(`- moves to ease off: ${memory.avoided?.join('; ') || '(none)'}`)
+  return lines.join('\n')
+}
+
+/** The DATA block for the monthly arc — the month's nights, the weekly reads,
+ *  the current profile (to revise), and the user's own trajectory / gap / fear. */
+export interface MonthlyIn {
+  trajectory?: string
+  gap?: string
+  fear?: string
+  theme?: string
+}
+export function buildMonthlyUser(
+  name: string,
+  entries: { date: string; event: string; emotions: string[]; well: string; next: string }[],
+  cards: string[],
+  memory: MemoryIn,
+  answers?: MonthlyIn | null,
+): string {
+  const lines = [`Reflector: ${name || 'the user'}`, '', "THIS MONTH'S NIGHTS (most recent first):"]
+  for (const e of entries) {
+    lines.push(`- ${e.date} [${e.emotions.join(', ')}] ${e.event} | well: ${e.well || '—'} | next: ${e.next || '—'}`)
+  }
+  if (cards.length) {
+    lines.push('', 'THEIR WEEKLY READS THIS MONTH:')
+    for (const c of cards) lines.push(`- ${c}`)
+  }
+  if (answers && (answers.trajectory || answers.gap || answers.fear)) {
+    lines.push('', 'THEIR OWN WORK, JUST WRITTEN:')
+    if (answers.trajectory) lines.push(`- Trajectory, in their words: ${answers.trajectory}`)
+    if (answers.gap) lines.push(`- The values-vs-lived gap they named: ${answers.gap}`)
+    if (answers.fear) lines.push(`- Fear-setting on the avoided decision: ${answers.fear}`)
+    if (answers.theme) lines.push(`- The theme they're leaning toward: ${answers.theme}`)
+  }
+  lines.push('', 'CURRENT PROFILE ON RECORD (yours to revise — whatever you omit is removed):')
+  lines.push(`- narrative: ${memory.narrative || '(none yet)'}`)
+  lines.push(`- voice: ${memory.voice || '(unknown)'}`)
+  lines.push(`- values: ${memory.values?.join(', ') || '(none)'}`)
+  lines.push(`- goals: ${memory.goals?.join(', ') || '(none)'}`)
+  lines.push(`- obstacles: ${memory.obstacles?.join(', ') || '(none)'}`)
+  lines.push(`- projects: ${memory.projects?.join(', ') || '(none)'}`)
+  lines.push(`- people: ${memory.relationships?.join(', ') || '(none)'}`)
   return lines.join('\n')
 }
 
