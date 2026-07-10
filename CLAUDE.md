@@ -384,20 +384,20 @@ the Reviews landing.
 ### Visible growth — the callback, the monthly arc, inclusions
 Growth is made FELT, in words never numbers:
 - **The Stone evolves nightly** (`stoneGeometry.ts` + `Stone.tsx`, TESTED): the stone on the
-  bench starts as a jittered rough; every Night cuts ONE facet (tonight's is freshly bright on
-  the after-reflection screen via `newFacet`) and trues the silhouette toward the final form
-  (jitter eases to zero at the milestone). Each milestone has its OWN cut — Ember a keen
-  classic (7 facets), Tide a cushion (23), Iris an oval (60), Aurora a pear (90), Solstice a
-  round brilliant (97 capped) — so a banked stone literally carries its span's work. Light is
-  a fixed key light with per-facet brightness + achromatic speculars; colour contexts add a
-  deep radial body, a screen-blended turbulence FIRE of the stone's own palette (colour lives
-  INSIDE the stone), one gloss, a rim light and the soft glow — ONLY in the reveal/Vault-detail
-  (colour law intact). **The milestone stone arrives encased in rock** (`rockShell`: lit
-  fractal-noise shards that tile exactly) and shows ZERO colour until the user CRACKS IT OPEN —
-  one press, shards burst along precomputed drifts, the gem reveals with the 1200ms beat + one
-  glint, then the read develops in (`develop-late`) under a quiet echo of the span's first
-  night (`milestoneEcho`, quoted exactly). Reduced motion: instant swap, no shards, coloured.
-  All geometry is deterministic — same night, same stone, every device.
+  bench is procedural greyscale SVG — it starts as a jittered rough; every Night cuts ONE
+  facet (tonight's is freshly bright on the after-reflection screen via `newFacet`) and trues
+  the silhouette toward the final form (jitter eases to zero at the milestone). All geometry
+  is deterministic — same night, same stone, every device.
+- **The five FINISHED stones are baked artwork** (`public/stones/*.webp`, rendered offline by
+  `tools/gemrig/` — a real three.js pipeline: physically lit, per-facet fire, ACES, ~30KB each,
+  precached for offline). The app has NO runtime 3D dependency. Each milestone has its own cut
+  and palette; the Vault grid shows them through a CSS `grayscale(1)` filter, full colour ONLY
+  in the reveal and Vault detail (colour law intact). To change a stone's look, edit
+  `tools/gemrig/gem.html` and re-bake — never hand-edit the webp.
+  **The milestone stone arrives as raw rock** (`rock.webp`) and shows ZERO colour until the
+  user OPENS it — one press ("Open the stone"), the rock fades away (300ms) as the gem reveals
+  with the 1200ms beat, then the read develops in (`develop-late`) under a quiet echo of the
+  span's first night (`milestoneEcho`, quoted exactly). Reduced motion: instant swap, coloured.
 - **The callback** (prompt-level, rare): a hard rule in `COACH_CORE` lets Coach set tonight's
   words against the user's OWN words from weeks ago when a theme has spanned time and the
   language has clearly shifted — quoting BOTH exactly, never inventing a quote. `curate()`

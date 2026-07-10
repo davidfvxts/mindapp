@@ -370,6 +370,25 @@ textarea.error, input.error { border-color: var(--line-control); }
 .stone svg { display: block; overflow: visible; } /* the glow may breathe past the box */
 .stone figcaption { color: var(--ink-secondary); }
 
+/* The finished stones are baked artwork (tools/gemrig). Halo included —
+   the radial mask melts the frame's edge into the black stage. */
+.stone-art { position: relative; }
+.stone-art .stone-img {
+  display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none;
+  -webkit-mask-image: radial-gradient(closest-side, #000 68%, transparent 99%);
+  mask-image: radial-gradient(closest-side, #000 68%, transparent 99%);
+}
+/* Colour law: outside the milestone moment and the Vault detail, the artwork
+   renders achromatic — the object stays, the colour stays scarce. */
+.stone-art .stone-img.grey { filter: grayscale(1) brightness(0.92); }
+/* The rock holds the gem until it's opened; one press, one fade, gone. */
+.stone-art .rock { position: absolute; inset: 0; }
+.stone-art .rock.away {
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity 300ms var(--ease-exit), transform 300ms var(--ease-exit);
+}
+
 /* The current stone on the bench, shown in the Vault. */
 .vault-current { display: grid; place-items: center; padding-top: var(--s-6); }
 
@@ -384,27 +403,17 @@ textarea.error, input.error { border-color: var(--line-control); }
 
 /* Stone reveal — 1200ms, once, at earning. The only use of --t-reward. */
 @keyframes stone-reveal { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-.stone.reveal svg { animation: stone-reveal var(--t-reward) var(--ease-reward) both; }
+.stone.reveal svg,
+.stone.reveal .stone-img:not(.rock) { animation: stone-reveal var(--t-reward) var(--ease-reward) both; }
 
-/* The glint — one light sweep across the stone, inside the reveal's window. */
-@keyframes stone-glint { from { transform: translateX(-30px); } to { transform: translateX(165px); } }
-.stone .glint { will-change: transform; }
-.stone.reveal .glint { animation: stone-glint 680ms var(--ease-reward) 400ms both; }
-
-/* The crack: the milestone stone arrives in rock; one press opens it.
-   Shards fly along their precomputed drifts — once, and they're gone. */
+/* Opening the stone: it arrives in rock; one press, the rock gives way. */
 .stone-crack {
   appearance: none; background: none; border: none; padding: var(--s-3);
   cursor: pointer; display: block; margin: 0 auto; border-radius: var(--r-lg);
 }
-.stone-crack svg { transition: transform var(--t-micro) var(--ease-settle); }
-.stone-crack:hover svg { transform: scale(1.015); }
-.stone-crack:active svg { transform: scale(0.97); }
-.stone .shard { transform-box: fill-box; transform-origin: center; }
-@keyframes shard-fly {
-  to { transform: translate(var(--sdx), var(--sdy)) rotate(var(--srot)); opacity: 0; }
-}
-.stone.cracked .shard { animation: shard-fly 560ms var(--ease-exit) both; }
+.stone-crack svg, .stone-crack .stone-art { transition: transform var(--t-micro) var(--ease-settle); }
+.stone-crack:hover svg, .stone-crack:hover .stone-art { transform: scale(1.015); }
+.stone-crack:active svg, .stone-crack:active .stone-art { transform: scale(0.97); }
 
 /* On a milestone night the stone gets its beat alone; the read develops in after. */
 .develop-late { animation: develop var(--t-enter) var(--ease-settle) both; animation-delay: 950ms; }
@@ -412,10 +421,12 @@ textarea.error, input.error { border-color: var(--line-control); }
 @media (prefers-reduced-motion: reduce) {
   /* transforms off; fades only, nothing longer than 150ms; Stone renders static. */
   .develop { animation: fade var(--t-enter) linear both; transform: none; }
-  .stone.reveal svg { animation: fade var(--t-enter) linear both; transform: none; }
-  .stone.reveal .glint { animation: none; opacity: 0; }
-  .stone.cracked .shard { animation: none; opacity: 0; }
-  .stone-crack svg, .stone-crack:hover svg, .stone-crack:active svg { transition: none; transform: none; }
+  .stone.reveal svg,
+  .stone.reveal .stone-img:not(.rock) { animation: fade var(--t-enter) linear both; transform: none; }
+  .stone-art .rock.away { transition: none; transform: none; }
+  .stone-crack svg, .stone-crack .stone-art,
+  .stone-crack:hover svg, .stone-crack:hover .stone-art,
+  .stone-crack:active svg, .stone-crack:active .stone-art { transition: none; transform: none; }
   .develop-late { animation: fade var(--t-enter) linear both; animation-delay: 0ms; }
   .coach.thinking { animation: none; }
 }

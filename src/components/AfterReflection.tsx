@@ -66,16 +66,16 @@ export function AfterReflection({
           and the milestone gem shows nothing at all until it's cracked open. */}
       {milestone && !cracked ? (
         <div className="section center develop">
-          <button className="stone-crack" aria-label="Crack the stone open" onClick={() => setCracked(true)}>
+          <button className="stone-crack" aria-label="Open the stone" onClick={() => setCracked(true)}>
             <Stone stone={milestone} shellState="intact" size={172} />
           </button>
           <p className="sub" style={{ marginTop: 'var(--s-5)' }}>
-            Night {night}. The stone is ready — crack it open.
+            Night {night}. The stone is ready — open it.
           </p>
         </div>
       ) : milestone ? (
         <div className="section center">
-          <Stone reveal stone={milestone} shellState="cracked" size={172} caption={milestone.name} />
+          <Stone reveal stone={milestone} shellState="opened" size={172} caption={milestone.name} />
           <p className="sub develop-late" style={{ marginTop: 'var(--s-5)' }}>
             Night {night}. Kept in the Vault.
           </p>

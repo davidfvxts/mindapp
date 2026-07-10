@@ -1,0 +1,238 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>html,body{margin:0;background:#000}</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js'
+
+const q = new URLSearchParams(location.search)
+const STONE = q.get('stone') || 'ember'
+const SIZE = parseInt(q.get('size') || '1024', 10)
+
+const PALETTES = {
+  ember:    { from: '#FF6A3D', to: '#C2273B' },
+  tide:     { from: '#35D0BA', to: '#2563EB' },
+  iris:     { from: '#7C5CFF', to: '#C838F0' },
+  aurora:   { from: '#34D399', to: '#22D3EE' },
+  solstice: { from: '#FFD34D', to: '#FF8A2A' },
+}
+
+// Cut personalities — later stones are more finely worked.
+const CUTS = {
+  ember:    { sides: 8,  table: 0.50, crownH: 0.52, pavD: 1.18, girdleR: 1.00, squish: [1, 1, 1],      culetOff: 0    },
+  tide:     { sides: 10, table: 0.60, crownH: 0.44, pavD: 1.00, girdleR: 1.02, squish: [1.06, 0.92, 1.06], culetOff: 0 },
+  iris:     { sides: 12, table: 0.46, crownH: 0.58, pavD: 1.24, girdleR: 0.98, squish: [0.84, 1.06, 1], culetOff: 0   },
+  aurora:   { sides: 10, table: 0.48, crownH: 0.52, pavD: 1.22, girdleR: 1.00, squish: [0.95, 1.0, 1], culetOff: 0.30 },
+  solstice: { sides: 16, table: 0.52, crownH: 0.48, pavD: 1.26, girdleR: 1.00, squish: [1, 1, 1],      culetOff: 0    },
+}
+
+const seededRandom = (() => { let s = 1234567; return () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648 })()
+
+function gemGeometry(cut) {
+  const pts = []
+  const N = cut.sides
+  const push = (x, y, z) => pts.push(new THREE.Vector3(x * cut.squish[0], y * cut.squish[1], z * cut.squish[2]))
+  // Table ring
+  for (let i = 0; i < N; i++) {
+    const a = ((i + 0.5) / N) * Math.PI * 2
+    push(Math.cos(a) * cut.table, cut.crownH, Math.sin(a) * cut.table)
+  }
+  // Crown mid ring (offset half-step for facet interlock)
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2
+    const r = (cut.table + cut.girdleR) * 0.56
+    push(Math.cos(a) * r, cut.crownH * 0.55, Math.sin(a) * r)
+  }
+  // Girdle ring (two close rings for a real girdle band)
+  for (let i = 0; i < N * 2; i++) {
+    const a = ((i + 0.25) / (N * 2)) * Math.PI * 2
+    push(Math.cos(a) * cut.girdleR, 0.02, Math.sin(a) * cut.girdleR)
+    push(Math.cos(a) * cut.girdleR, -0.04, Math.sin(a) * cut.girdleR)
+  }
+  // Pavilion mid ring
+  for (let i = 0; i < N; i++) {
+    const a = ((i + 0.5) / N) * Math.PI * 2
+    const r = cut.girdleR * 0.55
+    push(Math.cos(a) * r + cut.culetOff * 0.4, -cut.pavD * 0.55, Math.sin(a) * r)
+  }
+  // Culet
+  push(cut.culetOff, -cut.pavD, 0)
+  return new ConvexGeometry(pts)
+}
+
+function fireTexture(pal) {
+  const c = document.createElement('canvas')
+  c.width = c.height = 512
+  const g = c.getContext('2d')
+  // Base: the palette's deep end, not black — the heart always burns.
+  g.fillStyle = pal.to
+  g.fillRect(0, 0, 512, 512)
+  g.fillStyle = 'rgba(0,0,0,0.55)'
+  g.fillRect(0, 0, 512, 512)
+  const tones = [pal.from, '#ffffff', pal.from, pal.to, pal.from]
+  for (let i = 0; i < 34; i++) {
+    const x = seededRandom() * 512, y = seededRandom() * 512, r = 30 + seededRandom() * 100
+    const grad = g.createRadialGradient(x, y, 0, x, y, r)
+    const col = tones[i % tones.length]
+    grad.addColorStop(0, col)
+    grad.addColorStop(1, 'rgba(0,0,0,0)')
+    g.globalAlpha = 0.55 + seededRandom() * 0.45
+    g.fillStyle = grad
+    g.fillRect(0, 0, 512, 512)
+  }
+  g.globalAlpha = 1
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
+}
+
+function rockGeometry() {
+  const geo = new THREE.IcosahedronGeometry(1.15, 4)
+  const pos = geo.attributes.position
+  const v = new THREE.Vector3()
+  const h = (x, y, z) => {
+    const s = Math.sin(x * 5.1 + y * 3.7) * Math.cos(z * 4.3 - y * 2.9) * 0.5
+      + Math.sin(x * 11.3 - z * 9.1) * 0.25 + Math.sin(y * 17.7 + x * 13.1) * 0.12
+    return s
+  }
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i)
+    const n = v.clone().normalize()
+    const d = 1 + h(n.x, n.y, n.z) * 0.16
+    v.copy(n.multiplyScalar(1.15 * d))
+    v.y *= 1.12
+    pos.setXYZ(i, v.x, v.y, v.z)
+  }
+  geo.computeVertexNormals()
+  return geo
+}
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
+renderer.setSize(SIZE, SIZE)
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.15
+document.body.appendChild(renderer.domElement)
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color(0x000000)
+
+const pmrem = new THREE.PMREMGenerator(renderer)
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+
+const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 50)
+camera.position.set(0, 1.05, 4.35)
+camera.lookAt(0, -0.18, 0)
+
+// Studio lights on top of the environment.
+const key = new THREE.SpotLight(0xffffff, 60, 0, Math.PI / 5, 0.4)
+key.position.set(-3.4, 4.2, 2.6)
+scene.add(key)
+const rimL = new THREE.SpotLight(0xffffff, 24, 0, Math.PI / 5, 0.5)
+rimL.position.set(3.4, 1.6, -2.8)
+scene.add(rimL)
+const fill = new THREE.PointLight(0xffffff, 4)
+fill.position.set(2.2, -1.2, 3.2)
+scene.add(fill)
+
+if (STONE === 'rock') {
+  const rock = new THREE.Mesh(
+    rockGeometry(),
+    new THREE.MeshStandardMaterial({ color: 0x55524f, roughness: 0.96, metalness: 0.02, envMapIntensity: 0.22, flatShading: false }),
+  )
+  rock.scale.setScalar(0.82)
+  rock.rotation.set(0.15, 0.6, -0.05)
+  scene.add(rock)
+  key.intensity = 70
+  rimL.intensity = 30
+  renderer.toneMappingExposure = 0.7
+} else {
+  const pal = PALETTES[STONE]
+  const cut = CUTS[STONE]
+
+  // A tight halo behind the gem — the display-case glow, baked.
+  const bd = document.createElement('canvas')
+  bd.width = bd.height = 512
+  const bg = bd.getContext('2d')
+  const grad = bg.createRadialGradient(256, 256, 0, 256, 256, 256)
+  grad.addColorStop(0, pal.from)
+  grad.addColorStop(0.16, pal.to)
+  grad.addColorStop(0.42, '#000000')
+  grad.addColorStop(1, '#000000')
+  bg.fillStyle = grad
+  bg.fillRect(0, 0, 512, 512)
+  const bdTex = new THREE.CanvasTexture(bd)
+  bdTex.colorSpace = THREE.SRGBColorSpace
+  const backdrop = new THREE.Mesh(
+    new THREE.PlaneGeometry(13, 13),
+    new THREE.MeshBasicMaterial({ map: bdTex }),
+  )
+  backdrop.position.set(0, -0.2, -6)
+  scene.add(backdrop)
+
+  // THE FIRE: an inner mesh of the same cut, every facet its own tone of the
+  // palette — the way games actually shade gems. Saturated, deterministic.
+  const innerGeo = gemGeometry(cut).toNonIndexed()
+  {
+    const pos = innerGeo.attributes.position
+    const colors = new Float32Array(pos.count * 3)
+    const A = new THREE.Color(pal.from)
+    const B = new THREE.Color(pal.to)
+    const white = new THREE.Color('#ffffff')
+    const black = new THREE.Color('#12060a')
+    const va = new THREE.Vector3(), vb = new THREE.Vector3(), vc = new THREE.Vector3()
+    const ab = new THREE.Vector3(), ac = new THREE.Vector3(), n = new THREE.Vector3()
+    const L = new THREE.Vector3(-0.5, 0.82, 0.45).normalize()
+    const V = new THREE.Vector3(0, 0.28, 1).normalize() // toward the camera
+    const H = L.clone().add(V).normalize()
+    for (let f = 0; f < pos.count / 3; f++) {
+      va.fromBufferAttribute(pos, f * 3)
+      vb.fromBufferAttribute(pos, f * 3 + 1)
+      vc.fromBufferAttribute(pos, f * 3 + 2)
+      ab.subVectors(vb, va); ac.subVectors(vc, va); n.crossVectors(ab, ac).normalize()
+      // Internal light bounces everywhere in a cut stone — the fire is
+      // symmetric (|n·L|), so the pavilion burns as bright as the crown.
+      const lam = Math.abs(n.dot(L)) * 0.9 + Math.max(0, n.y) * 0.15
+      const spec = Math.pow(Math.max(0, Math.abs(n.dot(H))), 34) // hero flashes, tight
+      const rim = Math.max(0, 0.3 - Math.abs(n.dot(V))) / 0.3 // silhouette light
+      const h = seededRandom()
+      const c = new THREE.Color()
+      c.copy(B).lerp(A, Math.min(1, lam * 0.85 + (h - 0.5) * 0.45))
+      c.lerp(black, Math.max(0, 0.22 - lam) * 0.7)
+      c.multiplyScalar(0.52 + lam * 0.55)
+      // Facet flashes where the light geometry says so, plus a few wild ones.
+      const flash = Math.min(0.8, spec * 0.9 + (h > 0.93 && lam > 0.4 ? 0.5 : 0))
+      c.lerp(white, flash)
+      // The silhouette catches a bright edge of its own colour.
+      c.lerp(new THREE.Color(A).lerp(white, 0.35), rim * 0.45)
+      for (let k = 0; k < 3; k++) colors.set([c.r, c.g, c.b], (f * 3 + k) * 3)
+    }
+    innerGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  }
+  // The fire mesh IS the gem — full saturation control, no environment wash.
+  // (A physical gloss shell was tried twice and washed the fire both times;
+  // the baked facet flashes carry the shine instead.)
+  const fireMesh = new THREE.Mesh(innerGeo, new THREE.MeshBasicMaterial({ vertexColors: true }))
+  fireMesh.rotation.y = 0.35
+  scene.add(fireMesh)
+}
+
+renderer.render(scene, camera)
+window.__png = renderer.domElement.toDataURL('image/png')
+window.__webp = renderer.domElement.toDataURL('image/webp', 0.92)
+window.__done = true
+</script>
+</body>
+</html>

@@ -2,7 +2,7 @@
  * Tests for the Stone's geometry — the evolving centerpiece.
  * Run: npm test
  */
-import { fireBlobs, renderStone, rockShell } from '../src/lib/stoneGeometry'
+import { renderStone } from '../src/lib/stoneGeometry'
 import { milestoneEcho } from '../src/lib/inclusions'
 import { STONES } from '../src/lib/milestones'
 import type { Entry } from '../src/lib/types'
@@ -93,26 +93,6 @@ ok('facets catch different light', new Set(lit.facets.map((f) => Math.round(f.br
 // ---- five distinct cuts ----
 const silhouettes = [0, 1, 2, 3, 4].map((ci) => renderStone(ci, { nightsIntoSpan: 20, span: 20 }).silhouette)
 ok('every stone has its own cut', new Set(silhouettes).size === 5)
-
-// ---- the rock shell: the crack-open mechanic ----
-const shellA = rockShell(0)
-const shellB = rockShell(0)
-ok('rock shell is deterministic', JSON.stringify(shellA) === JSON.stringify(shellB))
-ok('shell has 9–11 shards', shellA.shards.length >= 9 && shellA.shards.length <= 11)
-ok('every shard drifts outward with spin', shellA.shards.every((s) => Math.hypot(s.dx, s.dy) >= 10 && Number.isFinite(s.rot)))
-const shellPts = shellA.shards.flatMap((s) => s.points.split(' ').map((p) => p.split(',').map(Number)))
-ok('shards stay near the stage', shellPts.every(([x, y]) => x >= -10 && x <= 110 && y >= -10 && y <= 110))
-const xs = shellPts.map(([x]) => x)
-const ys = shellPts.map(([, y]) => y)
-ok('the shell fully hides the gem', Math.min(...xs) < 12 && Math.max(...xs) > 88 && Math.min(...ys) < 14 && Math.max(...ys) > 93)
-ok('shells differ per stone', JSON.stringify(rockShell(1)) !== JSON.stringify(shellA))
-
-// ---- the fire: colour inside the stone ----
-const fireA = fireBlobs(2)
-ok('fire is deterministic', JSON.stringify(fireA) === JSON.stringify(fireBlobs(2)))
-ok('fire carries 5–6 blobs in range', fireA.length >= 5 && fireA.length <= 6 &&
-  fireA.every((f) => f.cx >= 20 && f.cx <= 80 && f.cy >= 18 && f.cy <= 82 && f.r >= 8 && f.r <= 21))
-ok('fire uses all three tones', new Set(fireA.map((f) => f.tone)).size === 3)
 
 // ---- the milestone echo: the user's own first words of the span ----
 const E = (i: number, event: string): Entry =>

@@ -149,24 +149,26 @@ one shared gradient per stone):
 
 The stone on the bench EVOLVES: one facet is cut per completed Night (rough
 matte until its night, then lit and edged), and the whole silhouette trues up
-as seeded jitter eases to zero at the milestone. Each milestone has its own
-cut, sized by its span: Ember 7 facets, Tide 23, Iris 60, Aurora 90,
-Solstice 97 (cap). Light is a fixed top-left key light — per-facet brightness
-from a pseudo-normal, plus at most two achromatic specular flashes. In the two
-colour contexts the material deepens: a near-black radial body, a
-screen-blended turbulence FIRE drawn only from the stone's own palette (the
-colour lives inside, like a real opal), glassy facet overlays, one soft gloss
-and a rim light — never a second palette. A soft gradient glow (blurred
-silhouette) and the one-time glint sweep exist ONLY at the milestone moment
-and the Vault detail; greyscale contexts get a breath of white halo at ≤ .06
-and no glint.
+as seeded jitter eases to zero at the milestone. Light is a fixed top-left
+key light — per-facet brightness from a pseudo-normal, plus at most two
+achromatic specular flashes. The bench stone is always greyscale.
 
-**The crack.** A milestone stone arrives encased in rock — lit fractal-noise
-shards that tile the shell exactly, showing zero colour in the DOM. One press
-("Crack the stone open") bursts the shards along precomputed drifts (560ms,
-once) and the gem reveals inside the 1200ms beat. The read and the ceremony
-copy hold until the crack. Reduced motion: the shards simply vanish and the
-stone renders static and coloured.
+**The finished stones are baked artwork.** The five milestone gems (and the
+raw rock) are pre-rendered images (`public/stones/*.webp`, ~30KB each,
+precached) produced by a real 3D pipeline in `tools/gemrig/`: three.js,
+per-facet fire in the stone's own palette, physically-derived flashes and
+rim light, a baked halo, ACES tone mapping. Each stone keeps its own cut —
+Ember a bold radiant, Tide a wide cushion, Iris a tall oval, Aurora a pear,
+Solstice the finest round — and its two gradient colours remain the entire
+palette; never a second hue. Outside the milestone moment and the Vault
+detail the artwork renders through `grayscale(1)` (colour law intact). To
+change a stone, edit the rig and re-bake; never hand-edit the images.
+
+**The opening.** A milestone stone arrives as raw rock, showing zero colour
+on screen. One press ("Open the stone") and the rock fades away (300ms,
+once) as the gem reveals inside the 1200ms beat. The read and the ceremony
+copy hold until it's opened. Reduced motion: an instant swap, static and
+coloured.
 
 **Colourways** (earned, in order):
 
