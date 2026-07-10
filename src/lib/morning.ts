@@ -6,9 +6,8 @@ import type { Commitment, MorningNote } from './types'
  *
  * Morning surface (Gollwitzer): the intention written at night is worth most
  * at the moment of execution — the next day. `intentionForToday` returns the
- * open intention when it was written one or two nights ago (two covers a
- * bridged night); anything older belongs to a lapse, and the comeback moment
- * owns that instead.
+ * open intention when it was written one or two nights ago; anything older
+ * belongs to a lapse, and the quiet comeback line owns that instead.
  *
  * The Today bookend (~2 minutes): ONE specific win for the day (Locke &
  * Latham: specific, challenging daily goals; the evening AAR then debriefs
@@ -19,9 +18,9 @@ import type { Commitment, MorningNote } from './types'
  * library keyed on real signals — and most clean days the right answer is
  * NO question. Questions belong to the morning (the night closes loops).
  *
- * Comeback (never punish): after two or more missed nights the streak has
- * reset, and the user should meet a designed, guilt-free re-entry — once per
- * lapse, tracked by acknowledging the `lastDay` the lapse happened after.
+ * Comeback (never punish): after two or more missed nights, Night remains
+ * intact and the user meets one quiet re-entry line — once per lapse, tracked
+ * when their next reflection is submitted.
  */
 
 /** Last night's "one thing I'll do differently", if it's due today. */
@@ -37,8 +36,8 @@ export const missedNights = (lastDay: string | null, today: string): number =>
   lastDay ? Math.max(0, daysBetween(lastDay, today) - 1) : 0
 
 /**
- * True when the user returns from a real lapse (≥2 missed nights — one miss
- * is bridged by never-miss-twice) and hasn't been welcomed back for it yet.
+ * True when the user returns from a real lapse (≥2 missed nights) and hasn't
+ * submitted a new reflection since that lapse.
  */
 export function needsComeback(lastDay: string | null, today: string, ack: string | null): boolean {
   return !!lastDay && missedNights(lastDay, today) >= 2 && ack !== lastDay

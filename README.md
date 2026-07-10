@@ -33,7 +33,7 @@ screen required.
 Other commands:
 
 ```bash
-npm test        # the habit engine — the Night mechanic, never-miss-twice, internal XP
+npm test        # the monotonic Night engine + Coach logic
 npm run typecheck
 npm run build   # production build + service worker
 npm run preview # serve the production build
@@ -135,7 +135,7 @@ src/
   styles.css      Component layer, built entirely on the tokens.
   lib/
     types.ts      Domain model. EMOTIONS, CHARGED (drives self-distancing), Nudge.
-    game.ts       The habit engine: Night mechanic, never-miss-twice, internal XP.  ← tested
+    game.ts       The habit engine: monotonic Night clock + legacy migration.  ← tested
     guidance.ts   The occasional nudge: irregular gate + evidence-based library + lifecycle.  ← tested
     ai.ts         Online-only Coach: fetches the edge function when online, skips offline.
     supabase.ts   Null client when unconfigured → local-only. Anonymous session for sync.
@@ -173,7 +173,7 @@ Nothing here is decorative. Each mechanic traces to a finding.
 | **Name it to tame it** | One-tap emotion chips, max 3 |
 | **After-Action Review** (~20–25% lift) | The nightly loop *is* a personal AAR, run on a schedule |
 | **Consistency > intensity** | 3 questions, hard-capped |
-| **Never miss twice** | `applyEntry()` — one freeze/week bridges a single missed night; two misses reset. Tested. |
+| **Never punish** | `applyEntry()` adds one Night for a day's first reflection; missed nights only pause progress. Tested. |
 | **Implementation intentions** (Gollwitzer) | Onboarding captures "After I ___, I reflect" + a reminder time |
 | **Agency** (Goldsmith) | Step 2 asks what *you* did to cause the good outcome |
 

@@ -185,7 +185,7 @@ export async function fetchNudge(state: AppState): Promise<NudgeDraft | 'skip' |
       body: JSON.stringify({
         mode: 'guidance',
         name: state.settings.name,
-        nights: Math.max(state.game.best, state.game.streak),
+        nights: state.game.nights,
         entries: state.entries.slice(0, 10).map((e) => ({
           date: e.date, event: e.event, emotions: e.emotions, well: e.well, next: e.next, kind: e.coach?.kind,
         })),

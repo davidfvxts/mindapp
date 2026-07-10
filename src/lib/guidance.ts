@@ -48,7 +48,7 @@ const gapFor = (seed: number): number => MIN_GAP + (hash(seed) % (MAX_GAP - MIN_
 /** The check-in delay after a commitment — a few nights later, 2–4. */
 const checkInGap = (seed: number): number => 2 + (hash(seed + 7) % 3)
 
-const nightsOf = (s: AppState): number => Math.max(s.game.best, s.game.streak)
+const nightsOf = (s: AppState): number => s.game.nights
 
 // ---- context Coach reasons over -----------------------------------------
 
@@ -248,7 +248,7 @@ export const SEEDS: readonly Seed[] = [
   {
     seedId: 'read-atomic', kind: 'reading', weight: 2,
     title: 'Atomic Habits',
-    body: 'James Clear on systems over goals, identity-based habits, and never-miss-twice.',
+    body: 'James Clear on systems over goals and identity-based habits.',
     value: 'Because the habit is what you’re building here — this is the clearest manual for making it hold.',
     source: { by: 'James Clear', medium: 'book' },
     fit: (c) => c.nights >= 14 || hasObstacle(c, 'perfection'),

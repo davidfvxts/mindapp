@@ -6,9 +6,9 @@ import type { AppState } from '../lib/types'
 
 export function Vault({ state, onRevisit }: { state: AppState; onRevisit: () => void }) {
   const { game, entries } = state
-  // Stones are banked off the best Night ever reached — they never regress.
-  const banked = bankedStones(game.best)
-  const upcoming = nextStone(game.best)
+  // Night is monotonic, so the Vault's stone history is always banked.
+  const banked = bankedStones(game.nights)
+  const upcoming = nextStone(game.nights)
   const [open, setOpen] = useState<StoneModel | null>(null)
   const [inclusion, setInclusion] = useState<Inclusion | null>(null)
 

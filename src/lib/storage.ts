@@ -1,5 +1,6 @@
 import { initialState, type AppState, type Entry } from './types'
 import { supabase } from './supabase'
+import { migrateGame } from './game'
 
 const KEY = 'facet.state.v1'
 const LEGACY_KEY = 'mira.state.v1'
@@ -11,11 +12,18 @@ export function loadState(): AppState {
     // nights aren't orphaned by the rename.
     const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY)
     if (!raw) return initialState()
-    const parsed = JSON.parse(raw) as AppState
+    const parsed = JSON.parse(raw) as Partial<AppState>
     // Deep-merge settings so states persisted before a new setting existed
     // pick up its default instead of dropping the field.
     const init = initialState()
-    return { ...init, ...parsed, settings: { ...init.settings, ...parsed.settings } }
+    return {
+      ...init,
+      ...parsed,
+      settings: { ...init.settings, ...parsed.settings },
+      // Legacy xp/level/streak/best/freeze fields are folded into one
+      // monotonic Night count and never written back out.
+      game: migrateGame(parsed.game, Array.isArray(parsed.entries) ? parsed.entries.length : 0),
+    }
   } catch {
     return initialState()
   }

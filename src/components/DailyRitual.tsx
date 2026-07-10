@@ -17,9 +17,8 @@ interface Props {
   /** The bookend belongs to daylight; at night the ritual owns the screen. */
   morningWindow?: boolean
   onSetMorning?: (win: string, answer?: string) => void
-  /** A real lapse (≥2 missed nights) → the guilt-free re-entry, once. */
-  comeback?: { best: number } | null
-  onComebackSeen?: () => void
+  /** A real lapse (≥2 missed nights) → one quiet line above the ritual. */
+  comeback?: { nights: number } | null
   onSubmit: (d: Draft) => void
 }
 
@@ -43,7 +42,7 @@ interface TonightDraft {
 export function DailyRitual({
   reflectedToday, cue, thinking, todayIntention,
   morningNote, morningQuestion, morningWindow, onSetMorning,
-  comeback, onComebackSeen, onSubmit,
+  comeback, onSubmit,
 }: Props) {
   // Words are never lost: tonight's writing persists as it's typed and is
   // restored silently if the page is refreshed or evicted mid-ritual.
@@ -81,24 +80,6 @@ export function DailyRitual({
     // The entry becomes the real save the moment it's submitted.
     clearDraft(draftKey)
     onSubmit({ event, emotions, well, next })
-  }
-
-  // The comeback: a real lapse ends here, without a trace of guilt. Once.
-  if (comeback && !reflectedToday) {
-    return (
-      <div className="develop">
-        <span className="ambient">Tonight</span>
-        <h1 style={{ marginTop: 'var(--s-3)' }}>You’re back.</h1>
-        <p className="sub">
-          {comeback.best > 1
-            ? `You reached Night ${comeback.best} — that ground is yours. `
-            : ''}
-          What’s kept is kept. One moment tonight is enough.
-        </p>
-        <div className="spacer" />
-        <button className="btn" onClick={onComebackSeen}>Begin tonight</button>
-      </div>
-    )
   }
 
   if (reflectedToday && !adding) {
@@ -155,6 +136,9 @@ export function DailyRitual({
   return (
     <div className="develop" key={step}>
       {today}
+      {step === 0 && comeback && !reflectedToday && (
+        <p className="morning-line">You’re back. Night {comeback.nights} is waiting — one moment tonight is enough.</p>
+      )}
 
       {restored && <p className="morning-line">Picked up where you left off.</p>}
 

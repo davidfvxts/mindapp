@@ -230,12 +230,12 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   const ent = (o: Partial<Entry> = {}): Entry =>
     ({ id: 'x', date: '2026-07-10', event: 'e', emotions: [], well: 'w', next: 'n', ts: 1, ...o })
   const g = (over: Partial<AppState['game']>): AppState['game'] =>
-    ({ xp: 0, level: 1, streak: 0, best: 0, freezes: 1, lastDay: '2026-07-10', ...over })
+    ({ nights: 0, lastDay: '2026-07-10', ...over })
   const stateWith = (over: Partial<AppState>): AppState => ({ ...initialState(), ...over })
 
   // the gate: never before a couple of nights, never daily, one at a time
-  ok('not due in the first night', !dueForNudge(stateWith({ game: g({ streak: 1, best: 1 }) })))
-  const ripe = stateWith({ entries: [ent()], game: g({ streak: 6, best: 6 }) })
+  ok('not due in the first night', !dueForNudge(stateWith({ game: g({ nights: 1 }) })))
+  const ripe = stateWith({ entries: [ent()], game: g({ nights: 6 }) })
   ok('due once a few nights have passed', dueForNudge(ripe))
   const draft0 = pickOfflineNudge(ripe)!
   const withOpen = stateWith({
@@ -248,7 +248,7 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   ok('offline pick returns a fitting draft', !!draft0 && !!draft0.seedId)
   const usedAll = stateWith({
     entries: [ent()],
-    game: g({ streak: 6, best: 6 }),
+    game: g({ nights: 6 }),
     nudges: SEEDS.map((s, i) => ({ ...toNudge(s, `n${i}`, 6, '2026-07-10', 'local'), status: 'declined' as const })),
   })
   ok('offline pick is null when everything’s been offered', pickOfflineNudge(usedAll) === null)
@@ -256,7 +256,7 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   // a fear-setting night makes the Ferriss cluster eligible
   const fear = stateWith({
     entries: [ent({ coach: { text: '', kind: 'fear_setting', source: 'ai' } })],
-    game: g({ streak: 6, best: 6 }),
+    game: g({ nights: 6 }),
   })
   ok('fear-setting makes fear-setting nudges eligible',
     SEEDS.filter((s) => s.fit(({ nights: 6, entries: 1, kinds: { fear_setting: 1 }, themeMax: 0, goals: [], obstacles: [], charged: 0, keptCommitments: 0, weeklyReads: 0 })))
@@ -278,9 +278,9 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
     ok('commit records the intention + a check-in night', committed.status === 'committed' && (committed.checkInNight ?? 0) > 6)
     ok('commit keeps the note', committed.note === 'help me start')
 
-    const before = stateWith({ game: g({ streak: 7, best: 7 }), nudges: ns })
+    const before = stateWith({ game: g({ nights: 7 }), nudges: ns })
     ok('check-in not due yet', checkInsDue(before).length === 0 && inFlight(before).length === 1)
-    const after = stateWith({ game: g({ streak: committed.checkInNight!, best: committed.checkInNight! }), nudges: ns })
+    const after = stateWith({ game: g({ nights: committed.checkInNight! }), nudges: ns })
     ok('check-in comes due at its night', checkInsDue(after).length === 1)
 
     ns = resolveNudge(ns, 'a', true)
@@ -295,7 +295,7 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
 
   // the tab marker: an unseen open nudge counts, then clears
   {
-    const s1 = stateWith({ game: g({ streak: 6, best: 6 }), nudges: [toNudge(draft0, 'c', 6, '2026-07-10', 'local')] })
+    const s1 = stateWith({ game: g({ nights: 6 }), nudges: [toNudge(draft0, 'c', 6, '2026-07-10', 'local')] })
     ok('an unseen open nudge marks the tab', unseenCount(s1) === 1)
     const s2 = { ...s1, nudges: markSeen(s1.nudges, 6) }
     ok('seeing it clears the marker', unseenCount(s2) === 0)
@@ -309,7 +309,7 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
     ({ date, text: 'send the memo', status }) as const
 
   ok('last night’s intention surfaces today', intentionForToday([C('2026-07-08')], '2026-07-09') === 'send the memo')
-  ok('a bridged night still surfaces it', intentionForToday([C('2026-07-07')], '2026-07-09') === 'send the memo')
+  ok('a two-day-old intention still surfaces', intentionForToday([C('2026-07-07')], '2026-07-09') === 'send the memo')
   ok('tonight’s own intention is not “today”', intentionForToday([C('2026-07-09')], '2026-07-09') === null)
   ok('a lapsed intention stays quiet', intentionForToday([C('2026-07-05')], '2026-07-09') === null)
   ok('resolved intentions don’t resurface', intentionForToday([C('2026-07-08', 'kept')], '2026-07-09') === null)
@@ -320,7 +320,7 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   ok('never reflected means nothing missed', missedNights(null, '2026-07-09') === 0)
 
   ok('two missed nights → comeback', needsComeback('2026-07-06', '2026-07-09', null) === true)
-  ok('one missed night is bridged, not a comeback', needsComeback('2026-07-07', '2026-07-09', null) === false)
+  ok('one missed night is not a comeback', needsComeback('2026-07-07', '2026-07-09', null) === false)
   ok('comeback shows once per lapse', needsComeback('2026-07-06', '2026-07-09', '2026-07-06') === false)
   ok('a new lapse gets a new comeback', needsComeback('2026-07-06', '2026-07-09', '2026-07-01') === true)
   ok('never reflected → onboarding, not comeback', needsComeback(null, '2026-07-09', null) === false)

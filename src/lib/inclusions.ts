@@ -10,9 +10,8 @@ import type { Stone } from './milestones'
  * is a real night the user actually wrote — nothing invented.
  *
  * A stone earned at Night N covers the nights since the previous milestone.
- * We map the i-th oldest reflection to Night i (a light approximation that
- * ignores exact freeze accounting — good enough to surface a true past night,
- * never off by more than the freezes used).
+ * We map the i-th oldest reflection to Night i, which is an exact history now
+ * that a completed first reflection always adds one Night.
  */
 
 const POSITIVE = ['Proud', 'Energized', 'Excited', 'Grateful']

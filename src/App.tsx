@@ -63,12 +63,10 @@ export default function App() {
     <section className="wrap">
       <header className="bar">
         <span className="wordmark">FACET</span>
-        {game.streak > 0 && (
-          <span className="night-chip">
-            <span className="ambient">Night</span>
-            <span className="n">{game.streak}</span>
-          </span>
-        )}
+        <span className="night-chip">
+          <span className="ambient">Night</span>
+          <span className="n">{game.nights}</span>
+        </span>
       </header>
 
       <main>
@@ -97,7 +95,6 @@ export default function App() {
               morningWindow={m.derived.morningWindow}
               onSetMorning={m.setMorning}
               comeback={m.derived.comeback}
-              onComebackSeen={m.acknowledgeComeback}
               onSubmit={(d) => void m.submitEntry(d)}
             />
           ))}

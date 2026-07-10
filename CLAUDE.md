@@ -30,8 +30,8 @@ Nothing else gets a name:
 - The session isn't called anything. The app says **"Tonight"** and asks
   its question.
 - The coach is just **"Coach"**. Never: AI, assistant, bot, Lapidary.
-- A missed night is bridged automatically (once per month). No feature name —
-  the copy simply says: *"Last night is covered."*
+- A missed night adds nothing and costs nothing. The Night count only ever
+  rises.
 
 The metaphor lives in the **object**, not the vocabulary: facets appear on
 the stone; nobody ever has to learn a jeweller's word.
@@ -84,10 +84,9 @@ offence); it acknowledges like a craftsman: "That's a clear one."
 - **Inclusions:** Coach marks points inside banked stones; tapping one
   surfaces the user's own past words. Build the artefact as a container
   of reflections, not a badge.
-- **Never punish.** A missed night pauses progress; the stone never
-  regresses, shatters, or greys out. Once a month, a single missed night is
-  bridged automatically with a quiet note ("Last night is covered"). No
-  guilt copy, ever. This app is used at bedtime — anxiety is a churn
+- **Never punish.** A missed night adds nothing and costs nothing; the Night
+  count only ever rises. The stone never regresses, shatters, or greys out.
+  No guilt copy, ever. This app is used at bedtime — anxiety is a churn
   mechanic and a moral failure here.
 - **Locked milestones show an outline only.** Never preview the colour.
 - No leaderboards, no sharing prompts, no friend graphs in v1.
@@ -159,7 +158,7 @@ supported as a fallback for existing environments.
 ```bash
 npm install
 npm run dev        # runs with zero keys: localStorage + offline coach
-npm test           # habit engine — the Night mechanic + never-miss-twice + internal XP
+npm test           # monotonic Night engine + Coach logic
 npm run typecheck
 npm run build      # production + service worker
 npm run ios:add    # Mac + Xcode: creates ios/
@@ -173,7 +172,7 @@ src/
   styles.css          Component layer, built entirely on the tokens.
   lib/
     types.ts        Domain model. EMOTIONS, CHARGED, CoachMemory (profile/themes/commitments).
-    game.ts         Habit engine: the Night mechanic, never-miss-twice, internal XP.  ← TESTED
+    game.ts         Habit engine: the monotonic Night clock + legacy migration.  ← TESTED
     coachMemory.ts  Local-first coach memory: curate() (recency + long-ago recall),
                     narrative, full weekly revision, renegotiation, rating folds,
                     stem-lite theme matcher. Bounded.  ← TESTED
@@ -236,11 +235,10 @@ morning**, when it can be acted on (Gollwitzer: cues work at execution time): a 
 for a 1–2-night-old open intention only), plus an optional one-shot **local** morning
 notification (`settings.morningTime`, default 08:30, one-tap off in onboarding/retune;
 rescheduled after every reflection so the text is always tonight's intention). After a real
-lapse (**≥2 missed nights** — one miss is bridged by never-miss-twice), the Tonight screen
-opens with a designed, guilt-free re-entry ("You're back. You reached Night N — that ground
-is yours.") shown **once per lapse** (`state.comebackAck` records the `game.lastDay` it was
-acknowledged for) before flowing straight into the ritual. No guilt copy, no streak
-vocabulary, Night count the only number.
+lapse (**≥2 missed nights**), Tonight shows one quiet inline line above the first field:
+"You're back. Night N is waiting — one moment tonight is enough." It adds no tap and is
+acknowledged automatically when tonight's reflection saves (`state.comebackAck` records the
+prior `game.lastDay`). No guilt copy, no streak vocabulary, Night count the only number.
 
 **The Today bookend (~2 min, daylight only, fully skippable):** one specific **win** for the
 day ("What would make today a win?" — Locke & Latham: the evening AAR then debriefs against a
@@ -281,12 +279,13 @@ successful submit. The weekly/monthly reviews resume from the Reviews landing
 call. Keep this wired on any NEW writing surface.
 
 ### Engine invariant — do not "fix"
-`game.ts` still computes `xp`/`level`/`streak` internally. **`xp` and `level` are
-never shown** — they only drive the Stone's Rough→Cut→Polished→Brilliant stage.
-`streak` is surfaced only as the **Night** count. **Never-miss-twice** (one
-freeze/week bridges a single missed Night; two misses reset) is covered by 16
-tests in `scripts/test-game.ts` — keep them green. The UI never shows a number
-other than the Night count.
+`game.ts` keeps one progression value: **`nights`**, the total number of days with a
+completed first reflection. It increments once per day and never resets; a gap simply
+does not add a Night. `lastDay` drives same-day detection and the comeback line. Old
+`xp`/`level`/`streak`/`best`/`freezes` state is folded into the highest safe Night count
+on load and never written back. XP, levels, streaks, and freezes are **removed**. The
+stone stage and milestones derive from `nights`; `scripts/test-game.ts` guards this
+contract. The UI never shows a number other than the Night count.
 
 ### Coaching engine — expert-driven, multi-model, learns who you are
 Every reply is a real intervention, not chat. The flow (stateless server, local memory):
@@ -398,7 +397,7 @@ Growth is made FELT, in words never numbers:
 - **Inclusions** (`inclusions.ts`, Vault detail): a banked stone shows 1–4 marked points chosen
   deterministically from the nights in its span (the night it formed, the hardest, the clearest,
   where a theme began); tapping one surfaces the user's own words from that night. The i-th
-  oldest reflection maps to Night i (a light approximation that ignores exact freeze accounting).
+  oldest reflection maps to Night i, exactly matching the monotonic Night history.
   The stone becomes a container of reflections; colour stays exactly as scarce.
 
 **Retune anytime.** `components/Onboarding.tsx` runs in `mode:'retune'` from the Vault's "Revisit
