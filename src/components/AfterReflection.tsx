@@ -30,6 +30,8 @@ export function AfterReflection({
 }: Props) {
   const draftKey = `answer.${entryId}`
   const [rated, setRated] = useState<0 | 1 | null>(null)
+  // The milestone stone arrives encased in rock — the user cracks it open.
+  const [cracked, setCracked] = useState(false)
   // An in-progress answer survives a refresh; a non-empty draft reopens the composer.
   const [answerDraft, setAnswerDraft] = useState(() => (answer ? '' : loadDraft<string>(draftKey) ?? ''))
   const [composerOpen, setComposerOpen] = useState(() => !answer && !!answerDraft.trim())
@@ -60,11 +62,21 @@ export function AfterReflection({
 
   return (
     <div>
-      {/* The Night and the Stone carry the moment. Colour only when earned. */}
-      {milestone ? (
+      {/* The Night and the Stone carry the moment. Colour only when earned —
+          and the milestone gem shows nothing at all until it's cracked open. */}
+      {milestone && !cracked ? (
         <div className="section center develop">
-          <Stone reveal stone={milestone} size={172} caption={milestone.name} />
+          <button className="stone-crack" aria-label="Crack the stone open" onClick={() => setCracked(true)}>
+            <Stone stone={milestone} shellState="intact" size={172} />
+          </button>
           <p className="sub" style={{ marginTop: 'var(--s-5)' }}>
+            Night {night}. The stone is ready — crack it open.
+          </p>
+        </div>
+      ) : milestone ? (
+        <div className="section center">
+          <Stone reveal stone={milestone} shellState="cracked" size={172} caption={milestone.name} />
+          <p className="sub develop-late" style={{ marginTop: 'var(--s-5)' }}>
             Night {night}. Kept in the Vault.
           </p>
           {echo && (
@@ -84,8 +96,8 @@ export function AfterReflection({
       )}
 
       {/* Direct feedback is an online-only event. On a milestone night the
-          stone takes its beat alone; the read develops in after. */}
-      {reply ? (
+          ceremony leads: crack first, then the read develops in. */}
+      {milestone && !cracked ? null : reply ? (
         <div className={milestone ? 'section develop-late' : 'section'}>
           <div className="coach">
             <span className="coach-label ambient">{firstRead ? 'Coach · your first read' : 'Coach'}</span>
@@ -151,7 +163,8 @@ export function AfterReflection({
       ) : null}
 
       <div className="spacer" />
-      <button className="btn" onClick={onDone}>Done</button>
+      {/* On a milestone night, the crack comes before anything else. */}
+      {(!milestone || cracked) && <button className="btn" onClick={onDone}>Done</button>}
     </div>
   )
 }

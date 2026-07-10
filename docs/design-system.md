@@ -152,12 +152,21 @@ matte until its night, then lit and edged), and the whole silhouette trues up
 as seeded jitter eases to zero at the milestone. Each milestone has its own
 cut, sized by its span: Ember 7 facets, Tide 23, Iris 60, Aurora 90,
 Solstice 97 (cap). Light is a fixed top-left key light — per-facet brightness
-from a pseudo-normal, plus at most two achromatic specular flashes. Facet
-shading is done by *opacity of the same gradient*, never by additional
-colours — one stone, one gradient, its span's facets. A soft gradient glow
-(blurred silhouette) and the one-time glint sweep exist ONLY at the milestone
-moment and the Vault detail; greyscale contexts get a breath of white halo at
-≤ .06 and no glint.
+from a pseudo-normal, plus at most two achromatic specular flashes. In the two
+colour contexts the material deepens: a near-black radial body, a
+screen-blended turbulence FIRE drawn only from the stone's own palette (the
+colour lives inside, like a real opal), glassy facet overlays, one soft gloss
+and a rim light — never a second palette. A soft gradient glow (blurred
+silhouette) and the one-time glint sweep exist ONLY at the milestone moment
+and the Vault detail; greyscale contexts get a breath of white halo at ≤ .06
+and no glint.
+
+**The crack.** A milestone stone arrives encased in rock — lit fractal-noise
+shards that tile the shell exactly, showing zero colour in the DOM. One press
+("Crack the stone open") bursts the shards along precomputed drifts (560ms,
+once) and the gem reveals inside the 1200ms beat. The read and the ceremony
+copy hold until the crack. Reduced motion: the shards simply vanish and the
+stone renders static and coloured.
 
 **Colourways** (earned, in order):
 

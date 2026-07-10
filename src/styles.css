@@ -391,6 +391,21 @@ textarea.error, input.error { border-color: var(--line-control); }
 .stone .glint { will-change: transform; }
 .stone.reveal .glint { animation: stone-glint 680ms var(--ease-reward) 400ms both; }
 
+/* The crack: the milestone stone arrives in rock; one press opens it.
+   Shards fly along their precomputed drifts — once, and they're gone. */
+.stone-crack {
+  appearance: none; background: none; border: none; padding: var(--s-3);
+  cursor: pointer; display: block; margin: 0 auto; border-radius: var(--r-lg);
+}
+.stone-crack svg { transition: transform var(--t-micro) var(--ease-settle); }
+.stone-crack:hover svg { transform: scale(1.015); }
+.stone-crack:active svg { transform: scale(0.97); }
+.stone .shard { transform-box: fill-box; transform-origin: center; }
+@keyframes shard-fly {
+  to { transform: translate(var(--sdx), var(--sdy)) rotate(var(--srot)); opacity: 0; }
+}
+.stone.cracked .shard { animation: shard-fly 560ms var(--ease-exit) both; }
+
 /* On a milestone night the stone gets its beat alone; the read develops in after. */
 .develop-late { animation: develop var(--t-enter) var(--ease-settle) both; animation-delay: 950ms; }
 
@@ -399,6 +414,8 @@ textarea.error, input.error { border-color: var(--line-control); }
   .develop { animation: fade var(--t-enter) linear both; transform: none; }
   .stone.reveal svg { animation: fade var(--t-enter) linear both; transform: none; }
   .stone.reveal .glint { animation: none; opacity: 0; }
+  .stone.cracked .shard { animation: none; opacity: 0; }
+  .stone-crack svg, .stone-crack:hover svg, .stone-crack:active svg { transition: none; transform: none; }
   .develop-late { animation: fade var(--t-enter) linear both; animation-delay: 0ms; }
   .coach.thinking { animation: none; }
 }

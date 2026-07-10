@@ -389,11 +389,15 @@ Growth is made FELT, in words never numbers:
   (jitter eases to zero at the milestone). Each milestone has its OWN cut — Ember a keen
   classic (7 facets), Tide a cushion (23), Iris an oval (60), Aurora a pear (90), Solstice a
   round brilliant (97 capped) — so a banked stone literally carries its span's work. Light is
-  a fixed key light with per-facet brightness + achromatic speculars; the soft colour glow and
-  the one-time glint live ONLY in the reveal/Vault-detail (colour law intact). The milestone
-  screen sequences: stone alone for the 1200ms beat, then the read develops in (`develop-late`),
-  with a quiet echo of the span's first night (`milestoneEcho`, quoted exactly). All geometry
-  is deterministic — same night, same stone, every device.
+  a fixed key light with per-facet brightness + achromatic speculars; colour contexts add a
+  deep radial body, a screen-blended turbulence FIRE of the stone's own palette (colour lives
+  INSIDE the stone), one gloss, a rim light and the soft glow — ONLY in the reveal/Vault-detail
+  (colour law intact). **The milestone stone arrives encased in rock** (`rockShell`: lit
+  fractal-noise shards that tile exactly) and shows ZERO colour until the user CRACKS IT OPEN —
+  one press, shards burst along precomputed drifts, the gem reveals with the 1200ms beat + one
+  glint, then the read develops in (`develop-late`) under a quiet echo of the span's first
+  night (`milestoneEcho`, quoted exactly). Reduced motion: instant swap, no shards, coloured.
+  All geometry is deterministic — same night, same stone, every device.
 - **The callback** (prompt-level, rare): a hard rule in `COACH_CORE` lets Coach set tonight's
   words against the user's OWN words from weeks ago when a theme has spanned time and the
   language has clearly shifted — quoting BOTH exactly, never inventing a quote. `curate()`
