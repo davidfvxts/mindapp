@@ -50,6 +50,7 @@ function OpenCard({ n, onCommit, onDecline }: { n: Nudge } & Pick<Actions, 'onCo
         className="nudge-note"
         rows={2}
         placeholder="Push back, or ask Coach for help with it — optional."
+        aria-label="A note for Coach about this guidance"
         value={note}
         onChange={(e) => setNote(e.target.value)}
       />

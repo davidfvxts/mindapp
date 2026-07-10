@@ -221,7 +221,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial
               <span className="ambient">You</span>
               <h1 style={{ marginTop: 'var(--s-3)' }}>{retune ? 'Your name.' : 'First — your name.'}</h1>
               <p className="sub">What should Coach call you?</p>
-              <input id="ob-name" value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="David" />
+              <input id="ob-name" value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="David" aria-label="What should Coach call you?" />
             </>
           )}
 
@@ -250,7 +250,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial
               <h1 style={{ marginTop: 'var(--s-3)' }}>What are you building — and who with?</h1>
               <p className="sub">{goalLabel ? `Sharper ${goalLabel}, in your world.` : 'Optional.'} Names help Coach follow the thread.</p>
               <textarea value={world} autoFocus onChange={(e) => setWorld(e.target.value)}
-                placeholder="e.g. an AI creative agency, with my cofounder Sam" />
+                placeholder="e.g. an AI creative agency, with my cofounder Sam" aria-label="What are you building, and who with?" />
             </>
           )}
 
@@ -289,7 +289,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial
               <span className="ambient">The cue</span>
               <h1 style={{ marginTop: 'var(--s-3)' }}>After I ___, I reflect.</h1>
               <p className="sub">Habits beat willpower. This one setting is what makes it stick.</p>
-              <input value={cue} autoFocus onChange={(e) => setCue(e.target.value)} placeholder="close my laptop" />
+              <input value={cue} autoFocus onChange={(e) => setCue(e.target.value)} placeholder="close my laptop" aria-label="After I finish what, I reflect?" />
               <div className="section">
                 <label className="field-label" htmlFor="ob-time"><span className="ambient">Nightly reminder</span></label>
                 <input id="ob-time" type="time" value={reminderTime} onChange={(e) => setTime(e.target.value)} />
@@ -338,7 +338,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial
               <p className="subhead">Not how the day went — one moment.</p>
               <div className="spacer" />
               <textarea value={event} autoFocus onChange={(e) => setEvent(e.target.value)}
-                placeholder="A specific event, good or hard." />
+                placeholder="A specific event, good or hard." aria-label="One concrete thing that happened today." />
               <div className="section">
                 <label className="field-label">
                   <span className="ambient">How it left you</span>
@@ -366,7 +366,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial
               <p className="subhead">Agency, not luck.</p>
               <div className="spacer" />
               <textarea value={well} autoFocus onChange={(e) => setWell(e.target.value)}
-                placeholder="Name your contribution." />
+                placeholder="Name your contribution." aria-label="What went well, and what did you do to cause it?" />
             </>
           )}
 
@@ -377,7 +377,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial
               <p className="subhead">One concrete, controllable action.</p>
               <div className="spacer" />
               <textarea value={next} autoFocus onChange={(e) => setNext(e.target.value)}
-                placeholder="The smallest version you couldn’t skip." />
+                placeholder="The smallest version you couldn’t skip." aria-label="One thing you will do differently tomorrow." />
             </>
           )}
 

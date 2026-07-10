@@ -104,6 +104,7 @@ export function AfterReflection({
                 value={answerDraft}
                 maxLength={600}
                 placeholder="Write it down."
+                aria-label="Your answer to Coach"
                 onChange={(event) => setAnswerDraft(event.target.value)}
                 disabled={answerStatus === 'sending'}
               />

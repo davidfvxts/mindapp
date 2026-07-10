@@ -235,7 +235,7 @@ export function Reviews({
             <p className="subhead">Two or three, specific. Name your hand in each.</p>
             <div className="spacer" />
             <textarea value={wins} autoFocus onChange={(e) => setWins(e.target.value)}
-              placeholder="What went right this week, and what did you do to cause it?" />
+              placeholder="What went right this week, and what did you do to cause it?" aria-label="The wins, and what caused them." />
           </>
         )}
 
@@ -246,7 +246,7 @@ export function Reviews({
             <p className="subhead">What, not why. Conditions, not character.</p>
             <div className="spacer" />
             <textarea value={friction} autoFocus onChange={(e) => setFriction(e.target.value)}
-              placeholder="The specific thing that got in the way." />
+              placeholder="The specific thing that got in the way." aria-label="Where you fell short, and what got in the way." />
           </>
         )}
 
@@ -257,7 +257,7 @@ export function Reviews({
             <p className="subhead">Naming it is half the battle. Leave it blank if there truly isn’t one.</p>
             <div className="spacer" />
             <textarea value={avoided} autoFocus onChange={(e) => setAvoided(e.target.value)}
-              placeholder="A decision, a conversation, a bet." />
+              placeholder="A decision, a conversation, a bet." aria-label="What decision are you avoiding?" />
           </>
         )}
 
@@ -268,11 +268,11 @@ export function Reviews({
             <p className="subhead">One wish — and what getting it does for you.</p>
             <div className="spacer" />
             <input value={wish} autoFocus onChange={(e) => setWish(e.target.value)}
-              placeholder="The single most important outcome." />
+              placeholder="The single most important outcome." aria-label="The one outcome that matters most." />
             <div className="section">
               <label className="field-label"><span className="ambient">What it gets you</span></label>
               <input value={outcome} onChange={(e) => setOutcome(e.target.value)}
-                placeholder="How it will feel, what it unlocks — one line." />
+                placeholder="How it will feel, what it unlocks — one line." aria-label="What it gets you." />
             </div>
           </>
         )}
@@ -284,11 +284,11 @@ export function Reviews({
             <p className="subhead">The internal one: avoidance, perfectionism, distraction. Not “no time.”</p>
             <div className="spacer" />
             <input value={obstacle} autoFocus onChange={(e) => setObstacle(e.target.value)}
-              placeholder="The obstacle inside you, not around you." />
+              placeholder="The obstacle inside you, not around you." aria-label="The obstacle, and your move." />
             <div className="section">
               <label className="field-label"><span className="ambient">The if-then</span></label>
               <input value={plan} onChange={(e) => setPlan(e.target.value)}
-                placeholder="If it shows up, I will…" />
+                placeholder="If it shows up, I will…" aria-label="The if-then plan." />
             </div>
           </>
         )}
@@ -330,7 +330,7 @@ export function Reviews({
             <p className="subhead">Make it yours — edit anything that isn’t quite true.</p>
             <div className="spacer" />
             <textarea value={trajectory} autoFocus onChange={(e) => setTrajectory(e.target.value)}
-              style={{ minHeight: 180 }} />
+              style={{ minHeight: 180 }} aria-label="Coach's read of your month." />
           </>
         )}
 
@@ -341,7 +341,7 @@ export function Reviews({
             <p className="subhead">One specific gap between what you say matters and how the month went.</p>
             <div className="spacer" />
             <textarea value={gap} autoFocus onChange={(e) => setGap(e.target.value)}
-              placeholder="The one place you’re not living what you claim to." />
+              placeholder="The one place you’re not living what you claim to." aria-label="Where are you out of step with what you value?" />
           </>
         )}
 
@@ -353,7 +353,7 @@ export function Reviews({
             <p className="subhead">Worst case if you act — and the cost of not deciding in six months?</p>
             <div className="spacer" />
             <textarea value={fear} autoFocus onChange={(e) => setFear(e.target.value)}
-              placeholder="Define · Prevent · Repair · and the cost of inaction." />
+              placeholder="Define · Prevent · Repair · and the cost of inaction." aria-label="The decision you keep circling." />
           </>
         )}
 
@@ -364,7 +364,7 @@ export function Reviews({
             <p className="subhead">A north star for the next four weeks. Coach suggested one — keep it or change it.</p>
             <div className="spacer" />
             <input value={theme} autoFocus onChange={(e) => setTheme(e.target.value)}
-              placeholder="e.g. Ship, don’t polish" />
+              placeholder="e.g. Ship, don’t polish" aria-label="One theme to aim the month." />
           </>
         )}
 

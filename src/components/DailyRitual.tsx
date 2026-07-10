@@ -159,6 +159,7 @@ export function DailyRitual({
             value={event}
             onChange={(e) => setEvent(e.target.value)}
             placeholder="A specific event, good or hard. Not how the day went — one moment."
+            aria-label="One concrete thing that happened today."
             autoFocus
           />
           <div className="section">
@@ -197,6 +198,7 @@ export function DailyRitual({
             value={well}
             onChange={(e) => setWell(e.target.value)}
             placeholder="Name your contribution. Agency, not luck."
+            aria-label="What went well, and what did you do to cause it?"
             autoFocus
           />
         </>
@@ -207,6 +209,7 @@ export function DailyRitual({
           value={next}
           onChange={(e) => setNext(e.target.value)}
           placeholder="One concrete, controllable action."
+          aria-label="One thing you will do differently tomorrow."
           autoFocus
         />
       )}

@@ -50,6 +50,9 @@
   --s-8:  64px;
   --s-9:  96px;
 
+  /* ---------- SHELL ---------- */
+  --tabs-h: 64px; /* minimum bottom navigation height, before the safe area */
+
   /* ---------- RADII ---------- */
   --r-sm:   8px;    /* chips, small controls */
   --r-md:   12px;   /* text fields, buttons */
