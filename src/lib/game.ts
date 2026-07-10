@@ -54,4 +54,3 @@ export const weekCount = (entries: Entry[]): number => {
 }
 
 export const WEEKLY_UNLOCK = 5
-export const MONTHLY_UNLOCK = 4

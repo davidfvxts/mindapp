@@ -7,8 +7,12 @@ import type { MonthlyResult } from '../lib/ai'
 import type { CoachProfile, InsightCard, Nudge } from '../lib/types'
 
 interface Props {
-  /** A week is gathered and the last guided review is far enough back. */
+  /** At least three Nights this week and the last guided review is far enough back. */
   ready: boolean
+  /** Five Nights means the user has a full week, rather than a review so far. */
+  fullWeek: boolean
+  /** Coach reads reviews live; drafts remain available when this is false. */
+  online: boolean
   cards: InsightCard[]
   arcs: InsightCard[]
   thinking: boolean
@@ -31,6 +35,8 @@ type MonthStep = 'trajectory' | 'gap' | 'fear' | 'theme'
 /** In-progress review writing, persisted so ten minutes of typing can never be lost. */
 interface WeeklyDraft {
   at: StepId
+  /** Final answers are written and waiting for Coach after a failed live call. */
+  awaitingCoach?: boolean
   wins: string
   friction: string
   avoided: string
@@ -48,8 +54,17 @@ interface MonthlyDraft {
   theme: string
 }
 
+type ArchiveRead = InsightCard & { kind: 'Weekly' | 'Monthly' }
+
 const weeklyDraftText = (d: WeeklyDraft | null): boolean =>
   !!d && [d.wins, d.friction, d.avoided, d.wish, d.outcome, d.obstacle, d.plan].some((v) => v.trim())
+
+const readDate = (iso: string): string => {
+  const date = new Date(`${iso}T12:00:00`)
+  const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' }
+  if (date.getFullYear() !== new Date().getFullYear()) options.year = 'numeric'
+  return new Intl.DateTimeFormat('en-GB', options).format(date)
+}
 
 /**
  * The weekly review — the user's own work, structured by Coach (AAR: the
@@ -57,7 +72,7 @@ const weeklyDraftText = (d: WeeklyDraft | null): boolean =>
  * (trajectory · identity · fear-setting · theme). One thing per screen.
  */
 export function Reviews({
-  ready, cards, arcs, thinking, monthReady, liveDecision, openIntention,
+  ready, fullWeek, online, cards, arcs, thinking, monthReady, liveDecision, openIntention,
   onResolveIntention, onComplete, onBeginMonthly, onCompleteMonthly, onGoToday,
 }: Props) {
   const [phase, setPhase] = useState<'landing' | 'flow' | 'card' | 'month' | 'monthcard'>('landing')
@@ -68,16 +83,16 @@ export function Reviews({
 
   // Ten minutes of typing must survive anything: both flows persist as drafts
   // and resume from the landing. Cleared only when the review is banked.
-  const [savedWeekly] = useState<WeeklyDraft | null>(() => loadDraft<WeeklyDraft>('weekly'))
+  const [weeklyDraft, setWeeklyDraft] = useState<WeeklyDraft | null>(() => loadDraft<WeeklyDraft>('weekly'))
   const [savedMonthly] = useState<MonthlyDraft | null>(() => loadDraft<MonthlyDraft>('monthly'))
 
-  const [wins, setWins] = useState(savedWeekly?.wins ?? '')
-  const [friction, setFriction] = useState(savedWeekly?.friction ?? '')
-  const [avoided, setAvoided] = useState(savedWeekly?.avoided ?? '')
-  const [wish, setWish] = useState(savedWeekly?.wish ?? '')
-  const [outcome, setOutcome] = useState(savedWeekly?.outcome ?? '')
-  const [obstacle, setObstacle] = useState(savedWeekly?.obstacle ?? '')
-  const [plan, setPlan] = useState(savedWeekly?.plan ?? '')
+  const [wins, setWins] = useState(weeklyDraft?.wins ?? '')
+  const [friction, setFriction] = useState(weeklyDraft?.friction ?? '')
+  const [avoided, setAvoided] = useState(weeklyDraft?.avoided ?? '')
+  const [wish, setWish] = useState(weeklyDraft?.wish ?? '')
+  const [outcome, setOutcome] = useState(weeklyDraft?.outcome ?? '')
+  const [obstacle, setObstacle] = useState(weeklyDraft?.obstacle ?? '')
+  const [plan, setPlan] = useState(weeklyDraft?.plan ?? '')
 
   // ---- monthly arc state ----
   const [draft, setDraft] = useState<MonthlyResult | null>(savedMonthly?.result ?? null)
@@ -89,9 +104,11 @@ export function Reviews({
 
   useEffect(() => {
     if (phase !== 'flow') return
-    saveDraft('weekly', {
+    const next: WeeklyDraft = {
       at: steps[step] ?? 'wins', wins, friction, avoided, wish, outcome, obstacle, plan,
-    } satisfies WeeklyDraft)
+    }
+    setWeeklyDraft(next)
+    saveDraft('weekly', next)
   }, [phase, steps, step, wins, friction, avoided, wish, outcome, obstacle, plan])
 
   useEffect(() => {
@@ -100,10 +117,11 @@ export function Reviews({
   }, [phase, draft, mStep, trajectory, gap, fear, theme])
 
   const start = () => {
+    if (!online) return
     const order: StepId[] = [...(openIntention ? (['checkin'] as StepId[]) : []), 'wins', 'friction', 'avoided', 'wish', 'plan']
     setSteps(order)
     // Resume where the draft left off; a resolved check-in can't come back.
-    const at = savedWeekly ? order.indexOf(savedWeekly.at) : 0
+    const at = weeklyDraft ? order.indexOf(weeklyDraft.at) : 0
     setStep(at > 0 ? at : 0)
     setErr('')
     setPhase('flow')
@@ -114,7 +132,19 @@ export function Reviews({
       { wins: wins.trim(), friction: friction.trim(), avoided: avoided.trim() },
       { wish: wish.trim(), outcome: outcome.trim(), obstacle: obstacle.trim(), plan: plan.trim() },
     )
-    if (minted) { clearDraft('weekly'); setCard(minted); setPhase('card') }
+    if (minted) {
+      clearDraft('weekly')
+      setWeeklyDraft(null)
+      setCard(minted)
+      setPhase('card')
+      return
+    }
+    const pending: WeeklyDraft = {
+      at: 'plan', awaitingCoach: true, wins, friction, avoided, wish, outcome, obstacle, plan,
+    }
+    setWeeklyDraft(pending)
+    saveDraft('weekly', pending, 0)
+    setPhase('landing')
   }
 
   const advance = () => {
@@ -166,6 +196,11 @@ export function Reviews({
     )
     setPhase('monthcard')
   }
+
+  const archive: ArchiveRead[] = [
+    ...cards.map((item) => ({ ...item, kind: 'Weekly' as const })),
+    ...arcs.map((item) => ({ ...item, kind: 'Monthly' as const })),
+  ].sort((a, b) => b.date.localeCompare(a.date))
 
   // ---- the minted weekly read ----
   if (phase === 'card' && card) {
@@ -315,6 +350,7 @@ export function Reviews({
   // ---- the monthly guided flow ----
   if (phase === 'month') {
     const last = monthOrder[monthOrder.length - 1]
+    const monthIndex = monthOrder.indexOf(mStep)
     return (
       <div className="develop" key={mStep}>
         <div className="dots">
@@ -372,6 +408,9 @@ export function Reviews({
 
         <div className="spacer" />
         <div className="row">
+          {monthIndex > 0 && (
+            <button className="btn ghost back" onClick={() => setMStep(monthOrder[monthIndex - 1])}>Back</button>
+          )}
           <button className="btn" onClick={advanceMonth}>{mStep === last ? 'Set the month' : 'Continue'}</button>
         </div>
       </div>
@@ -387,21 +426,40 @@ export function Reviews({
       <div className="section">
         <span className="ambient">Weekly</span>
         <h2 style={{ marginTop: 'var(--s-3)' }}>The week in review</h2>
-        {ready ? (
+        {weeklyDraft?.awaitingCoach ? (
           <>
             <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
-              {weeklyDraftText(savedWeekly)
-                ? 'Your review is where you left it — every word kept.'
-                : 'The week is gathered. You do the review — three questions and an intention — and Coach reads it against your nights. About ten minutes.'}
+              Your review is written. Coach reads it when you’re back online.
             </p>
-            <button className="btn" onClick={start}>
-              {weeklyDraftText(savedWeekly) ? 'Continue the review' : 'Review my week'}
+            <button
+              className={online ? 'btn' : 'btn ghost'}
+              onClick={() => void finish()}
+              disabled={!online || thinking}
+            >
+              {!online ? 'Coach reads your week live — you’re offline.' : thinking ? 'Coach is reading your week…' : 'Retry Coach'}
+            </button>
+          </>
+        ) : ready ? (
+          <>
+            <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
+              {weeklyDraftText(weeklyDraft)
+                ? 'Your review is where you left it — every word kept.'
+                : fullWeek
+                  ? 'The week is gathered. You do the review — three questions and an intention — and Coach reads it against your nights. About ten minutes.'
+                  : 'Three nights is enough to look at the week so far.'}
+            </p>
+            <button className={online ? 'btn' : 'btn ghost'} onClick={start} disabled={!online || thinking}>
+              {!online
+                ? 'Coach reads your week live — you’re offline.'
+                : weeklyDraftText(weeklyDraft)
+                  ? 'Continue the review'
+                  : fullWeek ? 'Review my week' : 'Review the week so far'}
             </button>
           </>
         ) : (
           <>
             <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
-              A week’s review comes after a few nights. Keep going.
+              Opens after three nights in a week.
             </p>
             <button className="btn ghost" onClick={onGoToday}>Reflect tonight</button>
           </>
@@ -414,19 +472,6 @@ export function Reviews({
         )}
       </div>
 
-      {cards.length > 0 && (
-        <div className="section">
-          <span className="ambient">Past reads</span>
-          <div className="spacer" />
-          {cards.slice(0, 6).map((c) => (
-            <div key={c.id} className="item">
-              <div className="item-meta ambient">{c.date}</div>
-              <div className="item-body">{c.text}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
       <div className="section">
         <span className="ambient">Monthly</span>
         <h2 style={{ marginTop: 'var(--s-3)' }}>The monthly arc</h2>
@@ -437,24 +482,26 @@ export function Reviews({
         {savedMonthly && draft ? (
           <button className="btn" onClick={beginMonth}>Continue the monthly arc</button>
         ) : monthReady ? (
-          <button className="btn" onClick={beginMonth} disabled={thinking}>
-            {thinking ? 'Coach is reading your month…' : 'Begin the monthly arc'}
+          <button className={online ? 'btn' : 'btn ghost'} onClick={beginMonth} disabled={!online || thinking}>
+            {!online ? 'Coach reads your month live — you’re offline.' : thinking ? 'Coach is reading your month…' : 'Begin the monthly arc'}
           </button>
         ) : (
-          <p className="secondary">Opens once you’ve gathered a few weekly reads.</p>
-        )}
-        {arcs.length > 0 && (
-          <>
-            <div className="spacer" />
-            {arcs.slice(0, 4).map((a) => (
-              <div key={a.id} className="item">
-                <div className="item-meta ambient">{a.date}</div>
-                <div className="item-body">{a.text}</div>
-              </div>
-            ))}
-          </>
+          <p className="secondary">Opens at Night 30.</p>
         )}
       </div>
+
+      {archive.length > 0 && (
+        <div className="section">
+          <span className="ambient">Past reads</span>
+          <div className="spacer" />
+          {archive.slice(0, 10).map((item) => (
+            <div key={`${item.kind}-${item.id}`} className="item">
+              <div className="item-meta ambient">{item.kind} · {readDate(item.date)}</div>
+              <div className="item-body">{item.text}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
