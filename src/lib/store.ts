@@ -89,7 +89,7 @@ export function useFacet() {
     nudging.current = true
     void (async () => {
       try {
-        const nights = Math.max(state.game.best, state.game.streak)
+        const nights = state.game.nights
         const today = todayStr()
         const res = aiEnabled() && online ? await fetchNudge(state) : 'offline'
         // 'skip' = Coach deliberately held back; null/'offline' = fall back to the library.
@@ -202,11 +202,11 @@ export function useFacet() {
       entry.coach = reply
       coach = recordCommitment(coach, entry, today)
 
-      const { game } = applyEntry(state.game, entry, 1)
+      const { game } = applyEntry(state.game, entry)
       void scheduleDailyReminder(settings.reminderTime, settings.cue)
       void scheduleMorningIntention(settings.morningTime, entry.next)
       setState((s) => ({ ...s, settings, onboarded: true, coach, entries: [entry], game }))
-      setReveal({ entryId: entry.id, night: game.streak, reply, pending: false, firstRead: true })
+      setReveal({ entryId: entry.id, night: game.nights, reply, pending: false, firstRead: true })
       setThinking(false)
     },
     [state.game, online],
@@ -259,15 +259,23 @@ export function useFacet() {
       // Record tonight's intention as newly owed — online, offline, or key-less.
       coach = recordCommitment(coach, entry, today)
 
-      const { game, freezeUsed } = applyEntry(state.game, entry, history.length + 1)
-      setState((s) => ({ ...s, game, entries: [entry, ...s.entries], coach, nextMorningQuestion }))
-      setReveal({ entryId: entry.id, night: game.streak, reply, pending })
+      const { game } = applyEntry(state.game, entry)
+      setState((s) => ({
+        ...s,
+        game,
+        entries: [entry, ...s.entries],
+        coach,
+        nextMorningQuestion,
+        // A return is acknowledged by completing the next reflection, never by
+        // making the user take a separate recovery step.
+        comebackAck: needsComeback(s.game.lastDay, today, s.comebackAck) ? s.game.lastDay : s.comebackAck,
+      }))
+      setReveal({ entryId: entry.id, night: game.nights, reply, pending })
       setThinking(false)
 
       // Tonight's intention comes back tomorrow morning, when it can be acted on.
       void scheduleMorningIntention(state.settings.morningTime, entry.next)
 
-      if (freezeUsed) setToast('Last night is covered.')
     },
     [state.entries, state.game, state.settings, state.coach, state.mornings, online],
   )
@@ -310,7 +318,7 @@ export function useFacet() {
       if (!result) { setToast('Coach couldn’t be reached. Try again in a moment.'); return null }
       const today = todayStr()
       const card: InsightCard = { id: uid(), text: result.text, date: today }
-      const nights = Math.max(state.game.best, state.game.streak)
+      const nights = state.game.nights
       setState((s) => ({
         ...s,
         cards: [card, ...s.cards],
@@ -446,12 +454,12 @@ export function useFacet() {
 
   /** Opening the Guidance tab clears the "new" marker. */
   const markGuidanceSeen = useCallback(() => {
-    setState((s) => ({ ...s, nudges: markSeen(s.nudges, Math.max(s.game.best, s.game.streak)) }))
+    setState((s) => ({ ...s, nudges: markSeen(s.nudges, s.game.nights) }))
   }, [])
 
   /** "I'll try this" — Coach checks in a few nights on. */
   const commitNudge = useCallback((id: string, note?: string) => {
-    setState((s) => ({ ...s, nudges: commit(s.nudges, id, Math.max(s.game.best, s.game.streak), note) }))
+    setState((s) => ({ ...s, nudges: commit(s.nudges, id, s.game.nights, note) }))
     setToast('Noted — Coach will check in on this.')
   }, [])
 
@@ -472,11 +480,6 @@ export function useFacet() {
     setToast(keep ? 'Still on. Coach will hold the thread.' : 'Let go. Nothing carried forward.')
   }, [])
 
-  /** The comeback is shown once per lapse — acknowledging flows into the ritual. */
-  const acknowledgeComeback = useCallback(() => {
-    setState((s) => ({ ...s, comebackAck: s.game.lastDay }))
-  }, [])
-
   const hardReset = useCallback(() => {
     resetState()
     setState(loadState())
@@ -488,9 +491,9 @@ export function useFacet() {
     const thisWeek = weekCount(state.entries)
     // Last night's intention, surfaced while it can still shape today.
     const todayIntention = reflectedToday ? null : intentionForToday(state.coach.commitments, today)
-    // A real lapse (≥2 missed nights) gets a designed re-entry, once.
+    // A real lapse (≥2 missed nights) gets one quiet re-entry line, once.
     const comeback = needsComeback(state.game.lastDay, today, state.comebackAck)
-      ? { best: state.game.best }
+      ? { nights: state.game.nights }
       : null
 
     // The Today bookend: the day's note, and (until a win is set) Coach's one
@@ -553,7 +556,7 @@ export function useFacet() {
     state, derived, toast, thinking, reveal, online,
     completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly, answerCoach,
     markGuidanceSeen, commitNudge, declineNudge, resolveNudge, renegotiateIntention,
-    beginMonthly, completeMonthly, acknowledgeComeback, setMorning, hardReset,
+    beginMonthly, completeMonthly, setMorning, hardReset,
     setToast, clearReveal: () => setReveal(null),
   }
 }

@@ -15,9 +15,8 @@ interface Props {
   /** The bookend belongs to daylight; at night the ritual owns the screen. */
   morningWindow?: boolean
   onSetMorning?: (win: string, answer?: string) => void
-  /** A real lapse (≥2 missed nights) → the guilt-free re-entry, once. */
-  comeback?: { best: number } | null
-  onComebackSeen?: () => void
+  /** A real lapse (≥2 missed nights) → one quiet line above the ritual. */
+  comeback?: { nights: number } | null
   onSubmit: (d: Draft) => void
 }
 
@@ -30,7 +29,7 @@ const STEPS = [
 export function DailyRitual({
   reflectedToday, cue, thinking, todayIntention,
   morningNote, morningQuestion, morningWindow, onSetMorning,
-  comeback, onComebackSeen, onSubmit,
+  comeback, onSubmit,
 }: Props) {
   const [step, setStep] = useState(0)
   const [event, setEvent] = useState('')
@@ -55,24 +54,6 @@ export function DailyRitual({
     setErr('')
     if (step < 2) return setStep(step + 1)
     onSubmit({ event, emotions, well, next })
-  }
-
-  // The comeback: a real lapse ends here, without a trace of guilt. Once.
-  if (comeback && !reflectedToday) {
-    return (
-      <div className="develop">
-        <span className="ambient">Tonight</span>
-        <h1 style={{ marginTop: 'var(--s-3)' }}>You’re back.</h1>
-        <p className="sub">
-          {comeback.best > 1
-            ? `You reached Night ${comeback.best} — that ground is yours. `
-            : ''}
-          What’s kept is kept. One moment tonight is enough.
-        </p>
-        <div className="spacer" />
-        <button className="btn" onClick={onComebackSeen}>Begin tonight</button>
-      </div>
-    )
   }
 
   if (reflectedToday && !adding) {
@@ -129,6 +110,9 @@ export function DailyRitual({
   return (
     <div className="develop" key={step}>
       {today}
+      {step === 0 && comeback && !reflectedToday && (
+        <p className="morning-line">You’re back. Night {comeback.nights} is waiting — one moment tonight is enough.</p>
+      )}
 
       <div className="dots">
         {STEPS.map((_, i) => (

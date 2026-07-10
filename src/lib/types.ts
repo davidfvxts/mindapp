@@ -219,14 +219,8 @@ export interface Settings {
 }
 
 export interface GameState {
-  /** xp/level drive the Stone's stage internally — NEVER shown to the user. */
-  xp: number
-  level: number
-  /** The Night count. The only number the user ever sees. */
-  streak: number
-  best: number
-  /** "Never miss twice" — one auto-freeze per week bridges a single missed Night. */
-  freezes: number
+  /** Total completed Nights. It only rises when a new day is reflected on. */
+  nights: number
   lastDay: string | null
 }
 
@@ -264,7 +258,7 @@ export const emptyCoachMemory = (): CoachMemory => ({ profile: {}, themes: [], c
 
 export const initialState = (): AppState => ({
   settings: { name: '', cue: '', reminderTime: '21:30', morningTime: '08:30', tone: 'default' },
-  game: { xp: 0, level: 1, streak: 0, best: 0, freezes: 1, lastDay: null },
+  game: { nights: 0, lastDay: null },
   entries: [],
   cards: [],
   coach: emptyCoachMemory(),
