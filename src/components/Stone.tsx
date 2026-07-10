@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { STONES, nextStone, type Stone as StoneModel } from '../lib/milestones'
 import { renderStone, type StoneRender } from '../lib/stoneGeometry'
 
@@ -51,6 +51,25 @@ export function Stone({
   const encased = shellState === 'intact'
   const opened = shellState === 'opened'
 
+  // All hooks run unconditionally, before any branch returns.
+  const bench = useMemo(() => {
+    const n = Math.max(0, night ?? 0)
+    const target = nextStone(n) ?? STONES[STONES.length - 1]
+    const ci = STONES.findIndex((s) => s.name === target.name)
+    const prev = ci > 0 ? STONES[ci - 1].night : 0
+    const span = target.night - prev
+    const into = Math.min(n - prev, span)
+    return { ci: Math.max(0, ci), span, into, name: target.name.toLowerCase() }
+  }, [night])
+
+  const frameSrc = `/stones/progress/${bench.name}-${bench.into}.webp`
+  const [framesFailed, setFramesFailed] = useState<Record<string, boolean>>({})
+
+  const geo: StoneRender = useMemo(
+    () => renderStone(bench.ci, { nightsIntoSpan: bench.into, span: bench.span, markNew: newFacet }),
+    [bench, newFacet],
+  )
+
   // ---- a banked / milestone stone: the baked artwork ----
   if (stone) {
     const label = encased ? 'Stone' : caption ?? stone.name
@@ -85,19 +104,28 @@ export function Stone({
     )
   }
 
-  // ---- the stone on the bench: procedural, greyscale, evolving nightly ----
-  const geo: StoneRender = useMemo(() => {
-    const n = Math.max(0, night ?? 0)
-    const target = nextStone(n) ?? STONES[STONES.length - 1]
-    const ci = STONES.findIndex((s) => s.name === target.name)
-    const prev = ci > 0 ? STONES[ci - 1].night : 0
-    const span = target.night - prev
-    return renderStone(Math.max(0, ci), {
-      nightsIntoSpan: Math.min(n - prev, span),
-      span,
-      markNew: newFacet,
-    })
-  }, [night, newFacet])
+  // ---- the stone on the bench: evolving nightly ----
+  // Per-night baked frames (AI or rig renders, greyscale by law) are used
+  // when present: /stones/progress/<stone>-<nightIntoSpan>.webp. A missing
+  // frame falls back to the procedural SVG — partial frame sets ship safely.
+  if (!framesFailed[frameSrc]) {
+    return (
+      <figure className="stone" style={{ width: size }}>
+        <div className="stone-art" style={{ width: size, height: size }}>
+          <img
+            src={frameSrc}
+            alt={caption ?? 'Stone'}
+            width={size}
+            height={size}
+            className="stone-img grey"
+            draggable={false}
+            onError={() => setFramesFailed((f) => ({ ...f, [frameSrc]: true }))}
+          />
+        </div>
+        {caption && <figcaption className="ambient">{caption}</figcaption>}
+      </figure>
+    )
+  }
 
   const id = (k: string) => `st-${k}-${uid}`
   const fillOpacity = (b: number, revealed: boolean, isNew: boolean): number => {

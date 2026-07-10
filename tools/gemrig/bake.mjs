@@ -19,7 +19,11 @@ const OUT = new URL('../../public/stones/', import.meta.url).pathname
 
 const stones = process.argv[2] ? process.argv[2].split(',') : ['ember', 'tide', 'iris', 'aurora', 'solstice', 'rock']
 
-const b = await chromium.launch({ args: ['--enable-unsafe-swiftshader'] })
+// CHROME env overrides the browser binary (e.g. a preinstalled Chromium).
+const b = await chromium.launch({
+  args: ['--enable-unsafe-swiftshader'],
+  ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}),
+})
 const page = await b.newPage({ viewport: { width: 1100, height: 1100 } })
 page.on('pageerror', (e) => console.log('PAGE ERR:', String(e).slice(0, 400)))
 
