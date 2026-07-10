@@ -1,6 +1,6 @@
 import { CHARGED, type Entry, type ThemeLedgerEntry } from './types'
 import { themeMatches } from './coachMemory'
-import type { Stone } from './milestones'
+import { STONES, stoneForNight, type Stone } from './milestones'
 
 /*
  * Inclusions — the marked points inside a banked stone. Tapping one surfaces
@@ -66,4 +66,27 @@ export function inclusionsForStone(
 export const prevMilestoneNight = (stones: readonly Stone[], stone: Stone): number => {
   const earlier = stones.filter((s) => s.night < stone.night)
   return earlier.length ? earlier[earlier.length - 1].night : 0
+}
+
+/**
+ * The milestone ceremony's callback: the user's own words from the FIRST
+ * night of the span the stone just closed — quoted exactly, never invented
+ * (CLAUDE.md, the callback rule). Null off milestones or when the night's
+ * words are missing.
+ */
+export function milestoneEcho(entries: Entry[], night: number): { night: number; words: string } | null {
+  const stone = stoneForNight(night)
+  if (!stone) return null
+  const firstNight = prevMilestoneNight(STONES, stone) + 1
+  const chrono = [...entries].sort((a, b) => a.ts - b.ts)
+  // The i-th-oldest ↔ Night i mapping only holds when the history is whole —
+  // never risk quoting the wrong night as if it were the first.
+  if (chrono.length < stone.night) return null
+  const e = chrono[firstNight - 1]
+  const words = e?.event?.trim()
+  if (!words) return null
+  return {
+    night: firstNight,
+    words: words.length > 72 ? words.slice(0, 71).trimEnd() + '…' : words,
+  }
 }

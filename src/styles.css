@@ -367,8 +367,11 @@ textarea.error, input.error { border-color: var(--line-control); }
 
 /* ---------- the Stone ---------- */
 .stone { margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: var(--s-4); width: max-content; }
-.stone svg { display: block; }
+.stone svg { display: block; overflow: visible; } /* the glow may breathe past the box */
 .stone figcaption { color: var(--ink-secondary); }
+
+/* The current stone on the bench, shown in the Vault. */
+.vault-current { display: grid; place-items: center; padding-top: var(--s-6); }
 
 /* ============================================================
    MOTION — things develop, nothing bounces.
@@ -383,9 +386,19 @@ textarea.error, input.error { border-color: var(--line-control); }
 @keyframes stone-reveal { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
 .stone.reveal svg { animation: stone-reveal var(--t-reward) var(--ease-reward) both; }
 
+/* The glint — one light sweep across the stone, inside the reveal's window. */
+@keyframes stone-glint { from { transform: translateX(-30px); } to { transform: translateX(165px); } }
+.stone .glint { will-change: transform; }
+.stone.reveal .glint { animation: stone-glint 680ms var(--ease-reward) 400ms both; }
+
+/* On a milestone night the stone gets its beat alone; the read develops in after. */
+.develop-late { animation: develop var(--t-enter) var(--ease-settle) both; animation-delay: 950ms; }
+
 @media (prefers-reduced-motion: reduce) {
   /* transforms off; fades only, nothing longer than 150ms; Stone renders static. */
   .develop { animation: fade var(--t-enter) linear both; transform: none; }
   .stone.reveal svg { animation: fade var(--t-enter) linear both; transform: none; }
+  .stone.reveal .glint { animation: none; opacity: 0; }
+  .develop-late { animation: fade var(--t-enter) linear both; animation-delay: 0ms; }
   .coach.thinking { animation: none; }
 }

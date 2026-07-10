@@ -15,6 +15,8 @@ interface Props {
   night: number
   /** The onboarding First Read — labelled, and not rated (it's a welcome). */
   firstRead?: boolean
+  /** The milestone callback: the user's own words from the span's first night. */
+  echo?: { night: number; words: string } | null
   /** The user's one saved answer and Coach's optional final line. */
   answer?: string
   close?: CoachClose
@@ -24,7 +26,7 @@ interface Props {
 }
 
 export function AfterReflection({
-  entryId, reply, pending, night, firstRead, answer, close, onRate, onAnswer, onDone,
+  entryId, reply, pending, night, firstRead, echo, answer, close, onRate, onAnswer, onDone,
 }: Props) {
   const draftKey = `answer.${entryId}`
   const [rated, setRated] = useState<0 | 1 | null>(null)
@@ -65,19 +67,26 @@ export function AfterReflection({
           <p className="sub" style={{ marginTop: 'var(--s-5)' }}>
             Night {night}. Kept in the Vault.
           </p>
+          {echo && (
+            <p className="secondary develop-late">
+              Night {echo.night}, you wrote: “{echo.words}”
+            </p>
+          )}
         </div>
       ) : (
         <div className="section center develop">
           <span className="ambient">Night</span>
           <div className="display" style={{ marginTop: 'var(--s-2)' }}>{night}</div>
           <div className="spacer" />
-          <Stone size={104} caption={stoneStage(night)} />
+          {/* Tonight's facet, freshly cut — the visible evolution. */}
+          <Stone night={night} newFacet size={104} caption={stoneStage(night)} />
         </div>
       )}
 
-      {/* Direct feedback is an online-only event. */}
+      {/* Direct feedback is an online-only event. On a milestone night the
+          stone takes its beat alone; the read develops in after. */}
       {reply ? (
-        <div className="section">
+        <div className={milestone ? 'section develop-late' : 'section'}>
           <div className="coach">
             <span className="coach-label ambient">{firstRead ? 'Coach · your first read' : 'Coach'}</span>
             <p className="develop">{reply.text}</p>

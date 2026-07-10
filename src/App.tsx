@@ -7,6 +7,7 @@ import { Guidance } from './components/Guidance'
 import { Vault } from './components/Vault'
 import { Reviews } from './components/Reviews'
 import { unseenCount } from './lib/guidance'
+import { milestoneEcho } from './lib/inclusions'
 import { GOAL_OPTIONS } from './lib/onboarding'
 import { aiEnabled } from './lib/ai'
 import { cloudEnabled } from './lib/supabase'
@@ -78,6 +79,7 @@ export default function App() {
               pending={m.reveal.pending}
               night={m.reveal.night}
               firstRead={m.reveal.firstRead}
+              echo={milestoneEcho(m.state.entries, m.reveal.night)}
               answer={revealedEntry?.coachAnswer}
               close={revealedEntry?.coachClose}
               onRate={m.rateReply}

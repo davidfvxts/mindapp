@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Stone } from './Stone'
-import { STONES, bankedStones, nextStone, type Stone as StoneModel } from '../lib/milestones'
+import { STONES, bankedStones, nextStone, stoneStage, type Stone as StoneModel } from '../lib/milestones'
 import { inclusionsForStone, prevMilestoneNight, type Inclusion } from '../lib/inclusions'
 import type { AppState } from '../lib/types'
 
@@ -50,23 +50,26 @@ export function Vault({ state, onRevisit }: { state: AppState; onRevisit: () => 
       <h1>The Vault</h1>
 
       <div className="section">
-        {banked.length === 0 ? (
-          <div className="vault-empty">
-            <Stone size={120} caption="Rough" />
-          </div>
-        ) : (
+        {banked.length > 0 && (
           <div className="vault-grid">
             {banked.map((s) => (
               <button key={s.name} className="vault-cell" onClick={() => setOpen(s)}>
-                <Stone size={92} caption={s.name} />
+                {/* Each banked stone keeps its own cut — greyscale here, colour inside. */}
+                <Stone stone={s} size={92} caption={s.name} />
               </button>
             ))}
           </div>
         )}
         {upcoming && (
-          <p className="secondary center" style={{ marginTop: 'var(--s-6)' }}>
-            The next stone takes shape at Night {upcoming.night}.
-          </p>
+          <>
+            {/* The stone on the bench — tonight's state of the work. */}
+            <div className="vault-current">
+              <Stone night={game.nights} size={120} caption={stoneStage(game.nights)} />
+            </div>
+            <p className="secondary center" style={{ marginTop: 'var(--s-6)' }}>
+              The next stone takes shape at Night {upcoming.night}.
+            </p>
+          </>
         )}
       </div>
 

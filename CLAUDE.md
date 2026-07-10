@@ -188,6 +188,8 @@ src/
     drafts.ts       In-progress writing survives anything: debounced per-flow drafts.  ← TESTED
     store.ts        useFacet() — the single app hook. Owns online/offline + deferral + memory merge + nudges.
     milestones.ts   The five Stone colourways (Night 7/30/90/180/365) + stage words.
+    stoneGeometry.ts The Stone's evolving form: five cuts, one facet per Night,
+                    deterministic light/jitter — the game layer's centerpiece.  ← TESTED
   components/
     Onboarding · DailyRitual (Tonight) · AfterReflection · Stone · Guidance · Reviews · Vault
 supabase/
@@ -381,6 +383,17 @@ the Reviews landing.
 
 ### Visible growth — the callback, the monthly arc, inclusions
 Growth is made FELT, in words never numbers:
+- **The Stone evolves nightly** (`stoneGeometry.ts` + `Stone.tsx`, TESTED): the stone on the
+  bench starts as a jittered rough; every Night cuts ONE facet (tonight's is freshly bright on
+  the after-reflection screen via `newFacet`) and trues the silhouette toward the final form
+  (jitter eases to zero at the milestone). Each milestone has its OWN cut — Ember a keen
+  classic (7 facets), Tide a cushion (23), Iris an oval (60), Aurora a pear (90), Solstice a
+  round brilliant (97 capped) — so a banked stone literally carries its span's work. Light is
+  a fixed key light with per-facet brightness + achromatic speculars; the soft colour glow and
+  the one-time glint live ONLY in the reveal/Vault-detail (colour law intact). The milestone
+  screen sequences: stone alone for the 1200ms beat, then the read develops in (`develop-late`),
+  with a quiet echo of the span's first night (`milestoneEcho`, quoted exactly). All geometry
+  is deterministic — same night, same stone, every device.
 - **The callback** (prompt-level, rare): a hard rule in `COACH_CORE` lets Coach set tonight's
   words against the user's OWN words from weeks ago when a theme has spanned time and the
   language has clearly shifted — quoting BOTH exactly, never inventing a quote. `curate()`

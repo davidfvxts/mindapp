@@ -118,7 +118,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial
         <header className="bar"><span className="wordmark">FACET</span></header>
         <main>
           <div className="section center develop">
-            <Stone size={132} caption="Night 1" />
+            <Stone night={1} size={132} caption="Night 1" />
           </div>
           <div className="section" style={{ display: 'flex', justifyContent: 'center' }}>
             <div className="coach thinking" style={{ maxWidth: 320 }}>
