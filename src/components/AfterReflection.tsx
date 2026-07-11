@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Stone } from './Stone'
+import { StoneFilm } from './StoneFilm'
 import { stoneForNight, stoneStage } from '../lib/milestones'
+import { filmForNight, filmWindow } from '../lib/stoneFilm'
 import { clearDraft, loadDraft, saveDraft } from '../lib/drafts'
 import type { CoachClose, CoachReply } from '../lib/types'
 
@@ -20,13 +22,16 @@ interface Props {
   /** The user's one saved answer and Coach's optional final line. */
   answer?: string
   close?: CoachClose
+  /** The last Night whose stone development has been pressed through. */
+  stoneSeen: number
+  onStoneSeen: () => void
   onRate: (r: 0 | 1) => void
   onAnswer: (answer: string) => Promise<boolean>
   onDone: () => void
 }
 
 export function AfterReflection({
-  entryId, reply, pending, night, firstRead, echo, answer, close, onRate, onAnswer, onDone,
+  entryId, reply, pending, night, firstRead, echo, answer, close, stoneSeen, onStoneSeen, onRate, onAnswer, onDone,
 }: Props) {
   const draftKey = `answer.${entryId}`
   const [rated, setRated] = useState<0 | 1 | null>(null)
@@ -90,13 +95,37 @@ export function AfterReflection({
           <span className="ambient">Night</span>
           <div className="display" style={{ marginTop: 'var(--s-2)' }}>{night}</div>
           <div className="spacer" />
-          {/* Tonight's facet, freshly cut — the visible evolution. On Night 1
-              the heart-thread flares: the light takes. */}
-          <Stone night={night} newFacet size={firstRead ? 132 : 104} caption={stoneStage(night)} />
+          {/* Tonight's evolution. With a film: press and hold to develop it.
+              Without one: the procedural stone cuts tonight's facet. */}
+          {(() => {
+            const sources = filmForNight(night)
+            const w = filmWindow(night, stoneSeen)
+            return sources ? (
+              <>
+                <StoneFilm
+                  sources={sources}
+                  fromF={w.fromF}
+                  toF={w.toF}
+                  owed={w.owed}
+                  onSettled={onStoneSeen}
+                  night={night}
+                  size={firstRead ? 156 : 132}
+                  caption={stoneStage(night)}
+                />
+                {w.owed && (
+                  <p className="secondary" style={{ marginTop: 'var(--s-4)' }}>
+                    Press and hold — the night sinks in.
+                  </p>
+                )}
+              </>
+            ) : (
+              <Stone night={night} newFacet size={firstRead ? 132 : 104} caption={stoneStage(night)} />
+            )
+          })()}
           {firstRead && (
             /* The stone, introduced once — at the moment it first ignites. */
             <p className="secondary develop-late" style={{ marginTop: 'var(--s-5)' }}>
-              Your stone. The light inside is lit, and every night wakes one more face.
+              Your stone. Hold it and tonight becomes part of it.
               On the seventh night, it opens.
             </p>
           )}

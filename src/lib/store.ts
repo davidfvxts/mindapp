@@ -479,6 +479,11 @@ export function useFacet() {
     setState((s) => ({ ...s, nudges: markSeen(s.nudges, s.game.nights) }))
   }, [])
 
+  /** The press finished: tonight's development has been seen in full. */
+  const markStoneSeen = useCallback(() => {
+    setState((s) => ({ ...s, stoneSeen: s.game.nights }))
+  }, [])
+
   /** "I'll try this" — Coach checks in a few nights on. */
   const commitNudge = useCallback((id: string, note?: string) => {
     setState((s) => ({ ...s, nudges: commit(s.nudges, id, s.game.nights, note) }))
@@ -615,7 +620,7 @@ export function useFacet() {
   return {
     state, derived, toast, thinking, reveal, online,
     completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly, answerCoach,
-    markGuidanceSeen, commitNudge, declineNudge, resolveNudge, renegotiateIntention,
+    markGuidanceSeen, markStoneSeen, commitNudge, declineNudge, resolveNudge, renegotiateIntention,
     beginMonthly, completeMonthly, setMorning, eraseEverything,
     setToast, clearReveal: () => setReveal(null),
   }

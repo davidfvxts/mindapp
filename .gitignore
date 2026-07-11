@@ -8,3 +8,4 @@ dist-ssr
 ios/
 android/
 tsconfig.tsbuildinfo
+public/stones/video/*.mp4

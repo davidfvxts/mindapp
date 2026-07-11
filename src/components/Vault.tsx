@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Stone } from './Stone'
+import { StoneFilm } from './StoneFilm'
 import { STONES, bankedStones, nextStone, stoneStage, type Stone as StoneModel } from '../lib/milestones'
+import { filmForNight, filmWindow } from '../lib/stoneFilm'
 import { inclusionsForStone, prevMilestoneNight, type Inclusion } from '../lib/inclusions'
 import type { AppState, Entry } from '../lib/types'
 
@@ -57,7 +59,7 @@ function NightRow({ e, open, onToggle }: { e: Entry; open: boolean; onToggle: ()
   )
 }
 
-export function Vault({ state, onRevisit }: { state: AppState; onRevisit: () => void }) {
+export function Vault({ state, onStoneSeen, onRevisit }: { state: AppState; onStoneSeen: () => void; onRevisit: () => void }) {
   const { game, entries } = state
   // Night is monotonic, so the Vault's stone history is always banked.
   const banked = bankedStones(game.nights)
@@ -152,10 +154,33 @@ export function Vault({ state, onRevisit }: { state: AppState; onRevisit: () => 
         )}
         {upcoming && (
           <>
-            {/* The stone on the bench — tonight's state of the work. */}
+            {/* The stone on the bench — tonight's state of the work. With a
+                film, undeveloped nights wait here for the press. */}
             <div className="vault-current">
-              <Stone night={game.nights} size={120} caption={stoneStage(game.nights)} />
+              {(() => {
+                const sources = filmForNight(game.nights)
+                const w = filmWindow(game.nights, state.stoneSeen)
+                return sources ? (
+                  <StoneFilm
+                    sources={sources}
+                    fromF={w.fromF}
+                    toF={w.toF}
+                    owed={w.owed}
+                    onSettled={onStoneSeen}
+                    night={game.nights}
+                    size={140}
+                    caption={stoneStage(game.nights)}
+                  />
+                ) : (
+                  <Stone night={game.nights} size={120} caption={stoneStage(game.nights)} />
+                )
+              })()}
             </div>
+            {filmForNight(game.nights) && filmWindow(game.nights, state.stoneSeen).owed && (
+              <p className="secondary center" style={{ marginTop: 'var(--s-4)' }}>
+                Press and hold — the last nights sink in.
+              </p>
+            )}
             <p className="secondary center" style={{ marginTop: 'var(--s-6)' }}>
               The next stone takes shape at Night {upcoming.night}.
             </p>

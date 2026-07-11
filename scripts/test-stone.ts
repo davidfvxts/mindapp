@@ -3,6 +3,7 @@
  * Run: npm test
  */
 import { renderStone } from '../src/lib/stoneGeometry'
+import { filmForNight, filmWindow } from '../src/lib/stoneFilm'
 import { milestoneEcho } from '../src/lib/inclusions'
 import { STONES } from '../src/lib/milestones'
 import type { Entry } from '../src/lib/types'
@@ -122,6 +123,28 @@ const week1Locked = week1.facets.filter((f) => f.locked).map((f) => f.points).jo
 const week2 = renderStone(1, { nightsIntoSpan: 8, span: 23 })
 const week2Locked = week2.facets.filter((f) => f.locked).map((f) => f.points).join('|')
 ok('a locked ring holds its shape the next night', week1Locked === week2Locked)
+
+// ---- the stone as film: the press develops nights into seconds ----
+{
+  const close = (a: number, b: number) => Math.abs(a - b) < 1e-9
+  // Ember's span is 7 nights: night n ends at n/7 of the film.
+  const w1 = filmWindow(1, 0)
+  ok('night one develops the first slice', close(w1.fromF, 0) && close(w1.toF, 1 / 7) && w1.owed)
+  ok('a settled stone owes nothing', filmWindow(3, 3).owed === false)
+  const missed = filmWindow(5, 3)
+  ok('missed nights develop a longer stretch, never punish', close(missed.fromF, 3 / 7) && close(missed.toF, 5 / 7) && missed.owed)
+  // On the milestone night the OPEN ceremony carries the payoff — the film
+  // hands over: the new span's film owes nothing yet.
+  ok('milestone eve reaches the last slice', close(filmWindow(6, 5).toF, 6 / 7))
+  ok('the milestone night hands over to the ceremony', filmWindow(7, 6).owed === false)
+  // A new span starts a new film: seen from the OLD span clamps to the start.
+  const fresh = filmWindow(8, 7)
+  ok('a new span starts its film at the beginning', close(fresh.fromF, 0) && close(fresh.toF, 1 / 23) && fresh.owed)
+  ok('seen never runs ahead of tonight', filmWindow(2, 9).fromF === filmWindow(2, 9).toF)
+  ok('night zero rests at the raw start', close(filmWindow(0, 0).fromF, 0) && filmWindow(0, 0).owed === false)
+  ok('the first stone has a film', Array.isArray(filmForNight(1)) && filmForNight(1)!.length >= 1)
+  ok('later stones fall back to the procedural stone', filmForNight(10) === null)
+}
 
 // ---- the milestone echo: the user's own first words of the span ----
 const E = (i: number, event: string): Entry =>

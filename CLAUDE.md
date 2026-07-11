@@ -202,6 +202,9 @@ src/
                     five cuts, one face wakes per Night, a heart-thread in the core
                     (flares on Night 1), one ring locks per seven nights — all
                     deterministic. The game layer's centerpiece.  ← TESTED
+    stoneFilm.ts    The stone as FILM: one short video per stone = the whole span's
+                    evolution; filmWindow() maps nights→film fractions (pure).  ← TESTED
+    haptics.ts      The development pulse: Capacitor Haptics native, vibrate on web.
   components/
     Onboarding · DailyRitual (Tonight) · AfterReflection · Stone · Guidance · Reviews · Vault
 supabase/
@@ -402,11 +405,23 @@ the Reviews landing.
 
 ### Visible growth — the callback, the monthly arc, inclusions
 Growth is made FELT, in words never numbers:
-- **The Stone evolves nightly** (`stoneGeometry.ts` + `Stone.tsx`, TESTED): the stone on the
-  bench is procedural greyscale SVG — it starts as a jittered rough; every Night cuts ONE
-  facet (tonight's is freshly bright on the after-reflection screen via `newFacet`) and trues
-  the silhouette toward the final form (jitter eases to zero at the milestone). All geometry
-  is deterministic — same night, same stone, every device.
+- **The Stone evolves as FILM — press and hold to develop** (`stoneFilm.ts` + `StoneFilm.tsx`,
+  the primary bench mechanic): one ~15s video per stone IS that span's whole evolution, raw
+  shard to alive. Each Night earns a slice (night n ends at n/span of the film). The stone
+  rests paused at the last frame the user has SEEN (`state.stoneSeen`); pressing and holding
+  develops it forward to tonight's frame with a soft ongoing haptic pulse (`haptics.ts`:
+  Capacitor native / navigator.vibrate web); releasing pauses; completing commits
+  (`markStoneSeen`). Missed nights just mean a longer stretch — never a punishment. A settled
+  stone answers a press with ONE quiet pulse, no motion. Reduced motion: one press, tonight's
+  frame, instantly. On the milestone night the OPEN ceremony carries the payoff (the film
+  hands over). Films live in `STONE_FILMS` (local `/stones/video/<stone>.mp4` first — drop
+  the real file there to vendor it; the remote R2 master second; only Ember has one so far).
+  Any missing/failed film falls back automatically to the procedural stone below. The press
+  lives on the after-reflection screen and the Vault bench.
+- **The procedural fallback** (`stoneGeometry.ts` + `Stone.tsx`, TESTED): greyscale SVG — a
+  jittered rough; every Night cuts ONE facet (tonight's freshly bright via `newFacet`) and
+  trues the silhouette toward the final form (jitter zero at the milestone). Deterministic —
+  same night, same stone, every device. Carries any stone without a film.
 - **The five FINISHED stones are baked artwork** (`public/stones/*.webp`, rendered offline by
   `tools/gemrig/` — a real three.js pipeline: physically lit, per-facet fire, ACES, ~30KB each,
   precached for offline). The app has NO runtime 3D dependency. Each milestone has its own cut

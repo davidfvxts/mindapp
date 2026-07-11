@@ -408,6 +408,15 @@ textarea.error, input.error { border-color: var(--line-control); }
 .inclusion-open .inclusion { border-top: none; }
 .inclusion-open + .inclusion { border-top: none; }
 
+/* ---------- the stone as film: press and hold to develop ---------- */
+.stone-film .stone-press {
+  appearance: none; background: none; border: none; padding: 0; cursor: pointer;
+  display: block; line-height: 0;
+  touch-action: none;                     /* a hold must never scroll the page */
+  -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
+}
+.stone-film video { display: block; object-fit: contain; background: var(--surface); }
+
 /* new-nudge marker on the Guidance tab */
 .tabs button .tab-dot {
   display: inline-block; width: 4px; height: 4px; border-radius: var(--r-full);

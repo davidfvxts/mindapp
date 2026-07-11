@@ -259,6 +259,9 @@ export interface AppState {
   monthTheme: MonthTheme | null
   /** Date of the last monthly arc — paces the next. */
   lastMonthlyArc: string | null
+  /** The last Night whose stone development the user has pressed through.
+   *  Below game.nights = the stone holds undeveloped film, waiting. */
+  stoneSeen: number
   onboarded: boolean
 }
 
@@ -280,5 +283,6 @@ export const initialState = (): AppState => ({
   arcs: [],
   monthTheme: null,
   lastMonthlyArc: null,
+  stoneSeen: 0,
   onboarded: false,
 })

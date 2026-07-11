@@ -101,6 +101,8 @@ export default function App() {
               echo={milestoneEcho(m.state.entries, m.reveal.night)}
               answer={revealedEntry?.coachAnswer}
               close={revealedEntry?.coachClose}
+              stoneSeen={m.state.stoneSeen}
+              onStoneSeen={m.markStoneSeen}
               onRate={m.rateReply}
               onAnswer={(answer) => m.answerCoach(m.reveal!.entryId, answer)}
               onDone={() => {
@@ -155,7 +157,7 @@ export default function App() {
           />
         )}
 
-        {tab === 'vault' && <Vault state={m.state} onRevisit={() => setRetuning(true)} />}
+        {tab === 'vault' && <Vault state={m.state} onStoneSeen={m.markStoneSeen} onRevisit={() => setRetuning(true)} />}
 
         {/* Developer plumbing never reaches end users: local-only is a designed
             mode in production, not an error to explain. */}
