@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { KIND_LABEL } from '../lib/guidance'
 import { clearDraft, loadDraft, saveDraft } from '../lib/drafts'
 import type { WeeklyAnswers, Woop } from '../lib/weekly'
 import type { MonthlyAnswers } from '../lib/monthly'
@@ -22,7 +21,6 @@ interface Props {
   onComplete: (review: WeeklyAnswers, woop: Woop) => Promise<InsightCard | null>
   onBeginMonthly: () => Promise<MonthlyResult | null>
   onCompleteMonthly: (answers: MonthlyAnswers, profile: Partial<CoachProfile> | null) => void
-  onGoToday: () => void
 }
 
 type StepId = 'checkin' | 'wins' | 'friction' | 'avoided' | 'wish' | 'plan'
@@ -48,6 +46,10 @@ interface MonthlyDraft {
   theme: string
 }
 
+/** ISO date → "2 July" — an instrument never shows debug output. */
+const humanDate = (iso: string): string =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })
+
 const weeklyDraftText = (d: WeeklyDraft | null): boolean =>
   !!d && [d.wins, d.friction, d.avoided, d.wish, d.outcome, d.obstacle, d.plan].some((v) => v.trim())
 
@@ -58,9 +60,9 @@ const weeklyDraftText = (d: WeeklyDraft | null): boolean =>
  */
 export function Reviews({
   ready, cards, arcs, thinking, monthReady, liveDecision, openIntention,
-  onResolveIntention, onComplete, onBeginMonthly, onCompleteMonthly, onGoToday,
+  onResolveIntention, onComplete, onBeginMonthly, onCompleteMonthly,
 }: Props) {
-  const [phase, setPhase] = useState<'landing' | 'flow' | 'card' | 'month' | 'monthcard'>('landing')
+  const [phase, setPhase] = useState<'landing' | 'flow' | 'card' | 'month' | 'monthcard' | 'archive'>('landing')
   const [steps, setSteps] = useState<StepId[]>([])
   const [step, setStep] = useState(0)
   const [err, setErr] = useState('')
@@ -378,7 +380,30 @@ export function Reviews({
     )
   }
 
-  // ---- landing ----
+  // ---- the archive: every past read, on its own page ----
+  if (phase === 'archive') {
+    const all = [
+      ...cards.map((c) => ({ ...c, kind: 'Week' })),
+      ...arcs.map((a) => ({ ...a, kind: 'Month' })),
+    ].sort((a, b) => (a.date < b.date ? 1 : -1))
+    return (
+      <div className="develop">
+        <button className="btn text back-line" onClick={() => setPhase('landing')}>← Reviews</button>
+        <h1>Past reads</h1>
+        <div className="section">
+          {all.map((c) => (
+            <div key={c.id} className="item">
+              <div className="item-meta ambient">{c.kind} · {humanDate(c.date)}</div>
+              <div className="item-body">{c.text}</div>
+            </div>
+          ))}
+          {all.length === 0 && <p className="secondary">Your reads will gather here.</p>}
+        </div>
+      </div>
+    )
+  }
+
+  // ---- landing: two doors, nothing else ----
   return (
     <div className="develop">
       <h1>Reviews</h1>
@@ -392,69 +417,48 @@ export function Reviews({
             <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
               {weeklyDraftText(savedWeekly)
                 ? 'Your review is where you left it — every word kept.'
-                : 'The week is gathered. You do the review — three questions and an intention — and Coach reads it against your nights. About ten minutes.'}
+                : 'Three questions and an intention; Coach reads it against your nights. About ten minutes.'}
             </p>
             <button className="btn" onClick={start}>
               {weeklyDraftText(savedWeekly) ? 'Continue the review' : 'Review my week'}
             </button>
           </>
         ) : (
-          <>
-            <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
-              A week’s review comes after a few nights. Keep going.
-            </p>
-            <button className="btn ghost" onClick={onGoToday}>Reflect tonight</button>
-          </>
+          <p className="secondary">Opens after a few nights in a week. Keep going.</p>
         )}
         {openIntention && (
-          <div className="item" style={{ marginTop: 'var(--s-5)' }}>
-            <div className="item-meta ambient">{KIND_LABEL[openIntention.kind]} · standing</div>
-            <div className="item-body">{openIntention.title}</div>
-          </div>
+          <p className="morning-line" style={{ marginTop: 'var(--s-5)', marginBottom: 0 }}>
+            Standing: {openIntention.title}
+          </p>
         )}
       </div>
-
-      {cards.length > 0 && (
-        <div className="section">
-          <span className="ambient">Past reads</span>
-          <div className="spacer" />
-          {cards.slice(0, 6).map((c) => (
-            <div key={c.id} className="item">
-              <div className="item-meta ambient">{c.date}</div>
-              <div className="item-body">{c.text}</div>
-            </div>
-          ))}
-        </div>
-      )}
 
       <div className="section">
         <span className="ambient">Monthly</span>
         <h2 style={{ marginTop: 'var(--s-3)' }}>The monthly arc</h2>
-        <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
-          Trajectory and what you’re building toward — drafted from your own words.
-          You set next month’s theme.
-        </p>
         {savedMonthly && draft ? (
-          <button className="btn" onClick={beginMonth}>Continue the monthly arc</button>
+          <button className="btn" style={{ marginTop: 'var(--s-4)' }} onClick={beginMonth}>Continue the monthly arc</button>
         ) : monthReady ? (
-          <button className="btn" onClick={beginMonth} disabled={thinking}>
-            {thinking ? 'Coach is reading your month…' : 'Begin the monthly arc'}
-          </button>
-        ) : (
-          <p className="secondary">Opens once you’ve gathered a few weekly reads.</p>
-        )}
-        {arcs.length > 0 && (
           <>
-            <div className="spacer" />
-            {arcs.slice(0, 4).map((a) => (
-              <div key={a.id} className="item">
-                <div className="item-meta ambient">{a.date}</div>
-                <div className="item-body">{a.text}</div>
-              </div>
-            ))}
+            <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
+              The month's trajectory, drafted from your own words. You set its theme.
+            </p>
+            <button className="btn" onClick={beginMonth} disabled={thinking}>
+              {thinking ? 'Coach is reading your month…' : 'Begin the monthly arc'}
+            </button>
           </>
+        ) : (
+          <p className="secondary">Opens once a few weekly reads have gathered.</p>
         )}
       </div>
+
+      {(cards.length > 0 || arcs.length > 0) && (
+        <div className="section">
+          <button className="btn text" style={{ paddingLeft: 0 }} onClick={() => setPhase('archive')}>
+            Past reads →
+          </button>
+        </div>
+      )}
     </div>
   )
 }

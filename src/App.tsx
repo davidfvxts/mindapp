@@ -64,10 +64,13 @@ export default function App() {
     <section className="wrap">
       <header className="bar">
         <span className="wordmark">FACET</span>
-        <span className="night-chip">
-          <span className="ambient">Night</span>
-          <span className="n">{game.nights}</span>
-        </span>
+        {/* The reveal screen carries the Night itself — one number per page. */}
+        {!(tab === 'today' && m.reveal) && (
+          <span className="night-chip">
+            <span className="ambient">Night</span>
+            <span className="n">{game.nights}</span>
+          </span>
+        )}
       </header>
 
       <main>
@@ -125,7 +128,6 @@ export default function App() {
             onComplete={(r, w) => m.completeWeekly(r, w)}
             onBeginMonthly={m.beginMonthly}
             onCompleteMonthly={m.completeMonthly}
-            onGoToday={() => setTab('today')}
           />
         )}
 

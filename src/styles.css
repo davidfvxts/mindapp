@@ -272,6 +272,21 @@ textarea.error, input.error { border-color: var(--line-control); }
 
 .item { padding: var(--s-4) 0; border-top: 1px solid var(--line-hairline); }
 .item:first-child { border-top: none; }
+
+/* An archived night: a quiet row that opens into the full entry. The open
+   row is the page's ONE raised object (law §3). */
+.night-row {
+  appearance: none; background: none; border: none; cursor: pointer;
+  font-family: inherit; display: block; width: 100%; text-align: left; padding: 0;
+  color: inherit;
+}
+.night-row .item-meta,
+.night-row .item-body { display: block; }
+.night-row .item-meta { margin-bottom: var(--s-1); }
+.item.night-open { border-top: none; margin: var(--s-2) 0; }
+.item.night-open + .item { border-top: none; }
+.night-detail { margin-top: var(--s-4); }
+.night-detail p { margin: 0 0 var(--s-2); }
 .item .item-meta { margin-bottom: var(--s-1); }
 .item .item-body { font-size: var(--type-secondary-size); color: var(--ink-body); }
 /* Coach's read of that night — kept with the words it read. Type only, no box. */
@@ -319,9 +334,31 @@ textarea.error, input.error { border-color: var(--line-control); }
 .mode-note { margin-top: var(--s-8); color: var(--ink-tertiary); font-size: var(--type-secondary-size); line-height: 1.6; }
 .mode-note code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; color: var(--ink-secondary); }
 
+/* ---------- the ONE raised surface (law §3): a single object per page ---------- */
+.surface {
+  background: var(--surface-raised);
+  border-radius: var(--r-lg);
+  padding: var(--s-5);
+}
+
+/* ---------- subpage navigation: quiet doors + a back line ---------- */
+.back-line { padding-left: 0; margin-bottom: var(--s-5); }
+.door {
+  appearance: none; background: none; border: none; cursor: pointer;
+  font-family: inherit; display: block; width: 100%; text-align: left;
+  padding: var(--s-4) 0; color: var(--ink-primary);
+  border-top: 1px solid var(--line-hairline);
+  font-size: var(--type-body-size);
+  transition: color var(--t-micro) var(--ease-settle);
+}
+.door:first-of-type { border-top: none; }
+.door .door-meta { display: block; margin-top: var(--s-1); color: var(--ink-secondary); font-size: var(--type-secondary-size); }
+.door:hover { color: var(--ink-secondary); }
+
 /* ---------- guidance: the occasional Coach nudge ---------- */
 .nudge { padding: var(--s-6) 0 var(--s-7); border-top: 1px solid var(--line-hairline); }
 .nudge:first-of-type { border-top: none; }
+.nudge.surface { border-top: none; padding: var(--s-5); }
 .nudge-kind { display: block; margin-bottom: var(--s-3); }
 .g-title {
   display: flex; align-items: baseline; gap: var(--s-3); flex-wrap: wrap;

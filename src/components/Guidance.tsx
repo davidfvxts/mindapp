@@ -34,25 +34,33 @@ function SourceLine({ n }: { n: Nudge }) {
   )
 }
 
-/** The one open nudge, awaiting the user's call: commit, push back, or set aside. */
+/** The one open nudge, awaiting the user's call. The note hides until asked for. */
 function OpenCard({ n, onCommit, onDecline }: { n: Nudge } & Pick<Actions, 'onCommit' | 'onDecline'>) {
   const [note, setNote] = useState('')
+  const [noting, setNoting] = useState(false)
   const trimmed = note.trim() || undefined
   return (
-    <div className="nudge develop">
+    <div className="nudge surface develop">
       <span className="nudge-kind ambient">{KIND_LABEL[n.kind]}</span>
       <h2 className="g-title">{n.title}</h2>
       <p className="secondary">{n.body}</p>
       <p className="nudge-value">{n.value}</p>
       <SourceLine n={n} />
 
-      <textarea
-        className="nudge-note"
-        rows={2}
-        placeholder="Push back, or ask Coach for help with it — optional."
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-      />
+      {noting ? (
+        <textarea
+          className="nudge-note"
+          rows={2}
+          placeholder="A note to yourself — kept with this."
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          autoFocus
+        />
+      ) : (
+        <button className="btn text" style={{ paddingLeft: 0 }} onClick={() => setNoting(true)}>
+          Add a note
+        </button>
+      )}
       <div className="row nudge-actions">
         <button className="btn primary" onClick={() => onCommit(n.id, trimmed)}>I’ll try this</button>
         <button className="btn text" onClick={() => onDecline(n.id, trimmed)}>Not for me</button>
@@ -64,7 +72,7 @@ function OpenCard({ n, onCommit, onDecline }: { n: Nudge } & Pick<Actions, 'onCo
 /** A commitment whose check-in has come due — how did it go? */
 function CheckInCard({ n, onResolve }: { n: Nudge } & Pick<Actions, 'onResolve'>) {
   return (
-    <div className="nudge develop">
+    <div className="nudge surface develop">
       <span className="nudge-kind ambient">Checking in</span>
       <h2 className="g-title">{n.title}</h2>
       <p className="secondary">You said you’d try this. How did it go?</p>
@@ -77,10 +85,11 @@ function CheckInCard({ n, onResolve }: { n: Nudge } & Pick<Actions, 'onResolve'>
   )
 }
 
-/** An intention that aged out unresolved — the user decides, Coach never does. */
+/** An intention that aged out unresolved — the user decides, Coach never does.
+ *  The copy says either answer is good; the buttons carry equal weight. */
 function AdriftCard({ c, onRenegotiate }: { c: Commitment } & Pick<Actions, 'onRenegotiate'>) {
   return (
-    <div className="nudge develop">
+    <div className="nudge surface develop">
       <span className="nudge-kind ambient">An intention, adrift</span>
       <h2 className="g-title">“{c.text}”</h2>
       <p className="secondary">
@@ -88,8 +97,8 @@ function AdriftCard({ c, onRenegotiate }: { c: Commitment } & Pick<Actions, 'onR
         Either answer is a good one.
       </p>
       <div className="row nudge-actions">
-        <button className="btn primary" onClick={() => onRenegotiate(true)}>Still on it</button>
-        <button className="btn text" onClick={() => onRenegotiate(false)}>Let it go</button>
+        <button className="btn ghost" onClick={() => onRenegotiate(true)}>Still on it</button>
+        <button className="btn ghost" onClick={() => onRenegotiate(false)}>Let it go</button>
       </div>
     </div>
   )
@@ -101,31 +110,52 @@ export function Guidance({ state, onCommit, onDecline, onResolve, onRenegotiate,
   // Clear the tab marker once the user is looking at it.
   useEffect(() => { onSeen() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [view, setView] = useState<'main' | 'earlier'>('main')
+
   const open = openNudge(state)
   const due = checkInsDue(state)
   const flight = inFlight(state)
   const past = resolvedNudges(state)
   const adrift = staleCommitment(state.coach)
-  const nothing = !open && !adrift && due.length === 0 && flight.length === 0 && past.length === 0
+
+  // ---- earlier: the archive lives on its own page ----
+  if (view === 'earlier') {
+    return (
+      <div className="develop">
+        <button className="btn text back-line" onClick={() => setView('main')}>← Guidance</button>
+        <h1>Earlier</h1>
+        <div className="section">
+          {past.map((n) => (
+            <div key={n.id} className="item">
+              <div className="item-meta ambient">{STATUS_WORD[n.status] ?? ''}</div>
+              <div className="item-body">{n.title}</div>
+            </div>
+          ))}
+          {past.length === 0 && <p className="secondary">Nothing set down yet.</p>}
+        </div>
+      </div>
+    )
+  }
+
+  // ---- main: exactly ONE decision at a time; the rest wait their turn ----
+  const decision = adrift
+    ? <AdriftCard c={adrift} onRenegotiate={onRenegotiate} />
+    : due.length > 0
+      ? <CheckInCard n={due[0]} onResolve={onResolve} />
+      : open
+        ? <OpenCard n={open} onCommit={onCommit} onDecline={onDecline} />
+        : null
 
   return (
     <div className="develop">
       <h1>Guidance</h1>
-      <p className="sub">One thing worth trying, now and then — only when Coach thinks it counts.</p>
+      <p className="sub">One thing worth trying, now and then — only when it counts.</p>
 
-      {adrift && <AdriftCard c={adrift} onRenegotiate={onRenegotiate} />}
-
-      {due.map((n) => (
-        <CheckInCard key={n.id} n={n} onResolve={onResolve} />
-      ))}
-
-      {open && <OpenCard n={open} onCommit={onCommit} onDecline={onDecline} />}
-
-      {nothing && (
+      {decision ?? (
         <div className="section">
           <p className="secondary">
-            Nothing right now. Coach surfaces something only when it can make a real difference —
-            usually every few nights. Keep reflecting; it’s learning you.
+            Nothing right now. When something’s worth your time, it appears here —
+            every few nights at most.
           </p>
         </div>
       )}
@@ -136,7 +166,7 @@ export function Guidance({ state, onCommit, onDecline, onResolve, onRenegotiate,
           <div className="spacer" />
           {flight.map((n) => (
             <div key={n.id} className="item">
-              <div className="item-meta ambient">{KIND_LABEL[n.kind]} · Coach will check in</div>
+              <div className="item-meta ambient">{KIND_LABEL[n.kind]} · Coach returns to this in a few nights</div>
               <div className="item-body">{n.title}</div>
             </div>
           ))}
@@ -145,14 +175,9 @@ export function Guidance({ state, onCommit, onDecline, onResolve, onRenegotiate,
 
       {past.length > 0 && (
         <div className="section">
-          <span className="ambient">Earlier</span>
-          <div className="spacer" />
-          {past.slice(0, 20).map((n) => (
-            <div key={n.id} className="item">
-              <div className="item-meta ambient">{STATUS_WORD[n.status] ?? ''}</div>
-              <div className="item-body">{n.title}</div>
-            </div>
-          ))}
+          <button className="btn text" style={{ paddingLeft: 0 }} onClick={() => setView('earlier')}>
+            Earlier →
+          </button>
         </div>
       )}
     </div>

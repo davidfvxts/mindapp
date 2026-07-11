@@ -113,7 +113,7 @@ export function AfterReflection({
 
           {!firstRead && !savedAnswer && !composerOpen && (
             <div className="answer-turn">
-              <button className="btn text" onClick={() => setComposerOpen(true)}>Answer Coach</button>
+              <button className="btn ghost" onClick={() => setComposerOpen(true)}>Answer Coach</button>
             </div>
           )}
 
@@ -128,13 +128,19 @@ export function AfterReflection({
                 onChange={(event) => setAnswerDraft(event.target.value)}
                 disabled={answerStatus === 'sending'}
               />
-              <button
-                className="btn answer-send"
-                onClick={() => void sendAnswer()}
-                disabled={!answerDraft.trim() || answerStatus === 'sending'}
-              >
-                {answerStatus === 'sending' ? 'Coach is reading' : 'Send'}
-              </button>
+              <div className="row">
+                <button
+                  className="btn answer-send"
+                  onClick={() => void sendAnswer()}
+                  disabled={!answerDraft.trim() || answerStatus === 'sending'}
+                >
+                  {answerStatus === 'sending' ? 'Coach is reading' : 'Send'}
+                </button>
+                {answerStatus !== 'sending' && (
+                  /* Stepping back keeps the draft — words are never lost. */
+                  <button className="btn text" onClick={() => setComposerOpen(false)}>Cancel</button>
+                )}
+              </div>
             </div>
           )}
 

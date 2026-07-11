@@ -9,8 +9,13 @@
 :root {
 
   /* ---------- SURFACE ---------- */
-  --surface:            #000000;               /* the only background */
+  --surface:            #000000;               /* the page — always */
   --surface-inverse:    #FFFFFF;               /* primary button, toast */
+  /* ONE quiet raised tier for grouping a single object (a decision card,
+     an expanded archive row). Never nested, never bordered, never shadowed,
+     never a second tier. Structure still comes from type + whitespace first. */
+  --surface-raised:     #0B0B0D;
+  --surface-raised-hover: #101014;
 
   /* ---------- INK (white over black; contrast computed vs #000) ---------- */
   --ink-primary:        #FFFFFF;               /* 21.00:1  display numerals, headlines */

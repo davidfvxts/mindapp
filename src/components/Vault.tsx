@@ -2,23 +2,71 @@ import { useState } from 'react'
 import { Stone } from './Stone'
 import { STONES, bankedStones, nextStone, stoneStage, type Stone as StoneModel } from '../lib/milestones'
 import { inclusionsForStone, prevMilestoneNight, type Inclusion } from '../lib/inclusions'
-import type { AppState } from '../lib/types'
+import type { AppState, Entry } from '../lib/types'
+
+/** ISO date → "Tue 8 July" — an instrument never shows debug output. */
+const humanDate = (iso: string): string =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'long' })
+
+/** One archived night: a quiet row that opens into the full entry + exchange. */
+function NightRow({ e, open, onToggle }: { e: Entry; open: boolean; onToggle: () => void }) {
+  return (
+    <div className={open ? 'item surface night-open' : 'item'}>
+      <button className="night-row" onClick={onToggle} aria-expanded={open}>
+        <span className="item-meta ambient">
+          {humanDate(e.date)}
+          {e.emotions.length > 0 && ` · ${e.emotions.join(' · ')}`}
+        </span>
+        <span className="item-body">{e.event}</span>
+      </button>
+      {open && (
+        <div className="night-detail develop">
+          {e.well && (
+            <p className="secondary"><span className="ambient">Went well · </span>{e.well}</p>
+          )}
+          {e.next && (
+            <p className="secondary"><span className="ambient">Next · </span>{e.next}</p>
+          )}
+          {e.coach && (
+            <div className="item-coach">
+              <span className="ambient">Coach</span>
+              <p>{e.coach.text}</p>
+            </div>
+          )}
+          {e.coachAnswer && (
+            <div className="item-coach item-answer">
+              <span className="ambient">You</span>
+              <p>{e.coachAnswer}</p>
+            </div>
+          )}
+          {e.coachClose && (
+            <div className="item-coach item-close">
+              <span className="ambient">Coach</span>
+              <p>{e.coachClose.text}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function Vault({ state, onRevisit }: { state: AppState; onRevisit: () => void }) {
   const { game, entries } = state
   // Night is monotonic, so the Vault's stone history is always banked.
   const banked = bankedStones(game.nights)
   const upcoming = nextStone(game.nights)
+  const [view, setView] = useState<'stones' | 'nights'>('stones')
   const [open, setOpen] = useState<StoneModel | null>(null)
   const [inclusion, setInclusion] = useState<Inclusion | null>(null)
+  const [openNight, setOpenNight] = useState<string | null>(null)
 
+  // ---- a banked stone, in colour, with the nights held inside it ----
   if (open) {
-    // The stone as a container of reflections: tapping an inclusion surfaces
-    // the user's own words from a night within the stone's span.
     const points = inclusionsForStone(entries, open, prevMilestoneNight(STONES, open), state.coach.themes)
     return (
       <div className="develop">
-        <button className="btn text" onClick={() => { setOpen(null); setInclusion(null) }}>← The Vault</button>
+        <button className="btn text back-line" onClick={() => { setOpen(null); setInclusion(null) }}>← The Vault</button>
         <div className="section center">
           {/* Colour blooms here, on the detail view. */}
           <Stone colored stone={open} size={200} caption={open.name} />
@@ -45,6 +93,31 @@ export function Vault({ state, onRevisit }: { state: AppState; onRevisit: () => 
     )
   }
 
+  // ---- the nights archive, on its own page ----
+  if (view === 'nights') {
+    return (
+      <div className="develop">
+        <button className="btn text back-line" onClick={() => { setView('stones'); setOpenNight(null) }}>← The Vault</button>
+        <h1>Your nights</h1>
+        <div className="section">
+          {entries.length === 0 ? (
+            <p className="secondary">Your reflections will gather here.</p>
+          ) : (
+            entries.slice(0, 60).map((e) => (
+              <NightRow
+                key={e.id}
+                e={e}
+                open={openNight === e.id}
+                onToggle={() => setOpenNight(openNight === e.id ? null : e.id)}
+              />
+            ))
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ---- the Vault: the stones, and nothing else ----
   return (
     <div className="develop">
       <h1>The Vault</h1>
@@ -74,43 +147,13 @@ export function Vault({ state, onRevisit }: { state: AppState; onRevisit: () => 
       </div>
 
       <div className="section">
-        <span className="ambient">Your nights</span>
-        <div className="spacer" />
-        {entries.length === 0 ? (
-          <p className="secondary">Your reflections will gather here.</p>
-        ) : (
-          entries.slice(0, 30).map((e) => (
-            <div key={e.id} className="item">
-              {e.emotions.length > 0 && (
-                <div className="item-meta ambient">{e.emotions.join(' · ')}</div>
-              )}
-              <div className="item-body">{e.event}</div>
-              {e.coach && (
-                <div className="item-coach">
-                  <span className="ambient">Coach</span>
-                  <p>{e.coach.text}</p>
-                </div>
-              )}
-              {e.coachAnswer && (
-                <div className="item-coach item-answer">
-                  <span className="ambient">You</span>
-                  <p>{e.coachAnswer}</p>
-                </div>
-              )}
-              {e.coachClose && (
-                <div className="item-coach item-close">
-                  <span className="ambient">Coach</span>
-                  <p>{e.coachClose.text}</p>
-                </div>
-              )}
-            </div>
-          ))
-        )}
+        <button className="btn text" style={{ paddingLeft: 0 }} onClick={() => setView('nights')}>
+          Your nights →
+        </button>
       </div>
 
       <div className="section">
-        {/* Erasing lives behind Revisit setup — deliberate, confirmed, complete.
-            A destructive action never sits one thumb-width from a routine one. */}
+        {/* Erasing lives behind Revisit setup — deliberate, confirmed, complete. */}
         <button className="btn text" onClick={onRevisit}>Revisit setup</button>
       </div>
     </div>

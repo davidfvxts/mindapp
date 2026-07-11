@@ -174,27 +174,6 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial
                 Two minutes to set up — then your first real reflection, read by Coach.
                 Let’s shape your first stone.
               </p>
-              <div className="section">
-                <label className="field-label">
-                  <span className="ambient">Your words</span>
-                  <span className="hint">
-                    Reflections are yours. Coach reads a night only to reply to it — nothing is kept on a server unless you choose backup.
-                  </span>
-                </label>
-                <div className="chips">
-                  <button type="button" className={`chip${!sync ? ' on' : ''}`} aria-pressed={!sync} onClick={() => setSync(false)}>
-                    On this device only
-                  </button>
-                  <button type="button" className={`chip${sync ? ' on' : ''}`} aria-pressed={sync} onClick={() => setSync(true)}>
-                    Backed up + synced
-                  </button>
-                </div>
-                {sync && (
-                  <p className="secondary" style={{ marginTop: 'var(--s-3)' }}>
-                    Backed up under an anonymous account — no email needed. Survives a lost phone. Change this any time.
-                  </p>
-                )}
-              </div>
             </>
           )}
           <div className="spacer" />
@@ -308,26 +287,24 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial
                   <button type="button" className="btn text" onClick={() => setMorning('08:30')}>Add a morning note</button>
                 )}
               </div>
-              {retune && (
-                <div className="section">
-                  <label className="field-label">
-                    <span className="ambient">Backup & sync</span>
-                    <span className="hint">
-                      {sync
-                        ? 'Your nights back up under an anonymous account. Turning this off stops future backups; what’s already backed up stays until you erase everything.'
-                        : 'On this device only. Turn on backup so your nights survive a lost phone — anonymous, no email needed.'}
-                    </span>
-                  </label>
-                  <div className="chips">
-                    <button type="button" className={`chip${!sync ? ' on' : ''}`} aria-pressed={!sync} onClick={() => setSync(false)}>
-                      On this device only
-                    </button>
-                    <button type="button" className={`chip${sync ? ' on' : ''}`} aria-pressed={sync} onClick={() => setSync(true)}>
-                      Backed up + synced
-                    </button>
-                  </div>
+              <div className="section">
+                <label className="field-label">
+                  <span className="ambient">Your words</span>
+                  <span className="hint">
+                    {sync
+                      ? 'Your nights back up under an anonymous account — no email needed. Turning this off stops future backups.'
+                      : 'Reflections stay on this phone. Turn on backup so your nights survive a lost phone — anonymous, no email needed.'}
+                  </span>
+                </label>
+                <div className="chips">
+                  <button type="button" className={`chip${!sync ? ' on' : ''}`} aria-pressed={!sync} onClick={() => setSync(false)}>
+                    On this device only
+                  </button>
+                  <button type="button" className={`chip${sync ? ' on' : ''}`} aria-pressed={sync} onClick={() => setSync(true)}>
+                    Backed up + synced
+                  </button>
                 </div>
-              )}
+              </div>
             </>
           )}
 
@@ -401,13 +378,6 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onErase, initial
             </div>
           )}
 
-          {step === 5 && !retune && (
-            <p className="mode-note center">
-              {sync
-                ? 'Your nights back up under an anonymous account — no email needed. You can turn this off any time.'
-                : 'Your reflections stay on this phone. You can turn on backup any time.'}
-            </p>
-          )}
         </div>
       </main>
     </section>

@@ -56,16 +56,25 @@ offence); it acknowledges like a craftsman: "That's a clear one."
 
 1. **Black and white only.** Background is `#000`. Every grey is white at an
    opacity token — never a grey hex. If you are typing a colour hex outside
-   the `--gem-*` tokens, stop and re-read this file.
+   the `--gem-*` and `--surface-raised*` tokens, stop and re-read this file.
 2. **Colour exists only in the Stone**, only at the milestone moment and in
    the Vault detail view. Never as background, tint, border, chart, button,
    confetti, or marketing decoration. Not at 10% opacity. No exceptions.
-3. **Structure comes from type scale and whitespace.** No cards, no shadows,
-   no icons, no emoji, no icon fonts, no illustrations. If a layout feels
-   unclear, fix the size jump or add black space — never add a box.
-4. **Six type roles, five SF Pro weights, tabular numerals everywhere.**
+3. **Structure comes from type scale and whitespace first — then, sparingly,
+   ONE quiet raised surface.** `--surface-raised` (#0B0B0D) may group a
+   single object on a page: the one decision card, the one expanded archive
+   row. Never nested, never bordered, never shadowed, never a second tier,
+   never decoration. No icons, no emoji, no icon fonts, no illustrations.
+   If a layout feels unclear, first fix the size jump or add black space.
+4. **One job per page.** A screen holds ONE primary object or question;
+   everything else moves behind a step, a quiet text link, or a subpage
+   ("← back" text button). Mental load is a design bug: archives live on
+   their own pages, decisions arrive one at a time, and optional work
+   (the morning note, a nudge's note) hides behind a text action until
+   asked for.
+5. **Six type roles, five SF Pro weights, tabular numerals everywhere.**
    Use the roles in tokens.css; never invent an in-between size.
-5. **Errors are monochrome too.** No red. Border weight + plain language.
+6. **Errors are monochrome too.** No red. Border weight + plain language.
 
 ## 4. Motion law
 

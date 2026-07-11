@@ -22,8 +22,10 @@ interface Props {
   onSubmit: (d: Draft) => void
 }
 
+/** One question per page — nothing shares a screen with the thing being asked. */
 const STEPS = [
   { n: 'The moment', hint: 'One concrete thing that happened today.' },
+  { n: 'How it left you', hint: 'Name it. Up to three.' },
   { n: 'The read', hint: 'What went well — and what did you do to cause it?' },
   { n: 'The next step', hint: 'One thing you’ll do differently tomorrow.' },
 ]
@@ -37,6 +39,7 @@ interface TonightDraft {
   next: string
   win: string
   prep: string
+  skippedMorning?: boolean
 }
 
 export function DailyRitual({
@@ -59,11 +62,12 @@ export function DailyRitual({
   const [adding, setAdding] = useState(false)
   const [win, setWin] = useState(saved?.win ?? '')
   const [prep, setPrep] = useState(saved?.prep ?? '')
+  const [skippedMorning, setSkippedMorning] = useState(saved?.skippedMorning ?? false)
 
   useEffect(() => {
     if (reflectedToday) return
-    saveDraft(draftKey, { step, event, emotions, well, next, win, prep } satisfies TonightDraft)
-  }, [draftKey, reflectedToday, step, event, emotions, well, next, win, prep])
+    saveDraft(draftKey, { step, event, emotions, well, next, win, prep, skippedMorning } satisfies TonightDraft)
+  }, [draftKey, reflectedToday, step, event, emotions, well, next, win, prep, skippedMorning])
 
   const toggle = (e: Emotion) =>
     setEmotions((cur) =>
@@ -76,7 +80,7 @@ export function DailyRitual({
       return
     }
     setErr('')
-    if (step < 2) return setStep(step + 1)
+    if (step < STEPS.length - 1) return setStep(step + 1)
     // The entry becomes the real save the moment it's submitted.
     clearDraft(draftKey)
     onSubmit({ event, emotions, well, next })
@@ -95,52 +99,65 @@ export function DailyRitual({
     )
   }
 
-  // The Today bookend (~2 min): last night's intention, one win for the day,
-  // and Coach's one adaptive question. Type only — no boxes, no icons, no
-  // numbers. Entirely skippable; skipping costs nothing.
-  const today = (
-    <div className="today-block">
-      {(todayIntention || morningNote || morningWindow) && <span className="ambient">Today</span>}
-      {todayIntention && <p className="morning-line">From last night: {todayIntention}</p>}
-      {morningNote?.win ? (
-        <p className="morning-line">A win today: {morningNote.win}</p>
-      ) : morningWindow ? (
-        <>
-          <input
-            value={win}
-            onChange={(e) => setWin(e.target.value)}
-            placeholder="What would make today a win?"
-            aria-label="What would make today a win?"
-          />
-          {morningQuestion && (
-            <>
-              <p className="morning-q">{morningQuestion}</p>
-              <input
-                value={prep}
-                onChange={(e) => setPrep(e.target.value)}
-                placeholder="One line."
-                aria-label={morningQuestion}
-              />
-            </>
-          )}
-          {win.trim() && (
-            <button className="btn text" onClick={() => onSetMorning?.(win, prep)}>
-              Set for today
-            </button>
-          )}
-        </>
-      ) : null}
-    </div>
-  )
+  // ---- the Today page: the bookend gets a screen of its own, in daylight ----
+  // One job: name the day's win (and answer Coach's one question if there is
+  // one). Fully skippable — a text step, never a gate.
+  if (morningWindow && !morningNote?.win && !skippedMorning) {
+    return (
+      <div className="develop">
+        <span className="ambient">Today</span>
+        <h1 style={{ marginTop: 'var(--s-3)' }}>What would make today a win?</h1>
+        {todayIntention && <p className="sub">From last night: {todayIntention}</p>}
+        <div className="spacer" />
+        <input
+          value={win}
+          onChange={(e) => setWin(e.target.value)}
+          placeholder="One outcome, in your control."
+          aria-label="What would make today a win?"
+          autoFocus
+        />
+        {morningQuestion && (
+          <div className="section">
+            <p className="morning-q">{morningQuestion}</p>
+            <input
+              value={prep}
+              onChange={(e) => setPrep(e.target.value)}
+              placeholder="One line."
+              aria-label={morningQuestion}
+            />
+          </div>
+        )}
+        <div className="spacer" />
+        {win.trim() ? (
+          <button className="btn" onClick={() => onSetMorning?.(win, prep)}>Set for today</button>
+        ) : (
+          <button className="btn ghost" onClick={() => setSkippedMorning(true)}>Not today</button>
+        )}
+        <div className="center" style={{ marginTop: 'var(--s-4)' }}>
+          <button className="btn text" onClick={() => setSkippedMorning(true)}>
+            Straight to tonight’s reflection
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ---- the ritual: one question per page ----
+  // At most ONE quiet context line above the dots, chosen by priority.
+  const contextLine =
+    step === 0
+      ? comeback
+        ? `You’re back. Night ${comeback.nights} is waiting — one moment tonight is enough.`
+        : restored
+          ? 'Picked up where you left off.'
+          : todayIntention && !morningWindow
+            ? `From last night: ${todayIntention}`
+            : null
+      : null
 
   return (
     <div className="develop" key={step}>
-      {today}
-      {step === 0 && comeback && !reflectedToday && (
-        <p className="morning-line">You’re back. Night {comeback.nights} is waiting — one moment tonight is enough.</p>
-      )}
-
-      {restored && <p className="morning-line">Picked up where you left off.</p>}
+      {contextLine && <p className="morning-line">{contextLine}</p>}
 
       <div className="dots">
         {STEPS.map((_, i) => (
@@ -148,46 +165,42 @@ export function DailyRitual({
         ))}
       </div>
 
-      <span className="ambient">{`Step ${step + 1} of 3`}</span>
+      <span className="ambient">{`Step ${step + 1} of ${STEPS.length}`}</span>
       <h1 style={{ marginTop: 'var(--s-3)' }}>{STEPS[step].n}</h1>
       <p className="subhead">{STEPS[step].hint}</p>
       <div className="spacer" />
 
       {step === 0 && (
-        <>
-          <textarea
-            value={event}
-            onChange={(e) => setEvent(e.target.value)}
-            placeholder="A specific event, good or hard. Not how the day went — one moment."
-            autoFocus
-          />
-          <div className="section">
-            <label className="field-label">
-              <span className="ambient">How it left you</span>
-              <span className="hint">Name it. Up to three.</span>
-            </label>
-            <div className="chips">
-              {EMOTIONS.map((e) => {
-                const on = emotions.includes(e)
-                return (
-                  <button
-                    key={e}
-                    type="button"
-                    className={`chip${on ? ' on' : ''}`}
-                    aria-pressed={on}
-                    disabled={!on && emotions.length >= 3}
-                    onClick={() => toggle(e)}
-                  >
-                    {e}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </>
+        <textarea
+          value={event}
+          onChange={(e) => setEvent(e.target.value)}
+          placeholder="A specific event, good or hard. Not how the day went — one moment."
+          aria-label="One concrete thing that happened today"
+          autoFocus
+        />
       )}
 
       {step === 1 && (
+        <div className="chips">
+          {EMOTIONS.map((e) => {
+            const on = emotions.includes(e)
+            return (
+              <button
+                key={e}
+                type="button"
+                className={`chip${on ? ' on' : ''}`}
+                aria-pressed={on}
+                disabled={!on && emotions.length >= 3}
+                onClick={() => toggle(e)}
+              >
+                {e}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {step === 2 && (
         <>
           {/* The declared objective the debrief runs against (AAR). */}
           {morningNote?.win && (
@@ -197,16 +210,18 @@ export function DailyRitual({
             value={well}
             onChange={(e) => setWell(e.target.value)}
             placeholder="Name your contribution. Agency, not luck."
+            aria-label="What went well, and what did you do to cause it"
             autoFocus
           />
         </>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <textarea
           value={next}
           onChange={(e) => setNext(e.target.value)}
           placeholder="One concrete, controllable action."
+          aria-label="One thing you’ll do differently tomorrow"
           autoFocus
         />
       )}
@@ -221,7 +236,7 @@ export function DailyRitual({
           </button>
         )}
         <button className="btn" onClick={advance} disabled={thinking}>
-          {thinking ? 'Reading…' : step === 2 ? 'Finish' : 'Continue'}
+          {thinking ? 'Reading…' : step === STEPS.length - 1 ? 'Finish' : 'Continue'}
         </button>
       </div>
     </div>
