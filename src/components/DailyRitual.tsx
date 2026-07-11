@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { EMOTIONS, type Emotion, type MorningNote } from '../lib/types'
 import { todayStr } from '../lib/game'
+import { stoneStage } from '../lib/milestones'
+import { filmForNight, filmWindow } from '../lib/stoneFilm'
 import { clearDraft, draftHasText, loadDraft, saveDraft } from '../lib/drafts'
+import { Stone } from './Stone'
+import { StoneFilm } from './StoneFilm'
 import type { Draft } from '../lib/store'
 
 interface Props {
   reflectedToday: boolean
   cue: string
   thinking: boolean
+  /** Tonight's Night count + the film press state — the settled screen is the stone's home. */
+  night: number
+  stoneSeen: number
+  onStoneSeen: () => void
   /** Last night's intention, when it's due today — one quiet line, no box. */
   todayIntention?: string | null
   /** Today's bookend, once set. */
@@ -43,7 +51,7 @@ interface TonightDraft {
 }
 
 export function DailyRitual({
-  reflectedToday, cue, thinking, todayIntention,
+  reflectedToday, cue, thinking, night, stoneSeen, onStoneSeen, todayIntention,
   morningNote, morningQuestion, morningWindow, onSetMorning,
   comeback, onSubmit,
 }: Props) {
@@ -87,14 +95,42 @@ export function DailyRitual({
   }
 
   if (reflectedToday && !adding) {
+    // The settled state is a quiet success screen — and the stone's daytime
+    // home: tonight is already in it, waiting for the press if unpressed.
+    const sources = filmForNight(night)
+    const w = filmWindow(night, stoneSeen)
     return (
-      <div className="develop">
+      <div className="develop center">
         <span className="ambient">Tonight</span>
-        <h1 style={{ marginTop: 'var(--s-3)' }}>You’ve reflected tonight.</h1>
-        <p className="sub">Come back tomorrow, after you {cue}.</p>
-        <button className="btn ghost" onClick={() => setAdding(true)}>
-          Add another note
-        </button>
+        <h1 style={{ marginTop: 'var(--s-3)' }}>Night {night} is in the stone.</h1>
+        <div className="spacer" />
+        {sources ? (
+          <StoneFilm
+            sources={sources}
+            fromF={w.fromF}
+            toF={w.toF}
+            owed={w.owed}
+            onSettled={onStoneSeen}
+            night={night}
+            size={140}
+            caption={stoneStage(night)}
+          />
+        ) : (
+          <Stone night={night} size={120} caption={stoneStage(night)} />
+        )}
+        {sources && w.owed && (
+          <p className="secondary" style={{ marginTop: 'var(--s-4)' }}>
+            Press and hold — the night sinks in.
+          </p>
+        )}
+        <p className="secondary" style={{ marginTop: 'var(--s-5)' }}>
+          Come back tomorrow, after you {cue}.
+        </p>
+        <div className="center" style={{ marginTop: 'var(--s-6)' }}>
+          <button className="btn text" onClick={() => setAdding(true)}>
+            Add another note
+          </button>
+        </div>
       </div>
     )
   }
@@ -107,7 +143,10 @@ export function DailyRitual({
       <div className="develop">
         <span className="ambient">Today</span>
         <h1 style={{ marginTop: 'var(--s-3)' }}>What would make today a win?</h1>
-        {todayIntention && <p className="sub">From last night: {todayIntention}</p>}
+        <p className="sub">
+          One outcome, named now — tonight’s reflection weighs the day against it.
+          {todayIntention ? ` From last night: ${todayIntention}` : ''}
+        </p>
         <div className="spacer" />
         <input
           value={win}

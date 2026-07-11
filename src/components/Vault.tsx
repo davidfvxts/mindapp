@@ -59,7 +59,7 @@ function NightRow({ e, open, onToggle }: { e: Entry; open: boolean; onToggle: ()
   )
 }
 
-export function Vault({ state, onStoneSeen, onRevisit }: { state: AppState; onStoneSeen: () => void; onRevisit: () => void }) {
+export function Vault({ state, onStoneSeen, onSettings }: { state: AppState; onStoneSeen: () => void; onSettings: () => void }) {
   const { game, entries } = state
   // Night is monotonic, so the Vault's stone history is always banked.
   const banked = bankedStones(game.nights)
@@ -195,8 +195,8 @@ export function Vault({ state, onStoneSeen, onRevisit }: { state: AppState; onSt
       </div>
 
       <div className="section">
-        {/* Erasing lives behind Revisit setup — deliberate, confirmed, complete. */}
-        <button className="btn text" onClick={onRevisit}>Revisit setup</button>
+        {/* Settings live behind the Vault — reachable, never a tab. */}
+        <button className="btn text" style={{ paddingLeft: 0 }} onClick={onSettings}>Settings →</button>
       </div>
     </div>
   )

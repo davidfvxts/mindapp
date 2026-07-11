@@ -142,6 +142,8 @@ export function AfterReflection({
             {reply.lesson && <p className="lesson develop develop-2">{reply.lesson}</p>}
             {!firstRead && (
               <div className="rate">
+                {/* One quiet word of why: rating is how Coach learns this person. */}
+                <span className="rate-label ambient">Did it land? It tunes Coach.</span>
                 <button className={rated === 1 ? 'pick' : ''} onClick={() => rate(1)}>That’s right</button>
                 <button className={rated === 0 ? 'pick' : ''} onClick={() => rate(0)}>Not quite</button>
               </div>

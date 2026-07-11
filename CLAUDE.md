@@ -451,8 +451,14 @@ Growth is made FELT, in words never numbers:
   oldest reflection maps to Night i, exactly matching the monotonic Night history.
   The stone becomes a container of reflections; colour stays exactly as scarce.
 
-**Retune anytime.** `components/Onboarding.tsx` runs in `mode:'retune'` from the Vault's "Revisit
-setup" — updates settings and augments the profile (`store.retune`), no new entry, no Night change.
+**Settings & guidance.** Settings are a quiet page behind the Vault ("Settings →"), never a
+fifth tab: three doors — the rhythm (`mode:'setup'`), what Coach knows (`mode:'retune'`, which
+ends with Erase everything), and the method (`components/Method.tsx`, shared with the welcome).
+Each non-Tonight tab explains itself EXACTLY ONCE, the first time it's opened
+(`state.seenIntros` + the TabIntro in App.tsx) — after that, straight in. The Reviews landing
+computes ONE next action (owed weekly read > weekly > monthly) under a "Next" label; whatever
+isn't next waits as a quiet text link under "Also". The settled Tonight screen is a success
+moment and the stone's daytime home ("Night N is in the stone." + the film press).
 
 ### The API key never touches the browser
 Anthropic is called from the Supabase Edge Function (`supabase/functions/coach/`) holding

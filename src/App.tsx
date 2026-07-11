@@ -6,6 +6,8 @@ import { AfterReflection } from './components/AfterReflection'
 import { Guidance } from './components/Guidance'
 import { Vault } from './components/Vault'
 import { Reviews } from './components/Reviews'
+import { Settings } from './components/Settings'
+import { Method } from './components/Method'
 import { unseenCount } from './lib/guidance'
 import { milestoneEcho } from './lib/inclusions'
 import { GOAL_OPTIONS } from './lib/onboarding'
@@ -21,14 +23,51 @@ const TABS: [Tab, string][] = [
   ['vault', 'Vault'],
 ]
 
+/** Each tab explains itself exactly once — the first time it's opened. */
+const INTROS: Record<Exclude<Tab, 'today'>, { title: string; body: string }> = {
+  guidance: {
+    title: 'Guidance.',
+    body: 'Now and then — never daily — Coach leaves one thing here worth trying: '
+      + 'a tip, an action, a book. Most of the time it’s empty. That’s deliberate: '
+      + 'only what fits you, only when it counts.',
+  },
+  review: {
+    title: 'Reviews.',
+    body: 'Nights are the ground floor; this is where you zoom out. After three '
+      + 'nights in a week you can review it — three questions, one intention — and '
+      + 'Coach reads it with you. Around Night thirty, a monthly arc opens above it.',
+  },
+  vault: {
+    title: 'The Vault.',
+    body: 'Everything you write lands here. The stone on the bench grows as your '
+      + 'nights add up — press and hold it to watch the last nights sink in. At '
+      + 'each milestone it opens, in colour, and keeps your words inside.',
+  },
+}
+
+/** A one-time introduction: one page, one idea, one button. */
+function TabIntro({ title, body, onContinue }: { title: string; body: string; onContinue: () => void }) {
+  return (
+    <div className="develop">
+      <span className="ambient">First time here</span>
+      <h1 style={{ marginTop: 'var(--s-3)' }}>{title}</h1>
+      <p className="sub">{body}</p>
+      <div className="spacer" />
+      <button className="btn" onClick={onContinue}>Continue</button>
+    </div>
+  )
+}
+
 export default function App() {
   const m = useFacet()
   const [tab, setTab] = useState<Tab>('today')
   const [retuning, setRetuning] = useState(false)
   // The make-it-stick step runs AFTER the First Read — value first, setup second.
   const [settingUp, setSettingUp] = useState(false)
+  // Settings live on their own quiet page, reached from the Vault — never a tab.
+  const [screen, setScreen] = useState<'app' | 'settings' | 'method'>('app')
 
-  useEffect(() => { window.scrollTo(0, 0) }, [tab])
+  useEffect(() => { window.scrollTo(0, 0) }, [tab, screen])
 
   // Distinct keys: first-run and retune must never share component state —
   // an erase ends retune and lands on a FRESH welcome.
@@ -40,7 +79,7 @@ export default function App() {
       <Onboarding
         key="setup"
         mode="setup"
-        initial={{ cue: '', reminderTime: p.reminderTime, morningTime: p.morningTime, tone: p.tone, sync: p.sync }}
+        initial={{ cue: p.cue === 'close my laptop' ? '' : p.cue, reminderTime: p.reminderTime, morningTime: p.morningTime, tone: p.tone, sync: p.sync }}
         onSetup={(settings) => { m.completeOnboarding(settings); setSettingUp(false) }}
       />
     )
@@ -75,13 +114,15 @@ export default function App() {
   const guidanceNew = unseenCount(m.state) > 0
   const reviewNew = m.derived.reviewReady || m.derived.monthReady
   const revealedEntry = m.reveal ? m.state.entries.find((entry) => entry.id === m.reveal?.entryId) : undefined
+  // A tab's first visit gets its introduction; every later visit goes straight in.
+  const intro = tab !== 'today' && !m.state.seenIntros.includes(tab) ? INTROS[tab] : null
 
   return (
     <section className="wrap">
       <header className="bar">
         <span className="wordmark">FACET</span>
         {/* The reveal screen carries the Night itself — one number per page. */}
-        {!(tab === 'today' && m.reveal) && (
+        {!(tab === 'today' && m.reveal && screen === 'app') && (
           <span className="night-chip">
             <span className="ambient">Night</span>
             <span className="n">{game.nights}</span>
@@ -90,74 +131,97 @@ export default function App() {
       </header>
 
       <main>
-        {tab === 'today' &&
-          (m.reveal ? (
-            <AfterReflection
-              entryId={m.reveal.entryId}
-              reply={m.reveal.reply}
-              pending={m.reveal.pending}
-              night={m.reveal.night}
-              firstRead={m.reveal.firstRead}
-              echo={milestoneEcho(m.state.entries, m.reveal.night)}
-              answer={revealedEntry?.coachAnswer}
-              close={revealedEntry?.coachClose}
-              stoneSeen={m.state.stoneSeen}
-              onStoneSeen={m.markStoneSeen}
-              onRate={m.rateReply}
-              onAnswer={(answer) => m.answerCoach(m.reveal!.entryId, answer)}
-              onDone={() => {
-                const wasFirst = m.reveal?.firstRead
-                m.clearReveal()
-                // The first read flows into make-it-stick; every later read banks to the Vault.
-                if (wasFirst) setSettingUp(true)
-                else setTab('vault')
-              }}
-            />
-          ) : (
-            <DailyRitual
-              reflectedToday={m.derived.reflectedToday}
-              cue={m.state.settings.cue}
-              thinking={m.thinking}
-              todayIntention={m.derived.todayIntention}
-              morningNote={m.derived.morningNote}
-              morningQuestion={m.derived.morningQuestion}
-              morningWindow={m.derived.morningWindow}
-              onSetMorning={m.setMorning}
-              comeback={m.derived.comeback}
-              onSubmit={(d) => void m.submitEntry(d)}
-            />
-          ))}
-
-        {tab === 'guidance' && (
-          <Guidance
-            state={m.state}
-            onCommit={m.commitNudge}
-            onDecline={m.declineNudge}
-            onResolve={m.resolveNudge}
-            onRenegotiate={m.renegotiateIntention}
-            onSeen={m.markGuidanceSeen}
+        {screen === 'settings' && (
+          <Settings
+            onRhythm={() => { setScreen('app'); setSettingUp(true) }}
+            onRetune={() => { setScreen('app'); setRetuning(true) }}
+            onMethod={() => setScreen('method')}
+            onBack={() => setScreen('app')}
           />
         )}
+        {screen === 'method' && <Method onBack={() => setScreen('settings')} />}
 
-        {tab === 'review' && (
-          <Reviews
-            ready={m.derived.reviewReady}
-            fullWeek={m.derived.fullWeeklyReview}
-            online={m.online}
-            cards={m.state.cards}
-            arcs={m.state.arcs}
-            thinking={m.thinking}
-            monthReady={m.derived.monthReady}
-            liveDecision={m.derived.liveDecision}
-            openIntention={m.derived.openWeeklyIntention}
-            onResolveIntention={m.resolveNudge}
-            onComplete={(r, w) => m.completeWeekly(r, w)}
-            onBeginMonthly={m.beginMonthly}
-            onCompleteMonthly={m.completeMonthly}
-          />
+        {screen === 'app' && intro && (
+          <TabIntro title={intro.title} body={intro.body} onContinue={() => m.markIntroSeen(tab)} />
         )}
 
-        {tab === 'vault' && <Vault state={m.state} onStoneSeen={m.markStoneSeen} onRevisit={() => setRetuning(true)} />}
+        {screen === 'app' && !intro && (
+          <>
+            {tab === 'today' &&
+              (m.reveal ? (
+                <AfterReflection
+                  entryId={m.reveal.entryId}
+                  reply={m.reveal.reply}
+                  pending={m.reveal.pending}
+                  night={m.reveal.night}
+                  firstRead={m.reveal.firstRead}
+                  echo={milestoneEcho(m.state.entries, m.reveal.night)}
+                  answer={revealedEntry?.coachAnswer}
+                  close={revealedEntry?.coachClose}
+                  stoneSeen={m.state.stoneSeen}
+                  onStoneSeen={m.markStoneSeen}
+                  onRate={m.rateReply}
+                  onAnswer={(answer) => m.answerCoach(m.reveal!.entryId, answer)}
+                  onDone={() => {
+                    const wasFirst = m.reveal?.firstRead
+                    m.clearReveal()
+                    // The first read flows into make-it-stick; every later read banks to the Vault.
+                    if (wasFirst) setSettingUp(true)
+                    else setTab('vault')
+                  }}
+                />
+              ) : (
+                <DailyRitual
+                  reflectedToday={m.derived.reflectedToday}
+                  cue={m.state.settings.cue}
+                  thinking={m.thinking}
+                  night={game.nights}
+                  stoneSeen={m.state.stoneSeen}
+                  onStoneSeen={m.markStoneSeen}
+                  todayIntention={m.derived.todayIntention}
+                  morningNote={m.derived.morningNote}
+                  morningQuestion={m.derived.morningQuestion}
+                  morningWindow={m.derived.morningWindow}
+                  onSetMorning={m.setMorning}
+                  comeback={m.derived.comeback}
+                  onSubmit={(d) => void m.submitEntry(d)}
+                />
+              ))}
+
+            {tab === 'guidance' && (
+              <Guidance
+                state={m.state}
+                onCommit={m.commitNudge}
+                onDecline={m.declineNudge}
+                onResolve={m.resolveNudge}
+                onRenegotiate={m.renegotiateIntention}
+                onSeen={m.markGuidanceSeen}
+              />
+            )}
+
+            {tab === 'review' && (
+              <Reviews
+                ready={m.derived.reviewReady}
+                fullWeek={m.derived.fullWeeklyReview}
+                online={m.online}
+                cards={m.state.cards}
+                arcs={m.state.arcs}
+                thinking={m.thinking}
+                monthReady={m.derived.monthReady}
+                liveDecision={m.derived.liveDecision}
+                openIntention={m.derived.openWeeklyIntention}
+                onResolveIntention={m.resolveNudge}
+                onComplete={(r, w) => m.completeWeekly(r, w)}
+                onBeginMonthly={m.beginMonthly}
+                onCompleteMonthly={m.completeMonthly}
+              />
+            )}
+
+            {tab === 'vault' && (
+              <Vault state={m.state} onStoneSeen={m.markStoneSeen} onSettings={() => setScreen('settings')} />
+            )}
+          </>
+        )}
 
         {/* Developer plumbing never reaches end users: local-only is a designed
             mode in production, not an error to explain. */}
@@ -178,7 +242,7 @@ export default function App() {
               key={id}
               className={tab === id ? 'on' : ''}
               aria-current={tab === id ? 'page' : undefined}
-              onClick={() => setTab(id)}
+              onClick={() => { setTab(id); setScreen('app') }}
             >
               {label}
               {hasNew && <span className="sr-only">, new</span>}

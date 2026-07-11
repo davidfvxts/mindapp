@@ -4,6 +4,7 @@ import { firstFrames, GOAL_OPTIONS, OBSTACLE_OPTIONS, type OnboardingAnswers } f
 import { clearDraft, draftHasText, loadDraft, saveDraft } from '../lib/drafts'
 import type { Draft } from '../lib/store'
 import { Stone } from './Stone'
+import { Method } from './Method'
 
 interface Props {
   mode?: 'first' | 'retune' | 'setup'
@@ -185,41 +186,8 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onSetup, onErase
     return (
       <section className="wrap">
         <header className="bar"><span className="wordmark">FACET</span></header>
-        <main className="develop">
-          <button className="btn text back-line" onClick={() => setView('flow')}>← Back</button>
-          <h1>The method.</h1>
-          <p className="sub">
-            Five minutes a night, built on findings that held up. Coach works from these — nothing else.
-          </p>
-          <div className="section">
-            <div className="item">
-              <div className="item-meta ambient">Name the moment, in writing</div>
-              <div className="item-body">Putting a hard moment into words cools it. — Pennebaker, expressive writing</div>
-            </div>
-            <div className="item">
-              <div className="item-meta ambient">Step back to see it</div>
-              <div className="item-body">Distanced self-talk turns rumination into perspective. — Kross, Chatter</div>
-            </div>
-            <div className="item">
-              <div className="item-meta ambient">Ask what, not why</div>
-              <div className="item-body">What-questions build accurate self-insight; why-questions spiral. — Eurich, Insight</div>
-            </div>
-            <div className="item">
-              <div className="item-meta ambient">One next step, if-then</div>
-              <div className="item-body">Naming when and where you’ll act markedly raises follow-through. — Gollwitzer, implementation intentions</div>
-            </div>
-            <div className="item">
-              <div className="item-meta ambient">Debrief against the goal</div>
-              <div className="item-body">Reviewing the day against a declared aim is how teams — and people — compound. — Locke &amp; Latham; after-action reviews</div>
-            </div>
-          </div>
-          <div className="section">
-            <span className="ambient">Your words</span>
-            <p className="secondary" style={{ marginTop: 'var(--s-3)' }}>
-              No account. No email. Your words stay on this phone unless you choose backup.
-              Coach reads a night only to reply to it — nothing you write is used for anything else, ever.
-            </p>
-          </div>
+        <main>
+          <Method onBack={() => setView('flow')} />
         </main>
       </section>
     )

@@ -190,19 +190,24 @@ export function Reviews({
     setPhase('monthcard')
   }
 
-  // ---- the minted weekly read ----
+  // ---- the minted weekly read: a real success moment ----
   if (phase === 'card' && card) {
     return (
       <div className="develop">
-        <h1>The week, read.</h1>
+        <span className="ambient">The week, read</span>
+        {/* The user's own if-then IS the outcome — it leads, large and theirs. */}
+        {plan.trim() && (
+          <h1 style={{ marginTop: 'var(--s-3)' }}>“{plan.trim()}”</h1>
+        )}
+        <p className="secondary">
+          Your intention stands for the week. Coach checks in on it in Guidance — no need to carry it yourself.
+        </p>
         <div className="section">
-          <div className="coach">
+          <div className="coach develop-late">
             <span className="coach-label ambient">Coach</span>
             <p className="develop">{card.text}</p>
           </div>
         </div>
-        <div className="spacer" />
-        <p className="secondary">Your intention stands for the week — Coach will check in on it in Guidance.</p>
         <div className="spacer" />
         <button className="btn" onClick={() => setPhase('landing')}>Done</button>
       </div>
@@ -428,81 +433,106 @@ export function Reviews({
     )
   }
 
-  // ---- landing: two doors, nothing else ----
+  // ---- landing: ONE next action; everything else waits quietly behind it ----
+  // The next sensible step is computed, not offered as a menu: an owed weekly
+  // read outranks everything; then the weekly (the lighter, more frequent
+  // step); then the monthly arc. What isn't next is a quiet text link.
+  const weeklyActionable = !!weeklyDraft?.awaitingCoach || ready
+  const monthActionable = !!(savedMonthly && draft) || monthReady
+
+  const weeklyPrimary = weeklyActionable && (
+    weeklyDraft?.awaitingCoach ? (
+      <>
+        <h2 style={{ marginTop: 'var(--s-3)' }}>The week, written — Coach owes it a read</h2>
+        <p className="secondary" style={{ margin: 'var(--s-3) 0 var(--s-5)' }}>
+          Every word is kept. One tap hands it to Coach.
+        </p>
+        <button className={online ? 'btn' : 'btn ghost'} onClick={() => void finish()} disabled={!online || thinking}>
+          {!online ? 'Coach reads your week live — you’re offline.' : thinking ? 'Coach is reading your week…' : 'Retry Coach'}
+        </button>
+      </>
+    ) : (
+      <>
+        <h2 style={{ marginTop: 'var(--s-3)' }}>{fullWeek ? 'Review your week' : 'Review the week so far'}</h2>
+        <p className="secondary" style={{ margin: 'var(--s-3) 0 var(--s-5)' }}>
+          {weeklyDraftText(weeklyDraft)
+            ? 'Your review is where you left it — every word kept.'
+            : fullWeek
+              ? 'Three questions and one intention, in your words — then Coach reads it against your nights. About ten minutes.'
+              : 'Three nights is enough to look at the week so far — three questions, one intention.'}
+        </p>
+        <button className={online ? 'btn' : 'btn ghost'} onClick={start} disabled={!online || thinking}>
+          {!online
+            ? 'Coach reads your week live — you’re offline.'
+            : weeklyDraftText(weeklyDraft)
+              ? 'Continue the review'
+              : fullWeek ? 'Review my week' : 'Review the week so far'}
+        </button>
+        {openIntention && (
+          <p className="morning-line" style={{ marginTop: 'var(--s-5)', marginBottom: 0 }}>
+            Standing: {openIntention.title}
+          </p>
+        )}
+      </>
+    )
+  )
+
+  const monthlyPrimary = monthActionable && (
+    <>
+      <h2 style={{ marginTop: 'var(--s-3)' }}>{savedMonthly && draft ? 'Finish the monthly arc' : 'The monthly arc'}</h2>
+      <p className="secondary" style={{ margin: 'var(--s-3) 0 var(--s-5)' }}>
+        {savedMonthly && draft
+          ? 'Your arc is where you left it — the draft is kept.'
+          : 'The month’s trajectory, drafted from your own words. You set its theme.'}
+      </p>
+      <button className={online ? 'btn' : 'btn ghost'} onClick={beginMonth} disabled={!online || thinking}>
+        {!online
+          ? 'Coach reads your month live — you’re offline.'
+          : thinking ? 'Coach is reading your month…'
+            : savedMonthly && draft ? 'Continue the monthly arc' : 'Begin the monthly arc'}
+      </button>
+    </>
+  )
+
   return (
     <div className="develop">
       <h1>Reviews</h1>
       <p className="sub">Zoom out from nights to patterns.</p>
 
       <div className="section">
-        <span className="ambient">Weekly</span>
-        <h2 style={{ marginTop: 'var(--s-3)' }}>The week in review</h2>
-        {weeklyDraft?.awaitingCoach ? (
+        <span className="ambient">{weeklyActionable || monthActionable ? 'Next' : 'Not yet'}</span>
+        {weeklyPrimary || monthlyPrimary || (
           <>
-            <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
-              Your review is written — every word kept. Coach still owes it a read.
+            <h2 style={{ marginTop: 'var(--s-3)' }}>The week in review</h2>
+            <p className="secondary" style={{ marginTop: 'var(--s-3)' }}>
+              Opens after three nights in a week — keep reflecting. The monthly arc
+              follows around Night 30.
             </p>
-            <button
-              className={online ? 'btn' : 'btn ghost'}
-              onClick={() => void finish()}
-              disabled={!online || thinking}
-            >
-              {!online ? 'Coach reads your week live — you’re offline.' : thinking ? 'Coach is reading your week…' : 'Retry Coach'}
-            </button>
+            {openIntention && (
+              <p className="morning-line" style={{ marginTop: 'var(--s-5)', marginBottom: 0 }}>
+                Standing: {openIntention.title}
+              </p>
+            )}
           </>
-        ) : ready ? (
-          <>
-            <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
-              {weeklyDraftText(weeklyDraft)
-                ? 'Your review is where you left it — every word kept.'
-                : fullWeek
-                  ? 'The week is gathered. You do the review — three questions and an intention — and Coach reads it against your nights. About ten minutes.'
-                  : 'Three nights is enough to look at the week so far.'}
-            </p>
-            <button className={online ? 'btn' : 'btn ghost'} onClick={start} disabled={!online || thinking}>
-              {!online
-                ? 'Coach reads your week live — you’re offline.'
-                : weeklyDraftText(weeklyDraft)
-                  ? 'Continue the review'
-                  : fullWeek ? 'Review my week' : 'Review the week so far'}
-            </button>
-          </>
-        ) : (
-          <p className="secondary">Opens after three nights in a week. Keep going.</p>
-        )}
-        {openIntention && (
-          <p className="morning-line" style={{ marginTop: 'var(--s-5)', marginBottom: 0 }}>
-            Standing: {openIntention.title}
-          </p>
         )}
       </div>
 
-      <div className="section">
-        <span className="ambient">Monthly</span>
-        <h2 style={{ marginTop: 'var(--s-3)' }}>The monthly arc</h2>
-        {savedMonthly && draft ? (
-          <button className="btn" style={{ marginTop: 'var(--s-4)' }} onClick={beginMonth}>Continue the monthly arc</button>
-        ) : monthReady ? (
-          <>
-            <p className="secondary" style={{ marginBottom: 'var(--s-5)' }}>
-              The month's trajectory, drafted from your own words. You set its theme.
-            </p>
-            <button className={online ? 'btn' : 'btn ghost'} onClick={beginMonth} disabled={!online || thinking}>
-              {!online ? 'Coach reads your month live — you’re offline.' : thinking ? 'Coach is reading your month…' : 'Begin the monthly arc'}
-            </button>
-          </>
-        ) : (
-          <p className="secondary">Opens at Night 30.</p>
-        )}
-      </div>
-
-      {(cards.length > 0 || arcs.length > 0) && (
+      {(weeklyPrimary && monthActionable) || cards.length > 0 || arcs.length > 0 ? (
         <div className="section">
-          <button className="btn text" style={{ paddingLeft: 0 }} onClick={() => setPhase('archive')}>
-            Past reads →
-          </button>
+          <span className="ambient">Also</span>
+          <div className="spacer" />
+          {weeklyPrimary && monthActionable && (
+            <button className="btn text" style={{ paddingLeft: 0, display: 'block' }} onClick={beginMonth} disabled={!online || thinking}>
+              {savedMonthly && draft ? 'Continue the monthly arc →' : 'Begin the monthly arc →'}
+            </button>
+          )}
+          {(cards.length > 0 || arcs.length > 0) && (
+            <button className="btn text" style={{ paddingLeft: 0, display: 'block' }} onClick={() => setPhase('archive')}>
+              Past reads →
+            </button>
+          )}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

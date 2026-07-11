@@ -262,6 +262,9 @@ export interface AppState {
   /** The last Night whose stone development the user has pressed through.
    *  Below game.nights = the stone holds undeveloped film, waiting. */
   stoneSeen: number
+  /** Tabs whose one-time introduction has been seen. Each screen explains
+   *  itself exactly once — at the moment it's first opened, never again. */
+  seenIntros: string[]
   onboarded: boolean
 }
 
@@ -284,5 +287,6 @@ export const initialState = (): AppState => ({
   monthTheme: null,
   lastMonthlyArc: null,
   stoneSeen: 0,
+  seenIntros: [],
   onboarded: false,
 })

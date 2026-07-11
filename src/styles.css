@@ -239,7 +239,8 @@ textarea.error, input.error { border-color: var(--line-control); }
 @keyframes coach-pulse { 0%, 100% { border-left-color: var(--ink-tertiary); } 50% { border-left-color: var(--ink-primary); } }
 
 /* feedback on the coach's read */
-.rate { display: flex; gap: var(--s-2); margin-top: var(--s-5); }
+.rate { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-top: var(--s-5); }
+.rate .rate-label { flex-basis: 100%; margin-bottom: var(--s-1); }
 .rate button {
   appearance: none; cursor: pointer; font-family: inherit;
   background: var(--fill-field); border: none; color: var(--ink-body);
