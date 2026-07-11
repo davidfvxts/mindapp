@@ -5,6 +5,7 @@ import { clearDraft, draftHasText, loadDraft, saveDraft } from '../lib/drafts'
 import type { Draft } from '../lib/store'
 import { Stone } from './Stone'
 import { Method } from './Method'
+import { track } from '../lib/analytics'
 
 interface Props {
   mode?: 'first' | 'retune' | 'setup'
@@ -219,7 +220,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onSetup, onErase
             </>
           )}
           <div className="spacer" />
-          <button className="btn" onClick={() => setStep(1)}>{retune ? 'Start' : 'Begin'}</button>
+          <button className="btn" onClick={() => { if (first) track('onboarding_started'); setStep(1) }}>{retune ? 'Start' : 'Begin'}</button>
           {first && (
             <div className="center" style={{ marginTop: 'var(--s-5)' }}>
               <button className="btn text" onClick={() => setView('method')}>The method →</button>

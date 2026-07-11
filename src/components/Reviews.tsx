@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { clearDraft, loadDraft, saveDraft } from '../lib/drafts'
+import { track } from '../lib/analytics'
 import type { WeeklyAnswers, Woop } from '../lib/weekly'
 import type { MonthlyAnswers } from '../lib/monthly'
 import type { MonthlyResult } from '../lib/ai'
@@ -111,6 +112,7 @@ export function Reviews({
 
   const start = () => {
     if (!online) return
+    track('weekly_review_started')
     const order: StepId[] = [...(openIntention ? (['checkin'] as StepId[]) : []), 'wins', 'friction', 'avoided', 'wish', 'plan']
     setSteps(order)
     // Resume where the draft left off; a resolved check-in can't come back.

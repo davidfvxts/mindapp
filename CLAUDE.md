@@ -465,6 +465,18 @@ Anthropic is called from the Supabase Edge Function (`supabase/functions/coach/`
 `claude_secret_api_key` as a server-side secret (`ANTHROPIC_API_KEY` is a compatibility
 fallback). Notifications are **local**, not push
 (`@capacitor/local-notifications`) — no APNs, no server, works offline; the evening cue reminder and the one-shot morning note both schedule on-device.
+On the **web** they degrade honestly (`notifications.ts`): with permission, an in-page timer
+fires the notification while the app is open or parked in a tab; a closed page gets nothing
+(no push server, by design).
+
+### Pilot analytics = names, never words
+`lib/analytics.ts` counts THAT things happened, never WHAT was written: a closed union of
+event names (`EVENTS` — onboarding/first-read/entry-saved/returns/night-7/night-30/stone
+press/review lifecycle) + a random local device id, no auth account, no content, no settings.
+Events queue in localStorage (bounded, TESTED) and flush opportunistically in drain rounds
+(supabase `events` insert; write-only RLS — see `migrations/0003_events.sql`, which still
+needs `supabase db push` / dashboard apply). The method page discloses the tally in plain
+words. This is the D1/D7/D30 read for the pilot — resist adding events beyond the list.
 
 ### Next steps, in order
 1. Ship the PWA to David + ~10 founders. **Watch 30-day retention** — the only

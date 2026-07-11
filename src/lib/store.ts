@@ -17,6 +17,7 @@ import { liveDecision, monthlyReady, trailingEntryNights, type MonthlyAnswers } 
 import { ensureSession, supabase } from './supabase'
 import { clearAllDrafts } from './drafts'
 import { cancelMorningIntention, scheduleDailyReminder, scheduleMorningIntention } from './notifications'
+import { track } from './analytics'
 import type { AppState, CoachReply, Emotion, Entry, InsightCard, MonthTheme, MorningNote, Settings } from './types'
 
 const uid = (): string =>
@@ -185,6 +186,7 @@ export function useFacet() {
 
   /** Apply the make-it-stick settings (after the First Read, or any time). */
   const completeOnboarding = useCallback((settings: Settings) => {
+    track('setup_completed')
     setState((s) => ({ ...s, settings, onboarded: true }))
     void scheduleDailyReminder(settings.reminderTime, settings.cue)
     // The morning note follows the newest intention at the (possibly new) time.
@@ -224,6 +226,7 @@ export function useFacet() {
       entry.coach = reply
       coach = recordCommitment(coach, entry, today)
 
+      track('first_entry_saved')
       const { game } = applyEntry(state.game, entry)
       void scheduleDailyReminder(settings.reminderTime, settings.cue)
       void scheduleMorningIntention(settings.morningTime, entry.next)
@@ -282,6 +285,13 @@ export function useFacet() {
       coach = recordCommitment(coach, entry, today)
 
       const { game } = applyEntry(state.game, entry)
+      // Pilot counters — event names only, never content (CLAUDE.md §6).
+      track('entry_saved')
+      const gap = state.game.lastDay ? daysBetween(state.game.lastDay, today) : 0
+      if (gap === 1) track('return_next_day')
+      if (gap >= 2) track('return_after_lapse')
+      if (game.nights === 7 && state.game.nights < 7) track('night_7')
+      if (game.nights === 30 && state.game.nights < 30) track('night_30')
       setState((s) => ({
         ...s,
         game,
@@ -338,6 +348,7 @@ export function useFacet() {
       const result = await getWeeklyInsight(state.entries, state.settings, state.coach, { review, woop })
       setThinking(false)
       if (!result) return null
+      track('weekly_review_completed')
       const today = todayStr()
       const card: InsightCard = { id: uid(), text: result.text, date: today }
       const nights = state.game.nights
@@ -375,6 +386,7 @@ export function useFacet() {
   /** Bank the arc: store the read, set the month's theme, fold the revision. */
   const completeMonthly = useCallback(
     (answers: MonthlyAnswers, profile: Parameters<typeof applyWeeklyRevision>[1]) => {
+      track('monthly_arc_completed')
       const today = todayStr()
       const card: InsightCard = { id: uid(), text: answers.trajectory.trim(), date: today }
       const theme = answers.theme.trim()
@@ -481,6 +493,7 @@ export function useFacet() {
 
   /** The press finished: tonight's development has been seen in full. */
   const markStoneSeen = useCallback(() => {
+    track('stone_pressed')
     setState((s) => ({ ...s, stoneSeen: s.game.nights }))
   }, [])
 

@@ -17,6 +17,7 @@ const backing = new Map<string, string>()
 }
 
 import { clearAllDrafts, clearDraft, draftHasText, loadDraft, saveDraft } from '../src/lib/drafts'
+import { pushEvent } from '../src/lib/analytics'
 
 let fails = 0
 const ok = (name: string, cond: boolean) => {
@@ -63,6 +64,14 @@ async function main() {
   // draftHasText
   ok('draftHasText: empty', !draftHasText(null) && !draftHasText({ a: '', b: '   ' }))
   ok('draftHasText: real words', draftHasText({ a: '', b: 'kept it' }))
+
+  // the analytics queue is bounded — telemetry never grows without limit
+  const evt = (n: number) => ({ name: 'entry_saved' as const, ts: n })
+  ok('pushEvent appends', pushEvent([], evt(1)).length === 1)
+  const full = Array.from({ length: 200 }, (_, i) => evt(i))
+  const overflowed = pushEvent(full, evt(999))
+  ok('pushEvent drops the oldest at the cap', overflowed.length === 200 && overflowed[199].ts === 999 && overflowed[0].ts === 1)
+  ok('pushEvent honours a custom cap', pushEvent([evt(1), evt(2)], evt(3), 2).length === 2)
 
   console.log(fails ? `\n${fails} FAILURES` : '\nALL DRAFT TESTS PASSED')
   if (fails) process.exit(1)

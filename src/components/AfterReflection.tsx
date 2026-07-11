@@ -4,6 +4,7 @@ import { StoneFilm } from './StoneFilm'
 import { stoneForNight, stoneStage } from '../lib/milestones'
 import { filmForNight, filmWindow } from '../lib/stoneFilm'
 import { clearDraft, loadDraft, saveDraft } from '../lib/drafts'
+import { track } from '../lib/analytics'
 import type { CoachClose, CoachReply } from '../lib/types'
 
 interface Props {
@@ -48,6 +49,11 @@ export function AfterReflection({
     if (answerStatus !== 'idle' || answer) return
     saveDraft(draftKey, answerDraft)
   }, [draftKey, answerDraft, answerStatus, answer])
+
+  // The pilot's wow-counter: the First Read reached the screen. Name only.
+  useEffect(() => {
+    if (firstRead) track('first_read_viewed')
+  }, [firstRead])
 
   const rate = (r: 0 | 1) => {
     setRated(r)

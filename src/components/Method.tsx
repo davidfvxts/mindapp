@@ -38,6 +38,7 @@ export function Method({ onBack }: { onBack: () => void }) {
         <p className="secondary" style={{ marginTop: 'var(--s-3)' }}>
           No account. No email. Your words stay on this phone unless you choose backup.
           Coach reads a night only to reply to it — nothing you write is used for anything else, ever.
+          Facet counts which screens get used — a nameless tally, never a word of what you write.
         </p>
       </div>
     </div>
