@@ -52,6 +52,7 @@ function OpenCard({ n, onCommit, onDecline }: { n: Nudge } & Pick<Actions, 'onCo
           className="nudge-note"
           rows={2}
           placeholder="A note to yourself — kept with this."
+          aria-label="A note for Coach about this guidance"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           autoFocus

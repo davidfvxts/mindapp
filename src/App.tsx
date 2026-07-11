@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useFacet } from './lib/store'
 import { Onboarding } from './components/Onboarding'
 import { DailyRitual } from './components/DailyRitual'
@@ -25,6 +25,8 @@ export default function App() {
   const m = useFacet()
   const [tab, setTab] = useState<Tab>('today')
   const [retuning, setRetuning] = useState(false)
+
+  useEffect(() => { window.scrollTo(0, 0) }, [tab])
 
   // Distinct keys: first-run and retune must never share component state —
   // an erase ends retune and lands on a FRESH welcome.
@@ -144,15 +146,22 @@ export default function App() {
         )}
       </main>
 
-      <nav className="tabs">
-        {TABS.map(([id, label]) => (
-          <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
-            {label}
-            {((id === 'guidance' && guidanceNew) || (id === 'review' && reviewNew)) && tab !== id && (
-              <i className="tab-dot" aria-hidden />
-            )}
-          </button>
-        ))}
+      <nav className="tabs" aria-label="Primary navigation">
+        {TABS.map(([id, label]) => {
+          const hasNew = ((id === 'guidance' && guidanceNew) || (id === 'review' && reviewNew)) && tab !== id
+          return (
+            <button
+              key={id}
+              className={tab === id ? 'on' : ''}
+              aria-current={tab === id ? 'page' : undefined}
+              onClick={() => setTab(id)}
+            >
+              {label}
+              {hasNew && <span className="sr-only">, new</span>}
+              {hasNew && <i className="tab-dot" aria-hidden />}
+            </button>
+          )
+        })}
       </nav>
 
       {m.toast && <div className="toast" role="status">{m.toast}</div>}
