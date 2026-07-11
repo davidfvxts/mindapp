@@ -3,7 +3,7 @@ import { applyEntry, daysBetween, mergeEntries, nightsFromEntries, todayStr, wee
 import { downloadEntries, loadState, resetState, saveState, syncEntries } from './storage'
 import { aiEnabled, fetchCoachClose, fetchCoachReply, fetchFirstRead, fetchNudge, getMonthlyArc, getWeeklyInsight } from './ai'
 import { applyMemo, applyWeeklyRevision, foldRating, isCharged, recordCommitment, renegotiateCommitment, mergeWeeklyDelta, staleCommitment } from './coachMemory'
-import { seedMemoryFromAnswers, deterministicFirstRead, type OnboardingAnswers } from './onboarding'
+import { seedMemoryFromAnswers, deterministicFirstRead, secondPerson, type OnboardingAnswers } from './onboarding'
 import {
   dueForNudge, pickOfflineNudge, toNudge, markSeen, weeklyIntentionNudge,
   commitNudge as commit, declineNudge as decline, resolveNudge as resolve,
@@ -206,7 +206,7 @@ export function useFacet() {
     // The morning note follows the newest intention at the (possibly new) time.
     if (!settings.morningTime) void cancelMorningIntention()
     else void scheduleMorningIntention(settings.morningTime, state.entries[0]?.next ?? '')
-    setToast(`Reminder set — after you ${settings.cue}, ${settings.reminderTime}.`)
+    setToast(`Reminder set — after you ${secondPerson(settings.cue)}, ${settings.reminderTime}.`)
   }, [state.entries])
 
   /**

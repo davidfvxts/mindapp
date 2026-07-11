@@ -34,7 +34,7 @@ export function Account({ account, busy, onLogin, onLogout, onBack }: Props) {
     return (
       <div className="develop">
         <button className="btn text back-line" onClick={onBack}>← Settings</button>
-        <h1>Account.</h1>
+        <h1>Account</h1>
         <p className="sub">Signed in as {account.email}. Your nights back up here.</p>
         <div className="spacer" />
         <button className="btn ghost" onClick={() => void onLogout()} disabled={busy}>
@@ -47,7 +47,7 @@ export function Account({ account, busy, onLogin, onLogout, onBack }: Props) {
   return (
     <div className="develop">
       <button className="btn text back-line" onClick={onBack}>← Settings</button>
-      <h1>Account.</h1>
+      <h1>Account</h1>
       <p className="sub">
         {account?.anonymous
           ? 'This device backs up anonymously — not yet linked to an account. Log in to reach it from anywhere.'

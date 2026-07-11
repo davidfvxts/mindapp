@@ -11,7 +11,7 @@ import {
   curate, recordCommitment, applyMemo, mergeWeeklyDelta,
   applyWeeklyRevision, foldRating, renegotiateCommitment, staleCommitment, themeMatches,
 } from '../src/lib/coachMemory'
-import { seedMemoryFromAnswers, deterministicFirstRead, firstFrames, obstaclePhrase } from '../src/lib/onboarding'
+import { seedMemoryFromAnswers, deterministicFirstRead, firstFrames, obstaclePhrase, secondPerson } from '../src/lib/onboarding'
 import {
   intentionForToday, isMorningWindow, missedNights, needsComeback,
   nextDay, offlineMorningQuestion, upsertMorning,
@@ -214,7 +214,7 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   ok('first read names them', read.includes('David'))
   ok('first read reflects the goal', read.toLowerCase().includes('sharper decisions'))
   ok('first read references their moment', read.includes('closed the seed round'))
-  ok('first read hands them the cue', read.includes('close my laptop'))
+  ok('first read hands them the cue, in THEIR direction', read.includes('after you close your laptop'))
 
   // why-now: the self-persuasion beat carries into the seed and the read
   const withWhy = { ...answers, whyNow: 'I keep repeating the same mistakes' }
@@ -234,6 +234,16 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
     firstFrames(9).window === 'morning' && firstFrames(9).momentQ.includes('yesterday') && firstFrames(9).nextQ.includes('today'))
   ok('midday reflects on the day so far', firstFrames(14).window === 'day' && firstFrames(14).momentQ.includes('so far'))
   ok('window boundaries hold', firstFrames(4).window === 'morning' && firstFrames(12).window === 'day' && firstFrames(17).window === 'evening')
+
+  // The cue is first-person; quoted lines speak to the user in the second.
+  ok('secondPerson: my → your', secondPerson('close my laptop') === 'close your laptop')
+  ok('secondPerson: myself → yourself', secondPerson('pour myself a tea') === 'pour yourself a tea')
+  ok('secondPerson: no false hits inside words', secondPerson('finish the myth army demo') === 'finish the myth army demo')
+  ok('secondPerson: plain cues pass through', secondPerson('finish dinner') === 'finish dinner')
+  ok('the offline first read speaks in the second person', deterministicFirstRead(
+    { ...answers, cue: 'put my phone on the charger' },
+    { event: 'x', emotions: [], well: '', next: '' },
+  ).includes('after you put your phone on the charger'))
 }
 
 // ---------- guidance: occasional, evidence-based nudges ----------

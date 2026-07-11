@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core'
+import { secondPerson } from './onboarding'
 
 const REMINDER_ID = 1001
 
@@ -76,7 +77,7 @@ function armWebTimer(key: string, time: string, title: string, body: string, dai
  * reliable in browsers); native builds get the real thing.
  */
 export async function scheduleDailyReminder(time: string, cue: string): Promise<void> {
-  const body = cue ? `After you ${cue} — five minutes.` : 'Five minutes.'
+  const body = cue ? `After you ${secondPerson(cue)} — five minutes.` : 'Five minutes.'
   if (!Capacitor.isNativePlatform()) {
     // Web pilot: while the app is open (or parked in a tab), the cue still fires.
     if (await webPermission()) armWebTimer('reminder', time, 'Time to reflect', body, true)

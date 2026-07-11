@@ -239,10 +239,8 @@ export function Reviews({
     const id = steps[step]
     return (
       <div className="develop" key={step}>
-        <div className="dots">
-          {steps.map((_, i) => (
-            <i key={i} className={i === step ? 'on' : i < step ? 'visited' : ''} />
-          ))}
+        <div className="meter" aria-hidden>
+          <i style={{ width: `${((step + 1) / (steps.length + 1)) * 100}%` }} />
         </div>
 
         {id === 'checkin' && openIntention && (
@@ -348,10 +346,8 @@ export function Reviews({
     const monthIndex = monthOrder.indexOf(mStep)
     return (
       <div className="develop" key={mStep}>
-        <div className="dots">
-          {monthOrder.map((s) => (
-            <i key={s} className={s === mStep ? 'on' : monthOrder.indexOf(s) < monthOrder.indexOf(mStep) ? 'visited' : ''} />
-          ))}
+        <div className="meter" aria-hidden>
+          <i style={{ width: `${((monthOrder.indexOf(mStep) + 1) / (monthOrder.length + 1)) * 100}%` }} />
         </div>
 
         {mStep === 'trajectory' && (

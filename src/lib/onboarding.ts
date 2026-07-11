@@ -58,6 +58,21 @@ const OBSTACLE_PHRASE: Record<string, string> = {
 
 const clean = (s: string): string => s.replace(/\s+/g, ' ').trim()
 
+/**
+ * The cue is written in the first person ("After I close my laptop…") but is
+ * quoted back in the second ("after you close your laptop"). Without this,
+ * every such line reads "after you close MY laptop" — the kind of seam a
+ * tired reader trips on. Conservative on purpose: whole words only.
+ */
+export function secondPerson(cue: string): string {
+  return cue
+    .replace(/\bmyself\b/g, 'yourself')
+    .replace(/\bMyself\b/g, 'Yourself')
+    .replace(/\bmy\b/g, 'your')
+    .replace(/\bMy\b/g, 'Your')
+    .replace(/\bI\b/g, 'you')
+}
+
 /** Map an obstacle chip to the phrase Coach carries in the profile. */
 export const obstaclePhrase = (o: string): string => OBSTACLE_PHRASE[o] ?? clean(o).toLowerCase()
 
@@ -136,7 +151,7 @@ export function deterministicFirstRead(a: OnboardingAnswers, first: FirstReflect
   const who = a.name || 'there'
   const goal = a.goals[0]?.toLowerCase()
   const obstacle = a.obstacle ? obstaclePhrase(a.obstacle) : ''
-  const cue = clean(a.cue) || 'close your laptop'
+  const cue = secondPerson(clean(a.cue)) || 'close your laptop'
 
   const parts: string[] = [`${who}, night one is down — and you already did the hard part: one concrete moment, named.`]
   if (first.event.trim()) parts.push(`"${firstWords(first.event)}" is exactly the kind of specific this practice runs on.`)

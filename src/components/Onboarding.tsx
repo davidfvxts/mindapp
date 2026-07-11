@@ -206,10 +206,10 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onSetup, onErase
               <p className="sub">Update what Coach knows about you — your aim, your world, your cue. Thirty seconds.</p>
             </>
           ) : (
-            <>
-              {/* The first stone, met before a word is asked: a dark shard,
-                  the heart-thread waiting inside. */}
-              <div className="center" style={{ marginBottom: 'var(--s-6)' }}>
+            /* A statement screen holds ONE alignment: everything centres on
+               the stone. The first object of the product is met composed. */
+            <div className="center">
+              <div style={{ margin: 'var(--s-7) 0 var(--s-6)' }}>
                 <Stone night={0} size={104} />
               </div>
               <h1>Five minutes a night.<br />A stone takes shape.</h1>
@@ -217,7 +217,7 @@ export function Onboarding({ mode = 'first', onBegin, onRetune, onSetup, onErase
                 A minute to point Coach at you — then your first reflection, read back to you.
                 No account, no email.
               </p>
-            </>
+            </div>
           )}
           <div className="spacer" />
           <button className="btn" onClick={() => { if (first) track('onboarding_started'); setStep(1) }}>{retune ? 'Start' : 'Begin'}</button>

@@ -3,6 +3,7 @@ import { EMOTIONS, type Emotion, type MorningNote } from '../lib/types'
 import { todayStr } from '../lib/game'
 import { stoneStage } from '../lib/milestones'
 import { filmForNight, filmWindow } from '../lib/stoneFilm'
+import { secondPerson } from '../lib/onboarding'
 import { clearDraft, draftHasText, loadDraft, saveDraft } from '../lib/drafts'
 import { Stone } from './Stone'
 import { StoneFilm } from './StoneFilm'
@@ -124,7 +125,7 @@ export function DailyRitual({
           </p>
         )}
         <p className="secondary" style={{ marginTop: 'var(--s-5)' }}>
-          Come back tomorrow, after you {cue}.
+          Come back tomorrow, after you {secondPerson(cue)}.
         </p>
         <div className="center" style={{ marginTop: 'var(--s-6)' }}>
           <button className="btn text" onClick={() => setAdding(true)}>
@@ -198,10 +199,8 @@ export function DailyRitual({
     <div className="develop" key={step}>
       {contextLine && <p className="morning-line">{contextLine}</p>}
 
-      <div className="dots">
-        {STEPS.map((_, i) => (
-          <i key={i} className={i === step ? 'on' : i < step ? 'visited' : ''} />
-        ))}
+      <div className="meter" aria-hidden>
+        <i style={{ width: `${((step + 1) / (STEPS.length + 1)) * 100}%` }} />
       </div>
 
       <span className="ambient">{`Step ${step + 1} of ${STEPS.length}`}</span>

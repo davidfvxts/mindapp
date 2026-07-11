@@ -27,19 +27,19 @@ const TABS: [Tab, string][] = [
 /** Each tab explains itself exactly once — the first time it's opened. */
 const INTROS: Record<Exclude<Tab, 'today'>, { title: string; body: string }> = {
   guidance: {
-    title: 'Guidance.',
+    title: 'Guidance',
     body: 'Now and then — never daily — Coach leaves one thing here worth trying: '
       + 'a tip, an action, a book. Most of the time it’s empty. That’s deliberate: '
       + 'only what fits you, only when it counts.',
   },
   review: {
-    title: 'Reviews.',
+    title: 'Reviews',
     body: 'Nights are the ground floor; this is where you zoom out. After three '
       + 'nights in a week you can review it — three questions, one intention — and '
       + 'Coach reads it with you. Around Night thirty, a monthly arc opens above it.',
   },
   vault: {
-    title: 'The Vault.',
+    title: 'The Vault',
     body: 'Everything you write lands here. The stone on the bench grows as your '
       + 'nights add up — press and hold it to watch the last nights sink in. At '
       + 'each milestone it opens, in colour, and keeps your words inside.',

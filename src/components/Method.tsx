@@ -7,7 +7,7 @@ export function Method({ onBack }: { onBack: () => void }) {
   return (
     <div className="develop">
       <button className="btn text back-line" onClick={onBack}>← Back</button>
-      <h1>The method.</h1>
+      <h1>The method</h1>
       <p className="sub">
         Five minutes a night, built on findings that held up. Coach works from these — nothing else.
       </p>

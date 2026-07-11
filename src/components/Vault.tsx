@@ -189,14 +189,13 @@ export function Vault({ state, onStoneSeen, onSettings }: { state: AppState; onS
       </div>
 
       <div className="section">
-        <button className="btn text" style={{ paddingLeft: 0 }} onClick={() => setView('nights')}>
+        <button className="btn text" style={{ paddingLeft: 0, display: 'block' }} onClick={() => setView('nights')}>
           Your nights →
         </button>
-      </div>
-
-      <div className="section">
         {/* Settings live behind the Vault — reachable, never a tab. */}
-        <button className="btn text" style={{ paddingLeft: 0 }} onClick={onSettings}>Settings →</button>
+        <button className="btn text" style={{ paddingLeft: 0, display: 'block' }} onClick={onSettings}>
+          Settings →
+        </button>
       </div>
     </div>
   )
