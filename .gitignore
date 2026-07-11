@@ -5,7 +5,6 @@ dist-ssr
 .env
 *.local
 .DS_Store
-ios/
 android/
 tsconfig.tsbuildinfo
 public/stones/video/*.mp4

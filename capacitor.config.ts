@@ -8,7 +8,9 @@ const config: CapacitorConfig = {
     // The reflection ritual happens at night. A black canvas means no
     // white flash on launch.
     backgroundColor: '#000000',
-    contentInset: 'always',
+    // The web layer owns the safe areas (viewport-fit=cover + env() in CSS);
+    // a native inset on top of that would double the tab bar's clearance.
+    contentInset: 'never',
   },
   plugins: {
     PushNotifications: {

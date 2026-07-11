@@ -15,8 +15,6 @@
     "test:game": "esbuild scripts/test-game.ts --bundle --platform=node --format=cjs --outfile=node_modules/.facet-test.cjs --log-level=error && node node_modules/.facet-test.cjs",
     "test:drafts": "esbuild scripts/test-drafts.ts --bundle --platform=node --format=cjs --outfile=node_modules/.facet-drafts-test.cjs --log-level=error && node node_modules/.facet-drafts-test.cjs",
     "test:coach": "esbuild scripts/test-coach.ts --bundle --platform=node --format=cjs --outfile=node_modules/.facet-coach-test.cjs --log-level=error && node node_modules/.facet-coach-test.cjs",
-    "ios:init": "cap init Mira so.mira.app --web-dir=dist",
-    "ios:add": "npm run build && cap add ios",
     "ios:sync": "npm run build && cap sync ios",
     "ios:open": "cap open ios"
   },

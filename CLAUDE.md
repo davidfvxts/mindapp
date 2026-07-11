@@ -156,6 +156,14 @@ Wants decisive senior recommendations over menus. Be concise; skip hedging.
 **Stack:** installable PWA (React + TypeScript + Vite), wrapped to iOS with
 Capacitor. Local-first, with optional Supabase sync and optional Claude coaching.
 
+**iOS shell (committed under `ios/`, TestFlight-ready):** bundle id `so.facet.app`,
+iPhone-only, portrait-only, forced dark, black launch, light status bar, app icon +
+privacy manifest (`PrivacyInfo.xcprivacy` — keep in sync with the App Store privacy
+answers), encryption-exempt. The web layer owns safe areas (`contentInset: 'never'` +
+`env()` in CSS). Public client config is committed in `.env.production` (the Claude key
+stays server-side). The Mac-side ship steps — signing, archive, upload, App Store
+Connect privacy answers, on-device checklist — live in **`docs/TestFlight.md`**.
+
 **Backend (Supabase project "Mindapp", ref `sxcuolzzigxzertblhlt`):** schema + RLS applied,
 the `coach` edge function is deployed (verify_jwt on, reading `claude_secret_api_key`, currently
 v17), `.env.local` is wired (URL + anon key + coach URL), and both manual dashboard steps are
@@ -170,8 +178,8 @@ npm run dev        # runs with zero keys: localStorage + offline coach
 npm test           # monotonic Night engine + Coach logic
 npm run typecheck
 npm run build      # production + service worker
-npm run ios:add    # Mac + Xcode: creates ios/
-npm run ios:sync   # push web changes into the native shell
+npm run ios:sync   # Mac: build web + sync into ios/ + pod install
+npm run ios:open   # Mac: open the Xcode workspace (archive → TestFlight)
 ```
 
 ### Architecture

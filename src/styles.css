@@ -95,7 +95,8 @@ h1, .headline {
 /* ---------- header ---------- */
 .bar {
   display: flex; align-items: baseline; justify-content: space-between;
-  padding: var(--s-6) 0 var(--s-5);
+  /* Full-bleed on iOS (viewport-fit=cover): the wordmark clears the notch. */
+  padding: calc(var(--s-6) + env(safe-area-inset-top, 0px)) 0 var(--s-5);
 }
 .wordmark {
   font-size: 13px; font-weight: 600;
