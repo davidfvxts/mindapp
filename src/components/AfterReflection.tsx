@@ -5,11 +5,13 @@ import { CoachChat } from './CoachChat'
 import { stoneForNight, stoneStage } from '../lib/milestones'
 import { filmForNight, filmWindow } from '../lib/stoneFilm'
 import { track } from '../lib/analytics'
-import type { CoachReply, Entry } from '../lib/types'
+import type { ChatTurn, CoachReply } from '../lib/types'
 
 interface Props {
-  /** The saved entry — carries the conversation thread. */
-  entry?: Entry
+  /** The saved entry's id — keys tonight's conversation and its draft. */
+  entryId: string
+  /** Tonight's conversation so far (usually empty until they write back). */
+  chatTurns: ChatTurn[]
   /** Coach's read. Null when skipped (offline / not configured). */
   reply: CoachReply | null
   /** A read is owed but wasn't reachable — it'll arrive on reconnect. */
@@ -25,12 +27,12 @@ interface Props {
   online: boolean
   onStoneSeen: () => void
   onRate: (r: 0 | 1) => void
-  onChat: (entryId: string, message: string) => Promise<boolean>
+  onChat: (message: string) => Promise<boolean>
   onDone: () => void
 }
 
 export function AfterReflection({
-  entry, reply, pending, night, firstRead, echo, stoneSeen, online, onStoneSeen, onRate, onChat, onDone,
+  entryId, chatTurns, reply, pending, night, firstRead, echo, stoneSeen, online, onStoneSeen, onRate, onChat, onDone,
 }: Props) {
   const [rated, setRated] = useState<0 | 1 | null>(null)
   // The milestone stone arrives encased in rock — the user cracks it open.
@@ -135,7 +137,9 @@ export function AfterReflection({
 
           {/* The conversation: a field, not a button. The First Read stands
               alone — it's a welcome, and setup follows it. */}
-          {!firstRead && entry && <CoachChat entry={entry} online={online} onSend={onChat} />}
+          {!firstRead && (
+            <CoachChat turns={chatTurns} draftKey={`chat.${entryId}`} online={online} onSend={onChat} />
+          )}
         </div>
       ) : pending ? (
         <div className="section">

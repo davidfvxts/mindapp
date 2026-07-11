@@ -17,6 +17,7 @@ import {
   buildOnboardingUser,
   buildWeeklyUser,
   extractJson,
+  routeChatModel,
   routeModel,
   routeModelForKind,
   triage,
@@ -83,12 +84,17 @@ interface WeeklyBody {
 interface ChatBody {
   mode: 'chat'
   name: string
-  entry: EntryIn
+  /** The night this conversation is about — absent for a free conversation. */
+  entry?: EntryIn | null
   /** The original nightly read, when there was one — anchors tier + context. */
   reply?: { text: string; kind?: string } | null
   thread?: ChatTurnIn[]
   message: string
   memory?: MemoryIn
+  /** Recent nights, so a free conversation still knows their actual week. */
+  recent?: { date: string; event: string; next?: string }[]
+  /** First exchange of an unnamed conversation — return a title. */
+  wantTitle?: boolean
 }
 interface OnboardingBody {
   mode: 'onboarding'
@@ -214,33 +220,42 @@ Deno.serve(async (req) => {
     }
 
     if (body.mode === 'chat') {
-      if (!body.entry || !body.message?.trim()) {
-        return json({ error: 'entry and message are required' }, 400)
-      }
+      const message = body.message?.trim().slice(0, 2000)
+      if (!message) return json({ error: 'message is required' }, 400)
       const memory = body.memory ?? {}
-      // Same tier as the night's read — a charged night stays with the
-      // strongest model through the whole conversation.
-      const { model, route } = routeModelForKind(asKind(body.reply?.kind))
-      const thread = (body.thread ?? []).slice(-12).map((t) => ({
+      // A night-anchored chat inherits the night's tier (a charged night keeps
+      // the strongest model through the whole conversation); a free chat routes
+      // on the message itself. Never trust a browser-supplied model name.
+      const { model, route } = routeChatModel(message, body.reply?.kind ? asKind(body.reply.kind) : null)
+      const thread = (body.thread ?? []).slice(-24).map((t) => ({
         role: t.role === 'coach' ? 'coach' as const : 'you' as const,
-        text: String(t.text ?? '').slice(0, 600),
+        text: String(t.text ?? '').slice(0, 1000),
       }))
       const user = buildChatUser(
         body.name,
-        body.entry,
+        body.entry ?? null,
         body.reply?.text ? { text: body.reply.text } : null,
         thread,
-        body.message.trim().slice(0, 600),
+        message,
         memory,
+        (body.recent ?? []).slice(0, 10).map((r) => ({
+          date: String(r.date ?? ''), event: String(r.event ?? '').slice(0, 300),
+          next: r.next ? String(r.next).slice(0, 200) : undefined,
+        })),
       )
-      const raw = await callClaude(model, chatSystem(memory), user, 400, false)
-      const parsed = extractJson<{ text?: string; memo?: unknown }>(raw)
+      const raw = await callClaude(
+        model,
+        chatSystem(memory, { night: !!body.entry, wantTitle: !!body.wantTitle }),
+        user, 1400, false,
+      )
+      const parsed = extractJson<{ text?: string; memo?: unknown; title?: string }>(raw)
       const text = (parsed?.text ?? raw).trim()
       if (!text) throw new Error('empty chat reply')
       return json({
         text,
         memo: parsed?.memo ?? null,
-        meta: { model, route: `${route}→chat` },
+        title: body.wantTitle ? (parsed?.title ?? '').trim().slice(0, 60) || null : null,
+        meta: { model, route },
       })
     }
 

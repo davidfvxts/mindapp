@@ -1,23 +1,26 @@
 import { useEffect, useState } from 'react'
 import { clearDraft, loadDraft, saveDraft } from '../lib/drafts'
-import type { Entry } from '../lib/types'
+import type { ChatTurn } from '../lib/types'
 
 interface Props {
-  /** The night this conversation is about — carries the thread. */
-  entry: Entry
+  /** The conversation so far — night-anchored or free-standing. */
+  turns: ChatTurn[]
+  /** Keys the in-progress draft (`chat.<conversationId>`). */
+  draftKey: string
   online: boolean
   /** Saves the user's turn first, then fetches Coach's reply. False = no reply came. */
-  onSend: (entryId: string, message: string) => Promise<boolean>
+  onSend: (message: string) => Promise<boolean>
+  placeholder?: string
+  autoFocus?: boolean
 }
 
 /**
- * The conversation about a night. The field is simply there — talking back
- * is a text box, not a decision. Every turn the user writes is saved to the
- * entry before any network work, so the thread survives anything; a reply
- * that can't arrive is said plainly, never faked or queued.
+ * The conversation with Coach. The field is simply there — talking is a text
+ * box, not a decision. Every turn the user writes is saved before any network
+ * work, so the thread survives anything; a reply that can't arrive is said
+ * plainly, never faked or queued.
  */
-export function CoachChat({ entry, online, onSend }: Props) {
-  const draftKey = `chat.${entry.id}`
+export function CoachChat({ turns, draftKey, online, onSend, placeholder, autoFocus }: Props) {
   const [draft, setDraft] = useState(() => loadDraft<string>(draftKey) ?? '')
   const [busy, setBusy] = useState(false)
   // Online, sent, and no reply came back — the one case worth a plain word.
@@ -26,14 +29,6 @@ export function CoachChat({ entry, online, onSend }: Props) {
   useEffect(() => {
     if (!busy) saveDraft(draftKey, draft)
   }, [draftKey, draft, busy])
-
-  // A bounded exchange from before threads reads as the first turns of the
-  // same conversation — one history, not two formats.
-  const turns = [
-    ...(entry.coachAnswer ? [{ role: 'you' as const, text: entry.coachAnswer }] : []),
-    ...(entry.coachClose ? [{ role: 'coach' as const, text: entry.coachClose.text }] : []),
-    ...(entry.thread ?? []),
-  ]
 
   const send = async () => {
     const text = draft.trim()
@@ -44,7 +39,7 @@ export function CoachChat({ entry, online, onSend }: Props) {
     // the draft has done its job the moment we hand the words over.
     setDraft('')
     clearDraft(draftKey)
-    const replied = await onSend(entry.id, text)
+    const replied = await onSend(text)
     setBusy(false)
     if (!replied && online) setUnanswered(true)
   }
@@ -60,7 +55,10 @@ export function CoachChat({ entry, online, onSend }: Props) {
         ) : (
           <div key={i} className="coach coach-close develop">
             <span className="coach-label ambient">Coach</span>
-            <p>{t.text}</p>
+            {/* Depth arrives as paragraphs; each renders as quiet type. */}
+            {t.text.split(/\n{2,}|\n(?=[-•])/).map((para, j) => (
+              <p key={j}>{para}</p>
+            ))}
           </div>
         ),
       )}
@@ -68,16 +66,17 @@ export function CoachChat({ entry, online, onSend }: Props) {
       {busy && <p className="secondary chat-status" role="status">Coach is reading…</p>}
       {!busy && unanswered && (
         <p className="secondary chat-status" role="status">
-          Kept with this night. Coach couldn’t reply just now.
+          Kept with this conversation. Coach couldn’t reply just now.
         </p>
       )}
 
       <div className="chat-input">
         <textarea
           value={draft}
-          maxLength={600}
-          placeholder="Write back."
+          maxLength={2000}
+          placeholder={placeholder ?? 'Write back.'}
           aria-label="Write to Coach"
+          autoFocus={autoFocus}
           onChange={(event) => setDraft(event.target.value)}
           disabled={busy}
         />
@@ -86,7 +85,7 @@ export function CoachChat({ entry, online, onSend }: Props) {
         </button>
       </div>
       {!online && (
-        <p className="secondary chat-status">Offline — your words are kept with this night; Coach replies live.</p>
+        <p className="secondary chat-status">Offline — your words are kept here; Coach replies live.</p>
       )}
     </div>
   )

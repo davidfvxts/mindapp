@@ -1,6 +1,7 @@
-import { initialState, type AppState, type CoachClose, type CoachReply, type Entry } from './types'
+import { initialState, type AppState, type ChatTurn, type CoachClose, type CoachReply, type Conversation, type Entry } from './types'
 import { supabase } from './supabase'
 import { migrateGame } from './game'
+import { liftNightConversations } from './conversations'
 
 const KEY = 'facet.state.v1'
 const LEGACY_KEY = 'mira.state.v1'
@@ -16,13 +17,16 @@ export function loadState(): AppState {
     // Deep-merge settings so states persisted before a new setting existed
     // pick up its default instead of dropping the field.
     const init = initialState()
+    const entries = Array.isArray(parsed.entries) ? parsed.entries : []
     return {
       ...init,
       ...parsed,
       settings: { ...init.settings, ...parsed.settings },
       // Legacy xp/level/streak/best/freeze fields are folded into one
       // monotonic Night count and never written back out.
-      game: migrateGame(parsed.game, Array.isArray(parsed.entries) ? parsed.entries.length : 0),
+      game: migrateGame(parsed.game, entries.length),
+      // Exchanges that predate conversations lift into them, once, here.
+      conversations: liftNightConversations(entries, parsed.conversations ?? []),
     }
   } catch {
     return initialState()
@@ -131,6 +135,70 @@ export async function downloadEntries(userId: string): Promise<Entry[] | null> {
       .eq('user_id', userId)
     if (error || !data) return null
     return (data as EntryRow[]).map(rowToEntry)
+  } catch {
+    return null
+  }
+}
+
+/** Push any unsynced conversations. No-op when signed out or table missing. */
+export async function syncConversations(conversations: Conversation[]): Promise<Conversation[]> {
+  if (!supabase) return conversations
+  const { data: sess } = await supabase.auth.getSession()
+  const userId = sess.session?.user.id
+  if (!userId) return conversations
+
+  const pending = conversations.filter((c) => !c.synced && c.turns.length > 0)
+  if (!pending.length) return conversations
+
+  const { error } = await supabase.from('conversations').upsert(
+    pending.map((c) => ({
+      id: c.id,
+      user_id: userId,
+      title: c.title,
+      entry_id: c.entryId ?? null,
+      turns: c.turns,
+      created_at: new Date(c.createdAt).toISOString(),
+      updated_at: new Date(c.updatedAt).toISOString(),
+    })),
+    { onConflict: 'id' },
+  )
+
+  if (error) {
+    // Also lands here until migration 0004 is applied — quiet, retried later.
+    console.warn('[facet] conversation sync failed, will retry later:', error.message)
+    return conversations
+  }
+  const ids = new Set(pending.map((p) => p.id))
+  return conversations.map((c) => (ids.has(c.id) ? { ...c, synced: true } : c))
+}
+
+interface ConversationRow {
+  id: string
+  title: string | null
+  entry_id: string | null
+  turns: ChatTurn[]
+  created_at: string
+  updated_at: string
+}
+
+/** Every conversation the account has backed up — recovered next to the nights. */
+export async function downloadConversations(userId: string): Promise<Conversation[] | null> {
+  if (!supabase) return null
+  try {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('id, title, entry_id, turns, created_at, updated_at')
+      .eq('user_id', userId)
+    if (error || !data) return null
+    return (data as ConversationRow[]).map((r) => ({
+      id: r.id,
+      title: r.title,
+      entryId: r.entry_id ?? undefined,
+      turns: Array.isArray(r.turns) ? r.turns : [],
+      createdAt: new Date(r.created_at).getTime(),
+      updatedAt: new Date(r.updated_at).getTime(),
+      synced: true,
+    }))
   } catch {
     return null
   }

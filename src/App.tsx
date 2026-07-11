@@ -114,7 +114,6 @@ export default function App() {
   const { game } = m.state
   const guidanceNew = unseenCount(m.state) > 0
   const reviewNew = m.derived.reviewReady || m.derived.monthReady
-  const revealedEntry = m.reveal ? m.state.entries.find((entry) => entry.id === m.reveal?.entryId) : undefined
   // A tab's first visit gets its introduction; every later visit goes straight in.
   const intro = tab !== 'today' && !m.state.seenIntros.includes(tab) ? INTROS[tab] : null
   const accountLabel = !m.account
@@ -169,7 +168,8 @@ export default function App() {
             {tab === 'today' &&
               (m.reveal ? (
                 <AfterReflection
-                  entry={revealedEntry}
+                  entryId={m.reveal.entryId}
+                  chatTurns={m.state.conversations.find((c) => c.id === m.reveal?.entryId)?.turns ?? []}
                   reply={m.reveal.reply}
                   pending={m.reveal.pending}
                   night={m.reveal.night}
@@ -179,7 +179,7 @@ export default function App() {
                   online={m.online}
                   onStoneSeen={m.markStoneSeen}
                   onRate={m.rateReply}
-                  onChat={m.chatWithCoach}
+                  onChat={(message) => m.chatWithCoach(m.reveal!.entryId, message)}
                   onDone={() => {
                     const wasFirst = m.reveal?.firstRead
                     m.clearReveal()
@@ -240,6 +240,7 @@ export default function App() {
                 state={m.state}
                 online={m.online}
                 onChat={m.chatWithCoach}
+                onConverse={m.converseWithCoach}
                 onStoneSeen={m.markStoneSeen}
                 onSettings={() => setScreen('settings')}
               />

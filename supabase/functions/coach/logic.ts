@@ -238,31 +238,72 @@ export function buildAnswerUser(
 
 export interface ChatTurnIn { role: 'you' | 'coach'; text: string }
 
-/** The DATA block for a conversation turn about one night. */
+/** Signals that a free-standing message deserves the strongest model:
+ *  a live decision, real weight, or an explicit ask for depth. */
+const DEEP_CHAT = new RegExp(
+  [
+    'decide', 'decision', 'entscheid', 'should i', 'soll ich', 'stuck', 'afraid', 'fear', 'angst',
+    'overwhelm', 'überfordert', 'burn', 'ausgebrannt', 'quit', 'aufgeben', 'aufhören', 'kündig',
+    'cofounder', 'co-founder', 'mitgründer', 'investor', 'runway', 'in depth', 'ausführlich',
+    'help me think', 'think this through', 'plan', 'why do i', 'warum',
+  ].join('|'),
+  'i',
+)
+
+/**
+ * The model for a conversation turn. A night-anchored chat inherits the
+ * night's tier (a charged night keeps the strongest model through the whole
+ * conversation). A free-standing chat routes on the message itself: weight,
+ * a live decision, or an ask for depth go to Opus; the rest to Sonnet.
+ */
+export function routeChatModel(message: string, kind?: CoachKind | null): { model: Model; route: string } {
+  if (kind) {
+    const { model, route } = routeModelForKind(kind)
+    return { model, route: `${route}→chat` }
+  }
+  if (message.length > 320 || DEEP_CHAT.test(message)) {
+    return { model: 'claude-opus-4-8', route: 'chat-deep→opus' }
+  }
+  return { model: 'claude-sonnet-5', route: 'chat→sonnet' }
+}
+
+/** The DATA block for a conversation turn — about one night, or free-standing. */
 export function buildChatUser(
   name: string,
-  entry: EntryIn,
+  entry: EntryIn | null,
   reply: { text: string } | null,
   thread: ChatTurnIn[],
   message: string,
   memory: MemoryIn,
+  recent: { date: string; event: string; next?: string }[] = [],
 ): string {
-  const lines: string[] = [`Reflector: ${name || 'the user'}`, '', 'THE NIGHT THIS IS ABOUT']
-  lines.push(`Event: ${entry.event}`)
-  lines.push(`Emotions: ${entry.emotions.join(', ') || '(none named)'}`)
-  lines.push(`What went well / their contribution: ${entry.well || '(left blank)'}`)
-  lines.push(`What they'll do differently: ${entry.next || '(left blank)'}`)
-  if (reply?.text) lines.push('', `COACH'S READ OF IT: ${reply.text}`)
+  const lines: string[] = [`Reflector: ${name || 'the user'}`]
+  if (entry) {
+    lines.push('', 'THE NIGHT THIS IS ABOUT')
+    lines.push(`Event: ${entry.event}`)
+    lines.push(`Emotions: ${entry.emotions.join(', ') || '(none named)'}`)
+    lines.push(`What went well / their contribution: ${entry.well || '(left blank)'}`)
+    lines.push(`What they'll do differently: ${entry.next || '(left blank)'}`)
+    if (reply?.text) lines.push('', `COACH'S READ OF IT: ${reply.text}`)
+  }
+  if (memory.narrative) lines.push('', `WHO THEY ARE — Coach's running note: ${memory.narrative}`)
+  if (memory.goals?.length) lines.push(`THEIR AIMS: ${memory.goals.join('; ')}`)
+  if (memory.voice) lines.push(`KNOWN VOICE: ${memory.voice}`)
+  if (memory.themes?.length) {
+    lines.push(`RECURRING THEMES: ${memory.themes.map((t) => `${t.key}×${t.count}`).join('; ')}`)
+  }
+  if (memory.openCommitment) {
+    lines.push(`OPEN INTENTION (${memory.openCommitment.date}): ${memory.openCommitment.text}`)
+  }
+  if (recent.length) {
+    lines.push('', 'THEIR RECENT NIGHTS (newest first — draw on these when they help):')
+    for (const r of recent) lines.push(`${r.date}: ${r.event}${r.next ? ` → next: ${r.next}` : ''}`)
+  }
   if (thread.length) {
     lines.push('', 'THE CONVERSATION SO FAR:')
     for (const t of thread) lines.push(`${t.role === 'you' ? 'Them' : 'Coach'}: ${t.text}`)
   }
   lines.push('', `THEY JUST SAID: ${message}`)
-  if (memory.narrative) lines.push('', `WHO THEY ARE: ${memory.narrative}`)
-  if (memory.voice) lines.push(`KNOWN VOICE: ${memory.voice}`)
-  if (memory.themes?.length) {
-    lines.push(`RECURRING THEMES: ${memory.themes.map((t) => `${t.key}×${t.count}`).join('; ')}`)
-  }
   return lines.join('\n')
 }
 

@@ -4,7 +4,7 @@
  * Run: npm run test:coach
  */
 import {
-  boundedClose, buildAnswerUser, buildChatUser, buildDailyUser, buildWeeklyUser, extractJson, routeModel, routeModelForKind, triage, type MemoryIn,
+  boundedClose, buildAnswerUser, buildChatUser, buildDailyUser, buildWeeklyUser, extractJson, routeChatModel, routeModel, routeModelForKind, triage, type MemoryIn,
 } from '../supabase/functions/coach/logic'
 import { answerSystem, chatSystem, dailySystem } from '../supabase/functions/coach/prompts'
 import {
@@ -101,11 +101,18 @@ ok('daily prompt adds an owed-intention clause',
   ok('answer prompt closes without another question',
     answer.includes('Do NOT ask another question') && answer.includes('Maximum 2 short sentences'))
 
-  const chat = chatSystem({ voice: 'terse, lowercase' })
-  ok('chat prompt keeps every turn complete and short',
-    chat.includes('land COMPLETE') && chat.includes('Maximum 3 short sentences'))
+  const chat = chatSystem({ voice: 'terse, lowercase' }, { night: true })
+  ok('chat prompt keeps every turn complete and scales depth to the ask',
+    chat.includes('land COMPLETE') && chat.includes('Match your depth'))
   ok('chat prompt keeps the distress signpost and bans commitments in the memo',
     chat.includes('acute distress') && chat.includes('Never a commitment outcome'))
+  ok('night chat anchors to the night; free chat draws on their nights',
+    chat.includes('anchored to one night')
+    && chatSystem({}, { night: false }).includes('free conversation'))
+  const titled = chatSystem({}, { wantTitle: true })
+  ok('first exchange asks for a concrete name',
+    titled.includes('"title"') && titled.includes('2–5 plain words'))
+  ok('later exchanges never ask for a name', !chatSystem({}, {}).includes('field "title"'))
 }
 
 // ---------- user data block ----------
@@ -146,11 +153,35 @@ ok('daily prompt adds an owed-intention clause',
     && c.includes('Them: that the note matters') && c.includes('Coach: Then the wording')
     && c.includes('THEY JUST SAID: ok — sending it before standup tomorrow'))
   ok('chat user block carries who they are',
-    c.includes('WHO THEY ARE: Rebuilding') && c.includes('KNOWN VOICE') && c.includes('avoidance×2'))
+    c.includes('WHO THEY ARE') && c.includes('Rebuilding') && c.includes('KNOWN VOICE') && c.includes('avoidance×2'))
 
-  const bare = buildChatUser('David', En({}), null, [], 'first message', {})
-  ok('chat user block stands without a read or thread',
-    !bare.includes("COACH'S READ") && !bare.includes('CONVERSATION SO FAR') && bare.includes('THEY JUST SAID: first message'))
+  // A free conversation: no night, but Coach still knows their actual week.
+  const free = buildChatUser('David', null, null, [], 'how do I stop rescheduling the hard call?', {
+    goals: ['Better decisions'],
+  }, [{ date: '2026-07-09', event: 'pushed the call again', next: 'book it for 9am' }])
+  ok('free chat block stands without a night',
+    !free.includes('THE NIGHT THIS IS ABOUT') && !free.includes("COACH'S READ")
+    && free.includes('THEY JUST SAID: how do I stop rescheduling'))
+  ok('free chat block carries recent nights + aims',
+    free.includes('THEIR RECENT NIGHTS') && free.includes('pushed the call again') && free.includes('THEIR AIMS: Better decisions'))
+}
+
+// ---------- chat routing: night tier inherited, free messages routed on weight ----------
+{
+  ok('night-anchored chat inherits the read’s tier (charged → opus)',
+    routeChatModel('short reply', 'distancing').model === 'claude-opus-4-8')
+  ok('night-anchored chat inherits the read’s tier (light → sonnet)',
+    routeChatModel('short reply', 'followup').model === 'claude-sonnet-5')
+  ok('a free check-in stays on sonnet',
+    routeChatModel('the memo landed well today').model === 'claude-sonnet-5')
+  ok('a live decision goes deep (opus)',
+    routeChatModel('should I let the contractor go before the raise?').model === 'claude-opus-4-8')
+  ok('an explicit ask for depth goes deep (opus)',
+    routeChatModel('help me think this through properly').model === 'claude-opus-4-8')
+  ok('a long, substantial message goes deep (opus)',
+    routeChatModel('x'.repeat(340)).model === 'claude-opus-4-8')
+  ok('german weight routes deep too',
+    routeChatModel('soll ich das Team verkleinern?').model === 'claude-opus-4-8')
 }
 
 // ---------- extractJson robustness ----------

@@ -67,12 +67,28 @@ export interface CoachReply {
   meta?: { model?: string; route?: string }
 }
 
-/** The final, AI-produced line that closes the optional answer turn. */
-/** One turn of the conversation with Coach about a night. */
+/** One turn of a conversation with Coach. */
 export interface ChatTurn {
   role: 'you' | 'coach'
   text: string
   ts: number
+}
+
+/**
+ * A conversation with Coach — findable again, and named. Anchored to one
+ * night (`entryId` = that entry's id, which doubles as this id) or
+ * free-standing (its own id). Coach names it after the first exchange;
+ * until then the list falls back to the night's event or the first words.
+ */
+export interface Conversation {
+  id: string
+  title: string | null
+  /** Set when the conversation is about one night. */
+  entryId?: string
+  turns: ChatTurn[]
+  createdAt: number
+  updatedAt: number
+  synced?: boolean
 }
 
 export interface CoachClose {
@@ -277,6 +293,8 @@ export interface AppState {
   /** Tabs whose one-time introduction has been seen. Each screen explains
    *  itself exactly once — at the moment it's first opened, never again. */
   seenIntros: string[]
+  /** Every conversation with Coach, night-anchored and free-standing. */
+  conversations: Conversation[]
   onboarded: boolean
 }
 
@@ -300,5 +318,6 @@ export const initialState = (): AppState => ({
   lastMonthlyArc: null,
   stoneSeen: 0,
   seenIntros: [],
+  conversations: [],
   onboarded: false,
 })

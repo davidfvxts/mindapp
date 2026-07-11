@@ -1,4 +1,4 @@
-import type { AppState, CoachKind, CoachMemo, CoachMemory, CoachProfile, CoachReply, Entry, Settings } from './types'
+import type { AppState, ChatTurn, CoachKind, CoachMemo, CoachMemory, CoachProfile, CoachReply, Entry, Settings } from './types'
 import { anonKey, supabase } from './supabase'
 import { curate } from './coachMemory'
 import type { NudgeDraft } from './guidance'
@@ -81,39 +81,50 @@ export async function fetchCoachReply(
   }
 }
 
-/** One conversation turn about a night: Coach's reply + what it learned. */
+export interface ChatCall {
+  /** The night this conversation is about — absent for a free conversation. */
+  entry?: Entry | null
+  /** The conversation so far, NOT including the new message. */
+  turns: ChatTurn[]
+  message: string
+  /** First exchange of an unnamed conversation — ask Coach to name it. */
+  wantTitle: boolean
+  settings: Settings
+  coach: CoachMemory
+  /** All other entries — recent nights + curated memory travel with the turn. */
+  history: Entry[]
+}
+
+/** One conversation turn: Coach's reply, what it learned, and — on the
+ *  first exchange — the conversation's name. */
 export async function fetchCoachChat(
-  entry: Entry,
-  message: string,
-  settings: Settings,
-  coach: CoachMemory,
-  history: Entry[],
-): Promise<{ text: string; memo: CoachMemo | null } | null> {
+  call: ChatCall,
+): Promise<{ text: string; memo: CoachMemo | null; title: string | null } | null> {
   if (!COACH_URL) return null
-  const { memory } = curate(history, coach)
+  const { memory, history } = curate(call.history, call.coach)
+  const { entry } = call
   try {
     const res = await fetch(COACH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({
         mode: 'chat',
-        name: settings.name,
-        entry: { event: entry.event, emotions: entry.emotions, well: entry.well, next: entry.next },
-        reply: entry.coach ? { text: entry.coach.text, kind: entry.coach.kind } : null,
-        // The whole exchange travels: the legacy bounded turns first, then the thread.
-        thread: [
-          ...(entry.coachAnswer ? [{ role: 'you', text: entry.coachAnswer }] : []),
-          ...(entry.coachClose ? [{ role: 'coach', text: entry.coachClose.text }] : []),
-          ...(entry.thread ?? []).map((t) => ({ role: t.role, text: t.text })),
-        ].slice(-12),
-        message,
+        name: call.settings.name,
+        entry: entry ? { event: entry.event, emotions: entry.emotions, well: entry.well, next: entry.next } : null,
+        reply: entry?.coach ? { text: entry.coach.text, kind: entry.coach.kind } : null,
+        thread: call.turns.slice(-24).map((t) => ({ role: t.role, text: t.text })),
+        message: call.message,
         memory,
+        // Coach knows their actual week either way — a free conversation can
+        // say "on Tuesday you wrote…" just like a night-anchored one.
+        recent: history.slice(0, 10).map((h) => ({ date: h.date, event: h.event, next: h.next })),
+        wantTitle: call.wantTitle,
       }),
     })
     if (!res.ok) throw new Error(`coach ${res.status}`)
-    const data = (await res.json()) as { text?: string; memo?: CoachMemo }
+    const data = (await res.json()) as { text?: string; memo?: CoachMemo; title?: string | null }
     if (!data.text) throw new Error('empty chat reply')
-    return { text: data.text, memo: data.memo ?? null }
+    return { text: data.text, memo: data.memo ?? null, title: data.title || null }
   } catch (err) {
     console.warn('[facet] Coach could not reply just now:', err)
     return null

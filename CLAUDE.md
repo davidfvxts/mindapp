@@ -197,6 +197,7 @@ src/
     storage.ts      Local-first persistence + opportunistic sync (unsynced entries) +
                     downloadEntries() (a signed-in account's whole backed-up history).
     drafts.ts       In-progress writing survives anything: debounced per-flow drafts.  ← TESTED
+    conversations.ts Conversations with Coach: lift/merge/name/list. PURE.  ← TESTED
     store.ts        useFacet() — the single app hook. Owns online/offline + deferral + memory merge + nudges.
     milestones.ts   The five Stone colourways (Night 7/30/90/180/365) + stage words
                     + the chapter line each stone carries (the light's storyline).
@@ -212,6 +213,7 @@ src/
     Guidance · Reviews · Vault · Settings · Method · Account
 supabase/
   migrations/0001_init.sql   Schema + Row-Level Security.
+  migrations/0004_conversations.sql   Conversations table + RLS (apply with 0003).
   functions/coach/
     logic.ts        Triage + model routing + data-block builders. PURE.  ← TESTED
     prompts.ts      COACH_CORE voice contract + one expert module per intervention. PURE.
@@ -234,30 +236,43 @@ screen. Past Coach reads are always readable under their nights in the Vault lis
 weekly read is online-only too. This is deliberate: maximum value online, still fully
 usable offline.
 
-### The conversation — a field, not a button
-Under every Coach read sits a plain text field (`CoachChat.tsx`): the user writes back,
-Coach replies, and the exchange can continue — a real conversation, persisted as
-`Entry.thread` (`ChatTurn[]`) and synced inside the existing `entries.coach` JSONB payload.
-It lives at every touchpoint where a night is in view: the after-reflection read (not the
-First Read — that one is a welcome, and setup follows it) and every opened night in the
-Vault (archive rows and the inclusions inside a banked stone), so any past night can be
-talked about when it matters.
+### Conversations — a field everywhere, findable again, named by Coach
+Every chat is a **`Conversation`** (`lib/conversations.ts`, PURE + TESTED): night-anchored
+(its id IS that entry's uuid — one conversation per night, deterministic across devices)
+or free-standing (its own uuid). They live in `state.conversations`, sync to their own
+**`conversations` table** (migration `0004_conversations.sql` — owner-only RLS, `turns`
+jsonb), and recover on login beside the nights (`mergeConversations`: turns union, a real
+title beats none, nothing dropped either side). Legacy per-entry exchanges
+(`coachAnswer`/`coachClose`/`Entry.thread`) **lift into conversations on load**
+(`liftNightConversations`, idempotent, deterministic clocks) — `Entry.thread` is
+read-for-migration only now; nothing writes it.
 
-Mechanics (`store.chatWithCoach` → `ai.fetchCoachChat` → server `mode:'chat'`): each user
-turn is saved to the entry **synchronously before any request starts** (words are never
-lost; draft key `chat.<entryId>`). The server receives the entry, the original read, the
-thread so far (last 12 turns, 600 chars each — the new message travels once, as the
-message, never doubled as the thread's last line) and curated memory; it derives the model
-tier from the original read's kind via `routeModelForKind`, runs thinking-off at 400 max
-tokens, and returns ≤3 sentences plus a memo (themes/voice only — a chat aside never
-resolves a commitment). `chatSystem` keeps the bedside contract: every turn lands COMPLETE
-so the user can stop at any moment, loops close at night, the distress signpost stands,
-replies mirror the user's language.
+**Touchpoints.** Under every Coach read (`CoachChat.tsx` — a plain text field, never a
+button): the after-reflection read (not the First Read), every opened night in the Vault
+(archive rows + inclusions inside banked stones), and **Vault → "Conversations →"** — the
+archive of every conversation by name plus "New conversation" (anything on their mind, any
+time of day; `store.converseWithCoach(null, msg)` returns the new id). **Coach names each
+conversation on the first exchange** (`wantTitle` → server returns `title`, 2–5 plain
+words in the user's language; `nameConversation` keeps the first real name forever); until
+then the list falls back to the night's event or the first words (`fallbackTitle`).
+
+**Mechanics** (`store.sendChat` → `ai.fetchCoachChat` → server `mode:'chat'`): each user
+turn is saved to the conversation **synchronously before any request starts** (words are
+never lost; draft keys `chat.<conversationId>` / `chat.new`). The server receives the
+night + original read (when anchored), the thread so far (last 24 turns, 1000 chars each —
+the new message travels once, never doubled), curated memory AND the 10 most recent nights
+(so a free conversation can still say "on Tuesday you wrote…"). **Routing**
+(`routeChatModel`): night-anchored inherits the read's tier via `routeModelForKind`; free
+chats route on the message itself — length >320, a live decision, or an ask for depth
+(en+de wordlist) → Opus 4.8, else Sonnet 5. Thinking off, **1400 max tokens**: `chatSystem`
+scales depth to the ask — a check-in gets a line, a real question gets several concrete
+paragraphs (plain prose; a short list only when it carries an actual plan). Every turn
+still lands COMPLETE, loops close when it's late, the distress signpost stands, replies
+mirror the user's language; the memo folds themes/voice only — never a commitment.
 
 Offline or on failure the user's words stand, honestly unanswered — one plain line, no
-fabricated reply, no retry queue. Legacy bounded exchanges (`coachAnswer`/`coachClose`)
-render as the first turns of the same thread and travel with it; the server keeps
-`mode:'answer'` only for old cached clients — nothing in the app calls it anymore.
+fabricated reply, no retry queue. The server keeps `mode:'answer'` only for old cached
+clients — nothing in the app calls it anymore.
 
 ### The loop beyond 11pm — the Today bookend, morning note + comeback
 The intention written at night ("one thing I'll do differently") comes back **the next
@@ -322,7 +337,7 @@ revisit if self-serve signup + identity linking is ever needed.
 ### Drafts — words are never lost
 `lib/drafts.ts` (TESTED) persists every writing surface's in-progress text to
 localStorage, debounced, keyed per flow (`tonight.<date>`, `onboarding`,
-`chat.<entryId>`, `weekly`, `monthly`). Surfaces hydrate from their draft on mount
+`chat.<conversationId>`, `chat.new`, `weekly`, `monthly`). Surfaces hydrate from their draft on mount
 (one quiet "Picked up where you left off." line — no box), save on change, and clear on
 successful submit. The weekly/monthly reviews resume from the Reviews landing
 ("Continue the review"), and the monthly resume reuses the saved AI draft — no second
@@ -508,8 +523,10 @@ event names (`EVENTS` — onboarding/first-read/entry-saved/returns/night-7/nigh
 press/review lifecycle) + a random local device id, no auth account, no content, no settings.
 Events queue in localStorage (bounded, TESTED) and flush opportunistically in drain rounds
 (supabase `events` insert; write-only RLS — see `migrations/0003_events.sql`, which still
-needs `supabase db push` / dashboard apply). The method page discloses the tally in plain
-words. This is the D1/D7/D30 read for the pilot — resist adding events beyond the list.
+needs `supabase db push` / dashboard apply, together with `0004_conversations.sql`; until
+0004 lands, conversation sync quietly retries and everything stays local-first). The method
+page discloses the tally in plain words. This is the D1/D7/D30 read for the pilot — resist
+adding events beyond the list.
 
 ### Next steps, in order
 1. Ship the PWA to David + ~10 founders. **Watch 30-day retention** — the only

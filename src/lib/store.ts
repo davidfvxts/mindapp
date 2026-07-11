@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { applyEntry, daysBetween, mergeEntries, nightsFromEntries, todayStr, weekCount } from './game'
-import { downloadEntries, loadState, resetState, saveState, syncEntries } from './storage'
+import { downloadConversations, downloadEntries, loadState, resetState, saveState, syncConversations, syncEntries } from './storage'
+import { appendTurn, liftNightConversations, mergeConversations, nameConversation, nightConversationId } from './conversations'
 import { aiEnabled, fetchCoachChat, fetchCoachReply, fetchFirstRead, fetchNudge, getMonthlyArc, getWeeklyInsight } from './ai'
 import { applyMemo, applyWeeklyRevision, foldRating, isCharged, recordCommitment, renegotiateCommitment, mergeWeeklyDelta, staleCommitment } from './coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, secondPerson, type OnboardingAnswers } from './onboarding'
@@ -23,7 +24,8 @@ import type { AppState, ChatTurn, CoachReply, Emotion, Entry, InsightCard, Month
 const uid = (): string =>
   globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
-const ANSWER_LIMIT = 600
+/** A conversation message can carry real thought — roomier than a form field. */
+const CHAT_LIMIT = 2000
 
 export interface Draft {
   event: string
@@ -155,6 +157,20 @@ export function useFacet() {
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.entries.length, online, state.settings.sync])
+
+  // Conversations back up the same way — opportunistic, owner-only, quiet.
+  const unsyncedChats = state.conversations.filter((c) => !c.synced && c.turns.length > 0).length
+  useEffect(() => {
+    if (!online || state.settings.sync !== true || unsyncedChats === 0) return
+    let cancelled = false
+    void (async () => {
+      await ensureSession()
+      const next = await syncConversations(state.conversations)
+      if (!cancelled && next !== state.conversations) setState((s) => ({ ...s, conversations: next }))
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unsyncedChats, online, state.settings.sync])
 
   // Deferred coaching: reflections written offline are read by Coach the moment
   // connectivity returns. Quiet — attaches replies to past entries and folds
@@ -441,55 +457,78 @@ export function useFacet() {
   }, [online, state.entries.length, state.lastWeeklyReview, state.lastWeeklySynthesis, thinking])
 
   /**
-   * One turn of the conversation about a night. The user's words are saved to
-   * the entry BEFORE any request starts — losing them is the unforgivable bug.
-   * Coach's reply is live-only: online it appends and its memo folds into
-   * memory lightly (themes/voice, never commitments); offline or on failure
-   * the words simply stand, honestly unanswered. Nothing is queued or faked.
+   * One turn of a conversation with Coach — about a night (entryId set) or
+   * free-standing. The user's words are saved to the conversation BEFORE any
+   * request starts — losing them is the unforgivable bug. Coach's reply is
+   * live-only: online it appends, its memo folds into memory lightly
+   * (themes/voice, never commitments), and the first exchange names the
+   * conversation. Offline or on failure the words simply stand, honestly
+   * unanswered. Nothing is queued or faked.
    */
-  const chatWithCoach = useCallback(async (entryId: string, rawMessage: string): Promise<boolean> => {
-    const message = rawMessage.trim().slice(0, ANSWER_LIMIT)
-    const entry = state.entries.find((e) => e.id === entryId)
-    if (!message || !entry) return false
+  const sendChat = useCallback(async (conversationId: string, rawMessage: string, entryId?: string): Promise<boolean> => {
+    const message = rawMessage.trim().slice(0, CHAT_LIMIT)
+    if (!message) return false
+    const entry = entryId ? state.entries.find((e) => e.id === entryId) : undefined
+    if (entryId && !entry) return false
 
+    const before = state.conversations.find((c) => c.id === conversationId)
     const yourTurn: ChatTurn = { role: 'you', text: message, ts: Date.now() }
-    const withYours: Entry = { ...entry, thread: [...(entry.thread ?? []), yourTurn], synced: false }
+    const withYours = appendTurn(state.conversations, conversationId, yourTurn, entryId)
     // Persist synchronously before the network is allowed anywhere near it.
-    saveState({ ...state, entries: state.entries.map((e) => (e.id === entryId ? withYours : e)) })
-    setState((s) => ({
-      ...s,
-      entries: s.entries.map((e) =>
-        e.id === entryId ? { ...e, thread: [...(e.thread ?? []), yourTurn], synced: false } : e,
-      ),
-    }))
+    saveState({ ...state, conversations: withYours })
+    setState((s) => ({ ...s, conversations: appendTurn(s.conversations, conversationId, yourTurn, entryId) }))
     track('chat_sent')
 
     if (!online || !aiEnabled()) return false
 
-    // The prior entry, not withYours: the new message travels once, as the
-    // message itself — never doubled as the thread's last line.
-    const result = await fetchCoachChat(
+    // The turns BEFORE this message: it travels once, as the message itself.
+    const result = await fetchCoachChat({
       entry,
+      turns: before?.turns ?? [],
       message,
-      state.settings,
-      state.coach,
-      state.entries.filter((e) => e.id !== entryId),
-    )
+      wantTitle: !before?.title,
+      settings: state.settings,
+      coach: state.coach,
+      history: state.entries.filter((e) => e.id !== entryId),
+    })
     if (!result) return false
 
     const today = todayStr()
-    setState((s) => ({
-      ...s,
-      entries: s.entries.map((e) =>
-        e.id === entryId
-          ? { ...e, thread: [...(e.thread ?? []), { role: 'coach', text: result.text, ts: Date.now() } satisfies ChatTurn], synced: false }
-          : e,
-      ),
-      // Themes/voice only — a chat aside must never resolve a commitment.
-      coach: applyMemo(s.coach, result.memo, today, false),
-    }))
+    const coachTurn: ChatTurn = { role: 'coach', text: result.text, ts: Date.now() }
+    setState((s) => {
+      let conversations = appendTurn(s.conversations, conversationId, coachTurn, entryId)
+      if (result.title) conversations = nameConversation(conversations, conversationId, result.title)
+      return {
+        ...s,
+        conversations,
+        // Themes/voice only — a chat aside must never resolve a commitment.
+        coach: applyMemo(s.coach, result.memo, today, false),
+      }
+    })
     return true
   }, [state, online])
+
+  /** The conversation about one night — created on the first message. */
+  const chatWithCoach = useCallback(
+    (entryId: string, message: string): Promise<boolean> =>
+      sendChat(nightConversationId(entryId), message, entryId),
+    [sendChat],
+  )
+
+  /**
+   * A free conversation — anything on their mind, any time of day. Pass null
+   * to start one; the new conversation's id comes back so the UI can stay in
+   * it. The words are saved (and the conversation exists) even offline.
+   */
+  const converseWithCoach = useCallback(
+    async (conversationId: string | null, message: string): Promise<{ id: string; replied: boolean } | null> => {
+      if (!message.trim()) return null
+      const id = conversationId ?? uid()
+      const replied = await sendChat(id, message)
+      return { id, replied }
+    },
+    [sendChat],
+  )
 
   /** Re-run the intake at any time: update settings + augment the profile.
    *  No new entry, no Night change — just re-tune what Coach knows. */
@@ -571,9 +610,13 @@ export function useFacet() {
           setToast('Signed in — your nights couldn’t be reached just now. Try again shortly.')
           return null
         }
+        // Conversations recover beside the nights. A failed read (or a not-yet-
+        // migrated table) merges as empty — local conversations are never lost.
+        const remoteChats = (await downloadConversations(userId)) ?? []
         setState((s) => {
           const entries = mergeEntries(s.entries, remote)
-          return { ...s, entries, game: nightsFromEntries(entries), settings: { ...s.settings, sync: true } }
+          const conversations = liftNightConversations(entries, mergeConversations(s.conversations, remoteChats))
+          return { ...s, entries, conversations, game: nightsFromEntries(entries), settings: { ...s.settings, sync: true } }
         })
         setToast(remote.length ? 'Signed in — your nights are here.' : 'Signed in.')
         return null
@@ -612,6 +655,13 @@ export function useFacet() {
           }
           const { error } = await supabase.from('entries').delete().eq('user_id', userId)
           if (error) {
+            setToast('Couldn’t erase the backup. Try again in a moment.')
+            return false
+          }
+          // Conversations are as sensitive as the nights they discuss. A missing
+          // table (migration not yet applied) is fine; a real failure is not.
+          const chats = await supabase.from('conversations').delete().eq('user_id', userId)
+          if (chats.error && !/relation|does not exist|schema cache/i.test(chats.error.message)) {
             setToast('Couldn’t erase the backup. Try again in a moment.')
             return false
           }
@@ -708,7 +758,7 @@ export function useFacet() {
     state, derived, toast, thinking, reveal, online, account, authBusy,
     completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly,
     markGuidanceSeen, markStoneSeen, markIntroSeen, commitNudge, declineNudge, resolveNudge, renegotiateIntention,
-    beginMonthly, completeMonthly, setMorning, eraseEverything, logIn, logOut, chatWithCoach,
+    beginMonthly, completeMonthly, setMorning, eraseEverything, logIn, logOut, chatWithCoach, converseWithCoach,
     setToast, clearReveal: () => setReveal(null),
   }
 }

@@ -5,18 +5,25 @@ import { CoachChat } from './CoachChat'
 import { STONES, bankedStones, nextStone, stoneStage, type Stone as StoneModel } from '../lib/milestones'
 import { filmForNight, filmWindow } from '../lib/stoneFilm'
 import { inclusionsForStone, prevMilestoneNight, type Inclusion } from '../lib/inclusions'
-import type { AppState, Entry } from '../lib/types'
+import { conversationList, fallbackTitle, nightConversationId } from '../lib/conversations'
+import type { AppState, Conversation, Entry } from '../lib/types'
 
 type OnChat = (entryId: string, message: string) => Promise<boolean>
+type OnConverse = (conversationId: string | null, message: string) => Promise<{ id: string; replied: boolean } | null>
 
 /** ISO date → "Tue 8 July" — an instrument never shows debug output. */
 const humanDate = (iso: string): string =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'long' })
 
+const humanTs = (ts: number): string =>
+  new Date(ts).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'long' })
+
 /** The full night: reflection, Coach's read, and the conversation — which
- *  stays open here. Shared by the nights archive and the inclusions inside
- *  a banked stone; any night can be talked about, whenever it matters. */
-function NightDetail({ e, online, onChat }: { e: Entry; online: boolean; onChat: OnChat }) {
+ *  stays open here. Shared by the nights archive, the inclusions inside a
+ *  banked stone, and a night-anchored conversation opened from the list. */
+function NightDetail({ e, turns, online, onChat }: {
+  e: Entry; turns: Conversation['turns']; online: boolean; onChat: OnChat
+}) {
   return (
     <div className="night-detail develop">
       {e.well && (
@@ -31,14 +38,19 @@ function NightDetail({ e, online, onChat }: { e: Entry; online: boolean; onChat:
           <p>{e.coach.text}</p>
         </div>
       )}
-      <CoachChat entry={e} online={online} onSend={onChat} />
+      <CoachChat
+        turns={turns}
+        draftKey={`chat.${e.id}`}
+        online={online}
+        onSend={(message) => onChat(e.id, message)}
+      />
     </div>
   )
 }
 
 /** One archived night: a quiet row that opens into the full entry + exchange. */
-function NightRow({ e, open, online, onChat, onToggle }: {
-  e: Entry; open: boolean; online: boolean; onChat: OnChat; onToggle: () => void
+function NightRow({ e, turns, open, online, onChat, onToggle }: {
+  e: Entry; turns: Conversation['turns']; open: boolean; online: boolean; onChat: OnChat; onToggle: () => void
 }) {
   return (
     <div className={open ? 'item surface night-open' : 'item'}>
@@ -49,22 +61,27 @@ function NightRow({ e, open, online, onChat, onToggle }: {
         </span>
         <span className="item-body">{e.event}</span>
       </button>
-      {open && <NightDetail e={e} online={online} onChat={onChat} />}
+      {open && <NightDetail e={e} turns={turns} online={online} onChat={onChat} />}
     </div>
   )
 }
 
-export function Vault({ state, online, onChat, onStoneSeen, onSettings }: {
-  state: AppState; online: boolean; onChat: OnChat; onStoneSeen: () => void; onSettings: () => void
+export function Vault({ state, online, onChat, onConverse, onStoneSeen, onSettings }: {
+  state: AppState; online: boolean; onChat: OnChat; onConverse: OnConverse; onStoneSeen: () => void; onSettings: () => void
 }) {
-  const { game, entries } = state
+  const { game, entries, conversations } = state
   // Night is monotonic, so the Vault's stone history is always banked.
   const banked = bankedStones(game.nights)
   const upcoming = nextStone(game.nights)
-  const [view, setView] = useState<'stones' | 'nights'>('stones')
+  const [view, setView] = useState<'stones' | 'nights' | 'chats'>('stones')
   const [open, setOpen] = useState<StoneModel | null>(null)
   const [inclusion, setInclusion] = useState<Inclusion | null>(null)
   const [openNight, setOpenNight] = useState<string | null>(null)
+  // The open conversation: an id, or 'new' while one is being started.
+  const [openChat, setOpenChat] = useState<string | null>(null)
+
+  const turnsFor = (e: Entry) =>
+    conversations.find((c) => c.id === nightConversationId(e.id))?.turns ?? []
 
   // ---- a banked stone, in colour, with the nights held inside it ----
   if (open) {
@@ -99,12 +116,89 @@ export function Vault({ state, online, onChat, onStoneSeen, onSettings }: {
                     <span className="inclusion-label">{p.label}</span>
                     {on && <span className="inclusion-words develop">{p.event}</span>}
                   </button>
-                  {on && night && <NightDetail e={night} online={online} onChat={onChat} />}
+                  {on && night && <NightDetail e={night} turns={turnsFor(night)} online={online} onChat={onChat} />}
                 </div>
               )
             })}
           </div>
         )}
+      </div>
+    )
+  }
+
+  // ---- one conversation, on its own page ----
+  if (view === 'chats' && openChat) {
+    const convo = openChat === 'new' ? undefined : conversations.find((c) => c.id === openChat)
+    const entry = convo?.entryId ? entries.find((e) => e.id === convo.entryId) : undefined
+    const title = openChat === 'new'
+      ? 'With Coach'
+      : convo ? (convo.title ?? fallbackTitle(convo, entries)) : 'With Coach'
+    return (
+      <div className="develop">
+        <button className="btn text back-line" onClick={() => setOpenChat(null)}>← Conversations</button>
+        <h1>{title}</h1>
+        {entry ? (
+          <>
+            {/* A conversation about one night carries the night with it. */}
+            <p className="sub">
+              {humanDate(entry.date)}
+              {entry.emotions.length > 0 && ` · ${entry.emotions.join(' · ')}`}
+            </p>
+            <p className="body">{entry.event}</p>
+            <NightDetail e={entry} turns={turnsFor(entry)} online={online} onChat={onChat} />
+          </>
+        ) : (
+          <>
+            {openChat === 'new' && (
+              <p className="sub">Anything on your mind. Coach knows your nights.</p>
+            )}
+            {/* No key: the 'new' → real-id handoff must not remount the field
+                (a remount would wipe the honest "couldn't reply" status). */}
+            <CoachChat
+              turns={convo?.turns ?? []}
+              draftKey={`chat.${openChat}`}
+              online={online}
+              autoFocus={openChat === 'new'}
+              placeholder={openChat === 'new' ? 'What’s on your mind?' : 'Write back.'}
+              onSend={async (message) => {
+                const result = await onConverse(openChat === 'new' ? null : openChat, message)
+                if (result && openChat === 'new') setOpenChat(result.id)
+                return result?.replied ?? false
+              }}
+            />
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // ---- the conversations archive, on its own page ----
+  if (view === 'chats') {
+    const list = conversationList(conversations)
+    return (
+      <div className="develop">
+        <button className="btn text back-line" onClick={() => setView('stones')}>← The Vault</button>
+        <h1>Conversations</h1>
+        <button className="btn text" style={{ paddingLeft: 0 }} onClick={() => setOpenChat('new')}>
+          New conversation →
+        </button>
+        <div className="section">
+          {list.length === 0 ? (
+            <p className="secondary">
+              Talk with Coach about a night, or about anything — every conversation
+              is kept here, by name.
+            </p>
+          ) : (
+            list.map((c) => (
+              <div key={c.id} className="item">
+                <button className="night-row" onClick={() => setOpenChat(c.id)}>
+                  <span className="item-meta ambient">{humanTs(c.updatedAt)}</span>
+                  <span className="item-body">{c.title ?? fallbackTitle(c, entries)}</span>
+                </button>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     )
   }
@@ -123,6 +217,7 @@ export function Vault({ state, online, onChat, onStoneSeen, onSettings }: {
               <NightRow
                 key={e.id}
                 e={e}
+                turns={turnsFor(e)}
                 open={openNight === e.id}
                 online={online}
                 onChat={onChat}
@@ -190,6 +285,9 @@ export function Vault({ state, online, onChat, onStoneSeen, onSettings }: {
       <div className="section">
         <button className="btn text" style={{ paddingLeft: 0, display: 'block' }} onClick={() => setView('nights')}>
           Your nights →
+        </button>
+        <button className="btn text" style={{ paddingLeft: 0, display: 'block' }} onClick={() => setView('chats')}>
+          Conversations →
         </button>
         {/* Settings live behind the Vault — reachable, never a tab. */}
         <button className="btn text" style={{ paddingLeft: 0, display: 'block' }} onClick={onSettings}>
