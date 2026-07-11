@@ -90,8 +90,16 @@ export function AfterReflection({
           <span className="ambient">Night</span>
           <div className="display" style={{ marginTop: 'var(--s-2)' }}>{night}</div>
           <div className="spacer" />
-          {/* Tonight's facet, freshly cut — the visible evolution. */}
-          <Stone night={night} newFacet size={104} caption={stoneStage(night)} />
+          {/* Tonight's facet, freshly cut — the visible evolution. On Night 1
+              the heart-thread flares: the light takes. */}
+          <Stone night={night} newFacet size={firstRead ? 132 : 104} caption={stoneStage(night)} />
+          {firstRead && (
+            /* The stone, introduced once — at the moment it first ignites. */
+            <p className="secondary develop-late" style={{ marginTop: 'var(--s-5)' }}>
+              Your stone. The light inside is lit, and every night wakes one more face.
+              On the seventh night, it opens.
+            </p>
+          )}
         </div>
       )}
 
@@ -170,8 +178,11 @@ export function AfterReflection({
       ) : null}
 
       <div className="spacer" />
-      {/* On a milestone night, the crack comes before anything else. */}
-      {(!milestone || cracked) && <button className="btn" onClick={onDone}>Done</button>}
+      {/* On a milestone night, the crack comes before anything else. The first
+          read flows onward — into make-it-stick — rather than closing. */}
+      {(!milestone || cracked) && (
+        <button className="btn" onClick={onDone}>{firstRead ? 'Continue' : 'Done'}</button>
+      )}
     </div>
   )
 }

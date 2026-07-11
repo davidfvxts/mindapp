@@ -12,10 +12,13 @@ export interface OnboardingAnswers {
   name: string
   /** What they want to get sharper at — the goal. */
   goals: string[]
-  /** What they're building + who with — free text, optional. */
+  /** What they're building + who with — free text, optional (retune collects it). */
   world: string
-  /** What's tripped up reflection before — the internal obstacle. */
+  /** What's tripped up reflection before — the internal obstacle (retune collects it). */
   obstacle: string
+  /** Why now — their own words for what brought them here. The self-persuasion
+   *  beat: articulating the motive is itself the commitment. Optional. */
+  whyNow?: string
   cue: string
   reminderTime: string
 }
@@ -69,7 +72,53 @@ export function seedMemoryFromAnswers(a: OnboardingAnswers, today: string): Coac
     projects: a.world.trim() ? [clean(a.world).slice(0, 140)] : [],
     updatedAt: today,
   }
+  // Why-now opens the narrative — Coach's running note starts in the user's
+  // own words, and the weekly pass revises it from there.
+  if (a.whyNow?.trim()) profile.narrative = `Came to this because: ${clean(a.whyNow).slice(0, 160)}`
   return { profile, themes: [], commitments: [] }
+}
+
+/** The hour windows the first reflection adapts to. A signup is never told
+ *  to wait for nightfall — the first Night can start any time of day. */
+export type FirstWindow = 'morning' | 'day' | 'evening'
+
+export const firstWindow = (hour: number): FirstWindow =>
+  hour >= 17 || hour < 4 ? 'evening' : hour < 12 ? 'morning' : 'day'
+
+export interface FirstFrames {
+  window: FirstWindow
+  /** The moment question — what the reflection looks back on. */
+  momentQ: string
+  momentPlaceholder: string
+  /** The next-step question — aimed at the time still actionable. */
+  nextQ: string
+}
+
+/** Copy frames for the first reflection, keyed on the clock. Pure. */
+export function firstFrames(hour: number): FirstFrames {
+  const w = firstWindow(hour)
+  if (w === 'morning') {
+    return {
+      window: w,
+      momentQ: 'One concrete thing that happened yesterday.',
+      momentPlaceholder: 'A specific event, good or hard. Not how the day went — one moment.',
+      nextQ: 'One thing you’ll do differently today.',
+    }
+  }
+  if (w === 'day') {
+    return {
+      window: w,
+      momentQ: 'One concrete thing that’s happened today so far.',
+      momentPlaceholder: 'A specific event, good or hard. Not how the day’s going — one moment.',
+      nextQ: 'One thing you’ll do differently with the rest of today.',
+    }
+  }
+  return {
+    window: w,
+    momentQ: 'One concrete thing that happened today.',
+    momentPlaceholder: 'A specific event, good or hard. Not how the day went — one moment.',
+    nextQ: 'One thing you’ll do differently tomorrow.',
+  }
 }
 
 const firstWords = (s: string, n = 12): string => {
@@ -91,6 +140,7 @@ export function deterministicFirstRead(a: OnboardingAnswers, first: FirstReflect
 
   const parts: string[] = [`${who}, night one is down — and you already did the hard part: one concrete moment, named.`]
   if (first.event.trim()) parts.push(`"${firstWords(first.event)}" is exactly the kind of specific this practice runs on.`)
+  if (a.whyNow?.trim()) parts.push(`You said why now: "${firstWords(a.whyNow)}" — hold onto that; it's what the nights are for.`)
   if (goal) parts.push(`You're here to get sharper at ${goal}; this is how that compounds — one night at a time.`)
   if (obstacle) parts.push(`And the thing that's tripped you before — ${obstacle} — I'll watch for it with you.`)
   parts.push(`Come back tomorrow, after you ${cue}. That's the whole trick.`)

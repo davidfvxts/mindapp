@@ -11,7 +11,7 @@ import {
   curate, recordCommitment, applyMemo, mergeWeeklyDelta,
   applyWeeklyRevision, foldRating, renegotiateCommitment, staleCommitment, themeMatches,
 } from '../src/lib/coachMemory'
-import { seedMemoryFromAnswers, deterministicFirstRead, obstaclePhrase } from '../src/lib/onboarding'
+import { seedMemoryFromAnswers, deterministicFirstRead, firstFrames, obstaclePhrase } from '../src/lib/onboarding'
 import {
   intentionForToday, isMorningWindow, missedNights, needsComeback,
   nextDay, offlineMorningQuestion, upsertMorning,
@@ -215,6 +215,25 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   ok('first read reflects the goal', read.toLowerCase().includes('sharper decisions'))
   ok('first read references their moment', read.includes('closed the seed round'))
   ok('first read hands them the cue', read.includes('close my laptop'))
+
+  // why-now: the self-persuasion beat carries into the seed and the read
+  const withWhy = { ...answers, whyNow: 'I keep repeating the same mistakes' }
+  ok('why-now opens the narrative', seedMemoryFromAnswers(withWhy, '2026-07-10').profile.narrative?.includes('same mistakes') === true)
+  ok('no why-now leaves the narrative unseeded', seedMemoryFromAnswers(answers, '2026-07-10').profile.narrative === undefined)
+  const whyRead = deterministicFirstRead(withWhy, { event: 'shipped it anyway', emotions: [], well: '', next: '' })
+  ok('the offline first read quotes why-now', whyRead.includes('same mistakes'))
+  // The AI profileDelta merge must never erase the seeded narrative (regression).
+  const seededWhy = seedMemoryFromAnswers(withWhy, '2026-07-10')
+  const afterDelta = mergeWeeklyDelta(seededWhy, { goals: ['Sharper decisions'] }, '2026-07-10')
+  ok('a delta merge keeps the narrative', afterDelta.profile.narrative?.includes('same mistakes') === true)
+
+  // the first reflection meets the user at whatever hour they arrive
+  ok('evening asks about today', firstFrames(22).window === 'evening' && firstFrames(22).momentQ.includes('today'))
+  ok('the small hours still read as evening', firstFrames(1).window === 'evening')
+  ok('morning looks back at yesterday, acts today',
+    firstFrames(9).window === 'morning' && firstFrames(9).momentQ.includes('yesterday') && firstFrames(9).nextQ.includes('today'))
+  ok('midday reflects on the day so far', firstFrames(14).window === 'day' && firstFrames(14).momentQ.includes('so far'))
+  ok('window boundaries hold', firstFrames(4).window === 'morning' && firstFrames(12).window === 'day' && firstFrames(17).window === 'evening')
 }
 
 // ---------- guidance: occasional, evidence-based nudges ----------

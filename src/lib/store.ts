@@ -183,12 +183,15 @@ export function useFacet() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online, state.entries, state.settings])
 
+  /** Apply the make-it-stick settings (after the First Read, or any time). */
   const completeOnboarding = useCallback((settings: Settings) => {
     setState((s) => ({ ...s, settings, onboarded: true }))
     void scheduleDailyReminder(settings.reminderTime, settings.cue)
+    // The morning note follows the newest intention at the (possibly new) time.
     if (!settings.morningTime) void cancelMorningIntention()
+    else void scheduleMorningIntention(settings.morningTime, state.entries[0]?.next ?? '')
     setToast(`Reminder set — after you ${settings.cue}, ${settings.reminderTime}.`)
-  }, [])
+  }, [state.entries])
 
   /**
    * The guided onboarding's payoff. Seeds the coach profile from the intake,

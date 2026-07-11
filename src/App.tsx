@@ -25,12 +25,26 @@ export default function App() {
   const m = useFacet()
   const [tab, setTab] = useState<Tab>('today')
   const [retuning, setRetuning] = useState(false)
+  // The make-it-stick step runs AFTER the First Read — value first, setup second.
+  const [settingUp, setSettingUp] = useState(false)
 
   useEffect(() => { window.scrollTo(0, 0) }, [tab])
 
   // Distinct keys: first-run and retune must never share component state —
   // an erase ends retune and lands on a FRESH welcome.
   if (!m.state.onboarded) return <Onboarding key="first" onBegin={m.beginJourney} />
+
+  if (settingUp) {
+    const p = m.state.settings
+    return (
+      <Onboarding
+        key="setup"
+        mode="setup"
+        initial={{ cue: '', reminderTime: p.reminderTime, morningTime: p.morningTime, tone: p.tone, sync: p.sync }}
+        onSetup={(settings) => { m.completeOnboarding(settings); setSettingUp(false) }}
+      />
+    )
+  }
 
   if (retuning) {
     const p = m.state.settings
@@ -89,7 +103,13 @@ export default function App() {
               close={revealedEntry?.coachClose}
               onRate={m.rateReply}
               onAnswer={(answer) => m.answerCoach(m.reveal!.entryId, answer)}
-              onDone={() => { m.clearReveal(); setTab('vault') }}
+              onDone={() => {
+                const wasFirst = m.reveal?.firstRead
+                m.clearReveal()
+                // The first read flows into make-it-stick; every later read banks to the Vault.
+                if (wasFirst) setSettingUp(true)
+                else setTab('vault')
+              }}
             />
           ) : (
             <DailyRitual

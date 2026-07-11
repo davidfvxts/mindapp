@@ -361,6 +361,8 @@ export interface OnboardingIn {
   goals?: string[]
   world?: string
   obstacle?: string
+  /** Their own words for what brought them here — quote it back if it's strong. */
+  whyNow?: string
   cue?: string
 }
 
@@ -368,6 +370,7 @@ export interface OnboardingIn {
 export function buildOnboardingUser(name: string, a: OnboardingIn, entry: EntryIn): string {
   const lines = [`Reflector: ${name || 'the user'}`, '', 'INTAKE (their guided setup):']
   if (a.goals?.length) lines.push(`- Wants to get sharper at: ${a.goals.join(', ')}`)
+  if (a.whyNow?.trim()) lines.push(`- Why now, in their words: "${a.whyNow.trim()}"`)
   if (a.world?.trim()) lines.push(`- Building: ${a.world.trim()}`)
   if (a.obstacle) lines.push(`- What's tripped reflection up before: ${a.obstacle}`)
   if (a.cue?.trim()) lines.push(`- Their cue: after they ${a.cue.trim()}, they reflect.`)

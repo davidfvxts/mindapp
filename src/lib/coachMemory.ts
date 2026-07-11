@@ -236,6 +236,9 @@ export function mergeWeeklyDelta(
   return {
     ...m,
     profile: {
+      // Merge is accretive: an absent field never erases what's known —
+      // the narrative especially (only the weekly REVISION may drop it).
+      narrative: delta.narrative ? clean(delta.narrative).slice(0, NARRATIVE_CAP) : p.narrative,
       voice: delta.voice ? clean(delta.voice).slice(0, VOICE_CAP) : p.voice,
       values: mergeList(p.values, delta.values),
       goals: mergeList(p.goals, delta.goals),

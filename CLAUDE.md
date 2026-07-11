@@ -350,15 +350,22 @@ new table) **and it can change its mind (memory v2):**
 `curate()` sends Coach the narrative + recent nights verbatim + older nights a live theme
 echoes + what's owed — so it knows both tonight and what you said weeks ago, in your voice.
 
-### Onboarding = coach intake + the wow moment
-The guided flow (`components/Onboarding.tsx` → `store.beginJourney`) is the product from minute one:
-a gamified, ~2-minute intake (name → goals → world → obstacle → the implementation-intention cue)
-that **seeds the profile deterministically** (so Coach knows the user with or without the network),
-then runs their **first real reflection**, then hands back a personalised **First Read** as Night 1's
-Stone forms. Online, `mode:'onboarding'` gets an **Opus 4.8** First Read + a profile extraction
-(`onboarding.ts` seed is enriched by the AI `profileDelta`); offline, `deterministicFirstRead()`
-stitches a specific read from their answers so the moment still lands. Colour stays scarce — Night 1
-is a greyscale Rough stone; the wow is the read + the object, never an early gradient.
+### Onboarding = value before commitment (four acts)
+The guided flow (`components/Onboarding.tsx` → `store.beginJourney`) is the product from minute one,
+ordered on the research (Duolingo/Noom/Opal patterns; see the S8 notes): the wow comes BEFORE settings.
+**Act 1 — commit:** welcome (the dark shard is met first; "No account, no email"; a quiet
+"The method →" subpage carries the five mechanisms with citations + the privacy contract) → name →
+aim → **why now** (one optional line — self-persuasion; it opens `profile.narrative` and Opus may
+quote it in the read). **Act 2 — the first reflection,** adapted to the hour (`firstFrames()` in
+`onboarding.ts`: morning → yesterday/act today, midday → today so far, evening → tonight) — a signup
+at noon is never told to wait for nightfall; the Night counts regardless. **Act 3 — the wow:**
+`mode:'onboarding'` gets an **Opus 4.8** First Read + profile extraction (the deterministic seed is
+enriched by `profileDelta`; offline, `deterministicFirstRead()` still lands it), Night 1's stone
+ignites (the heart-thread flares), and the stone is introduced in one line. **Act 4 — make it
+stick,** AFTER the read (mode `'setup'`, wired via App's `settingUp`): cue → reminder → morning note,
+then tone + sync — skippable ("Later"), defaults hold, `completeOnboarding` applies. During Act 1–2
+no cue is sent to Coach (never claim a habit the user hasn't chosen). Colour stays scarce — Night 1
+is greyscale; the wow is the read + the ignition, never an early gradient.
 
 ### Guidance = the occasional nudge, not a content feed
 The **Guidance** tab is where Coach leaves *one* thing worth trying — a tip, action, habit,

@@ -138,7 +138,7 @@ export interface FirstReadResult {
  * deterministic read stitched from the intake, so the moment still lands.
  */
 export async function fetchFirstRead(
-  answers: { name: string; goals: string[]; world: string; obstacle: string; cue: string },
+  answers: { name: string; goals: string[]; world: string; obstacle: string; whyNow?: string; cue: string },
   entry: Entry,
   settings: Settings,
 ): Promise<FirstReadResult | null> {
@@ -150,7 +150,7 @@ export async function fetchFirstRead(
       body: JSON.stringify({
         mode: 'onboarding',
         name: settings.name,
-        answers: { goals: answers.goals, world: answers.world, obstacle: answers.obstacle, cue: answers.cue },
+        answers: { goals: answers.goals, world: answers.world, obstacle: answers.obstacle, whyNow: answers.whyNow, cue: answers.cue },
         entry: { event: entry.event, emotions: entry.emotions, well: entry.well, next: entry.next },
       }),
     })
