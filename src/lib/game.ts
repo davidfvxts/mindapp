@@ -54,3 +54,26 @@ export const weekCount = (entries: Entry[]): number => {
 }
 
 export const WEEKLY_UNLOCK = 5
+
+/**
+ * The authoritative Night count for a full entry list — a Night is a distinct
+ * date with a reflection, so this is exact rather than incremental. Used the
+ * moment history can jump discontinuously: signing in and merging down a
+ * previously-synced account's nights on a device that didn't build them one
+ * at a time.
+ */
+export function nightsFromEntries(entries: Entry[]): GameState {
+  const dates = [...new Set(entries.map((e) => e.date))].sort()
+  return { nights: dates.length, lastDay: dates.length ? dates[dates.length - 1] : null }
+}
+
+/**
+ * Merge a device's local entries with a signed-in account's remote ones.
+ * Union by id (a real reflection is never duplicated or dropped), newest
+ * first — exactly how entries are always ordered in state.
+ */
+export function mergeEntries(local: Entry[], remote: Entry[]): Entry[] {
+  const byId = new Map(local.map((e) => [e.id, e]))
+  for (const r of remote) if (!byId.has(r.id)) byId.set(r.id, r)
+  return [...byId.values()].sort((a, b) => b.ts - a.ts)
+}

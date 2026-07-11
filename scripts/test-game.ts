@@ -2,7 +2,7 @@
  * Tests for the monotonic Night engine.
  * Run: npm test
  */
-import { applyEntry, daysBetween, migrateGame, todayStr, weekCount } from '../src/lib/game'
+import { applyEntry, daysBetween, mergeEntries, migrateGame, nightsFromEntries, todayStr, weekCount } from '../src/lib/game'
 import { needsComeback } from '../src/lib/morning'
 import { stoneForNight } from '../src/lib/milestones'
 import type { Emotion, Entry, GameState } from '../src/lib/types'
@@ -74,6 +74,22 @@ ok('weekCount counts the trailing seven days', weekCount([
   { ...E('c'), ts: now - 30 * 86400000 },
 ]) === 2)
 ok('todayStr returns an ISO date', /^\d{4}-\d{2}-\d{2}$/.test(todayStr()))
+
+// ---- sign-in recovery: merging a device's nights with an account's own ----
+ok('nightsFromEntries counts distinct dates', nightsFromEntries([E('2026-07-01'), E('2026-07-02'), E('2026-07-02')]).nights === 2)
+ok('nightsFromEntries lastDay is the latest date', nightsFromEntries([E('2026-07-02'), E('2026-07-05'), E('2026-07-01')]).lastDay === '2026-07-05')
+ok('nightsFromEntries on an empty history', nightsFromEntries([]).nights === 0 && nightsFromEntries([]).lastDay === null)
+
+const localOnly = [{ ...E('2026-07-05'), id: 'local-1' }]
+const remote = [{ ...E('2026-07-01'), id: 'remote-1' }, { ...E('2026-07-03'), id: 'remote-2' }]
+const merged = mergeEntries(localOnly, remote)
+ok('mergeEntries unions both sides', merged.length === 3)
+ok('mergeEntries keeps the device’s own unsynced entry', merged.some((e) => e.id === 'local-1'))
+ok('mergeEntries brings in the account’s remote nights', merged.every((e) => ['local-1', 'remote-1', 'remote-2'].includes(e.id)))
+ok('mergeEntries sorts newest first, like the rest of state', merged[0].id === 'local-1')
+const dupe = mergeEntries([{ ...E('2026-07-05'), id: 'same', ts: 5 }], [{ ...E('2026-07-05'), id: 'same', ts: 999 }])
+ok('mergeEntries never duplicates a shared id', dupe.length === 1 && dupe[0].ts === 5)
+ok('a fresh device recovers a whole account’s history by id union', nightsFromEntries(mergeEntries([], remote)).nights === 2)
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASSED')
 process.exit(fails ? 1 : 0)

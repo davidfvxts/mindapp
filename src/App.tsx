@@ -8,6 +8,7 @@ import { Vault } from './components/Vault'
 import { Reviews } from './components/Reviews'
 import { Settings } from './components/Settings'
 import { Method } from './components/Method'
+import { Account } from './components/Account'
 import { unseenCount } from './lib/guidance'
 import { milestoneEcho } from './lib/inclusions'
 import { GOAL_OPTIONS } from './lib/onboarding'
@@ -65,7 +66,7 @@ export default function App() {
   // The make-it-stick step runs AFTER the First Read — value first, setup second.
   const [settingUp, setSettingUp] = useState(false)
   // Settings live on their own quiet page, reached from the Vault — never a tab.
-  const [screen, setScreen] = useState<'app' | 'settings' | 'method'>('app')
+  const [screen, setScreen] = useState<'app' | 'settings' | 'method' | 'account'>('app')
 
   useEffect(() => { window.scrollTo(0, 0) }, [tab, screen])
 
@@ -116,6 +117,13 @@ export default function App() {
   const revealedEntry = m.reveal ? m.state.entries.find((entry) => entry.id === m.reveal?.entryId) : undefined
   // A tab's first visit gets its introduction; every later visit goes straight in.
   const intro = tab !== 'today' && !m.state.seenIntros.includes(tab) ? INTROS[tab] : null
+  const accountLabel = !m.account
+    ? 'Set up your rhythm to turn on backup, then log in from anywhere.'
+    : m.account.email && !m.account.anonymous
+      ? `Signed in as ${m.account.email}.`
+      : m.account.anonymous
+        ? 'Backed up anonymously — log in to reach it from another device.'
+        : 'Log in to bring back an account’s backed-up nights.'
 
   return (
     <section className="wrap">
@@ -133,13 +141,24 @@ export default function App() {
       <main>
         {screen === 'settings' && (
           <Settings
+            accountLabel={accountLabel}
             onRhythm={() => { setScreen('app'); setSettingUp(true) }}
             onRetune={() => { setScreen('app'); setRetuning(true) }}
+            onAccount={() => setScreen('account')}
             onMethod={() => setScreen('method')}
             onBack={() => setScreen('app')}
           />
         )}
         {screen === 'method' && <Method onBack={() => setScreen('settings')} />}
+        {screen === 'account' && (
+          <Account
+            account={m.account}
+            busy={m.authBusy}
+            onLogin={m.logIn}
+            onLogout={m.logOut}
+            onBack={() => setScreen('settings')}
+          />
+        )}
 
         {screen === 'app' && intro && (
           <TabIntro title={intro.title} body={intro.body} onContinue={() => m.markIntroSeen(tab)} />

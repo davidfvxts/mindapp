@@ -1,4 +1,4 @@
-import { initialState, type AppState, type Entry } from './types'
+import { initialState, type AppState, type CoachClose, type CoachReply, type Entry } from './types'
 import { supabase } from './supabase'
 import { migrateGame } from './game'
 
@@ -79,4 +79,58 @@ export async function syncEntries(entries: Entry[]): Promise<Entry[]> {
   }
   const ids = new Set(pending.map((p) => p.id))
   return entries.map((e) => (ids.has(e.id) ? { ...e, synced: true } : e))
+}
+
+/** The shape a row comes back as from `entries` — the reverse of the upsert in `syncEntries`. */
+export interface EntryRow {
+  id: string
+  date: string
+  event: string
+  emotions: string[]
+  well: string
+  next_step: string
+  coach: (CoachReply & { answer?: string; close?: CoachClose }) | null
+  morning: Entry['morning'] | null
+  rating: 0 | 1 | null
+  created_at: string
+}
+
+/** Pure: a synced row back into the app's Entry shape. */
+export function rowToEntry(row: EntryRow): Entry {
+  const { answer, close, ...coach } = row.coach ?? {}
+  return {
+    id: row.id,
+    date: row.date,
+    event: row.event,
+    emotions: row.emotions as Entry['emotions'],
+    well: row.well,
+    next: row.next_step,
+    ts: new Date(row.created_at).getTime(),
+    coach: row.coach ? (coach as CoachReply) : undefined,
+    coachAnswer: answer,
+    coachClose: close,
+    rating: row.rating ?? undefined,
+    morning: row.morning ?? undefined,
+    synced: true,
+  }
+}
+
+/**
+ * Every entry a signed-in account has ever backed up — the recovery path for
+ * "log in and your nights are here again." Null on any failure (offline,
+ * signed out, request error); the caller then keeps the device's own history
+ * rather than silently emptying it.
+ */
+export async function downloadEntries(userId: string): Promise<Entry[] | null> {
+  if (!supabase) return null
+  try {
+    const { data, error } = await supabase
+      .from('entries')
+      .select('id, date, event, emotions, well, next_step, coach, morning, rating, created_at')
+      .eq('user_id', userId)
+    if (error || !data) return null
+    return (data as EntryRow[]).map(rowToEntry)
+  } catch {
+    return null
+  }
 }

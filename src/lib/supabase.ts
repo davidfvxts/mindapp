@@ -42,3 +42,52 @@ export async function ensureSession(): Promise<string | null> {
     return null
   }
 }
+
+/** Who's signed in right now, read straight from the live session. */
+export interface Account {
+  /** null on a fully local device or a signed-out one. */
+  email: string | null
+  /** True for the no-UI anonymous bridge; false for a real, named account. */
+  anonymous: boolean
+}
+
+export async function currentAccount(): Promise<Account | null> {
+  if (!supabase) return null
+  try {
+    const { data } = await supabase.auth.getSession()
+    const user = data.session?.user
+    if (!user) return { email: null, anonymous: false }
+    return { email: user.email ?? null, anonymous: user.is_anonymous ?? !user.email }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * A real, named sign-in — set up manually for now (Supabase dashboard:
+ * Authentication → Users → Add user, with "Auto Confirm User" on). Replaces
+ * whatever session was active, anonymous or not; the caller is responsible
+ * for recovering that account's backed-up nights afterward.
+ */
+export async function signInWithPassword(
+  email: string,
+  password: string,
+): Promise<{ userId: string | null; error: string | null }> {
+  if (!supabase) return { userId: null, error: 'Backup isn’t configured.' }
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) return { userId: null, error: 'That email and password don’t match.' }
+    return { userId: data.user?.id ?? null, error: null }
+  } catch {
+    return { userId: null, error: 'Couldn’t reach the server. Try again in a moment.' }
+  }
+}
+
+export async function signOut(): Promise<void> {
+  if (!supabase) return
+  try {
+    await supabase.auth.signOut()
+  } catch {
+    /* the local session clears client-side regardless */
+  }
+}

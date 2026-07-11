@@ -1,14 +1,17 @@
 /**
  * Settings — one quiet page, reachable from the Vault, never a fifth tab.
- * Three doors, each its own flow: the rhythm (cue, reminder, morning note,
+ * Four doors, each its own flow: the rhythm (cue, reminder, morning note,
  * tone, backup), what Coach knows (the full re-tune, which also holds the
- * erase-everything path), and the method. One job per page throughout.
+ * erase-everything path), the account (log in to reach a backup from
+ * anywhere), and the method. One job per page throughout.
  */
 export function Settings({
-  onRhythm, onRetune, onMethod, onBack,
+  accountLabel, onRhythm, onRetune, onAccount, onMethod, onBack,
 }: {
+  accountLabel: string
   onRhythm: () => void
   onRetune: () => void
+  onAccount: () => void
   onMethod: () => void
   onBack: () => void
 }) {
@@ -25,6 +28,10 @@ export function Settings({
         <button className="door" onClick={onRetune}>
           What Coach knows
           <span className="door-meta">Your name, your aim, your world — re-tune it any time. Erasing everything lives here too.</span>
+        </button>
+        <button className="door" onClick={onAccount}>
+          Account
+          <span className="door-meta">{accountLabel}</span>
         </button>
         <button className="door" onClick={onMethod}>
           The method

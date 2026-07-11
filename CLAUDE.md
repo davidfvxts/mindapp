@@ -192,8 +192,10 @@ src/
     monthly.ts      Monthly arc pacing (readiness) + the live-decision signal. PURE.  ← TESTED
     inclusions.ts   The marked points inside a banked stone (deterministic). PURE.  ← TESTED
     ai.ts           Online-only Coach: sends entry + curated memory; returns reply + memo. Also fetchNudge().
-    supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth.
-    storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
+    supabase.ts     Null client when unconfigured → local-only. ensureSession() = anon auth;
+                    signInWithPassword()/signOut()/currentAccount() = real, named sign-in.
+    storage.ts      Local-first persistence + opportunistic sync (unsynced entries) +
+                    downloadEntries() (a signed-in account's whole backed-up history).
     drafts.ts       In-progress writing survives anything: debounced per-flow drafts.  ← TESTED
     store.ts        useFacet() — the single app hook. Owns online/offline + deferral + memory merge + nudges.
     milestones.ts   The five Stone colourways (Night 7/30/90/180/365) + stage words
@@ -206,7 +208,8 @@ src/
                     evolution; filmWindow() maps nights→film fractions (pure).  ← TESTED
     haptics.ts      The development pulse: Capacitor Haptics native, vibrate on web.
   components/
-    Onboarding · DailyRitual (Tonight) · AfterReflection · Stone · Guidance · Reviews · Vault
+    Onboarding · DailyRitual (Tonight) · AfterReflection · Stone · StoneFilm · Guidance ·
+    Reviews · Vault · Settings · Method · Account
 supabase/
   migrations/0001_init.sql   Schema + Row-Level Security.
   functions/coach/
@@ -272,19 +275,38 @@ nights close loops.
 
 ### Sync — explicit opt-in (the privacy contract)
 Backup & sync is **user consent, not a default**: `settings.sync` (chosen on the welcome
-screen, changeable in Revisit setup) gates ALL of it. Only when it's `true` does
-`supabase.ts` sign the device in **anonymously** (no magic-link UI needed) and
-`storage.ts` push unsynced entries under RLS. With sync off, **no account is created and
-no reflection is ever stored off the device** — Coach still reads a night live to reply
-(a separate, visible act; `authHeaders` falls back to the anon key). Legacy states
-(`sync: null`) migrate once on load: `true` only if the device already had a session.
-A real sign-in can later be linked to the anonymous user, carrying history over.
-Requires "Anonymous sign-ins" enabled in the project's Auth settings.
+screen, changeable in Settings → The rhythm) gates ALL of it. Only when it's `true` does
+`supabase.ts` sign the device in **anonymously** (no login needed) and `storage.ts` push
+unsynced entries under RLS. With sync off, **no account is created and no reflection is
+ever stored off the device** — Coach still reads a night live to reply (a separate, visible
+act; `authHeaders` falls back to the anon key). Legacy states (`sync: null`) migrate once
+on load: `true` only if the device already had a session. Requires "Anonymous sign-ins"
+enabled in the project's Auth settings.
 
-**Erase everything** lives at the end of the retune flow behind a two-step confirm
-(never beside a routine action): it deletes the user's backup rows FIRST when a session
-exists (online required — refuses rather than half-erase), then signs out, clears all
-drafts, and wipes local state. Never claim at-rest encryption in copy — it isn't built.
+**Erase everything** lives at the end of the re-tune flow (Settings → What Coach knows)
+behind a two-step confirm (never beside a routine action): it deletes the user's backup
+rows FIRST when a session exists (online required — refuses rather than half-erase), then
+signs out, clears all drafts, and wipes local state. Never claim at-rest encryption in
+copy — it isn't built.
+
+### Real sign-in — a named account, reachable from any device
+Settings → Account (`components/Account.tsx`) is sign-**in**, not self-serve signup:
+accounts are created manually for now in the Supabase dashboard (Authentication → Users
+→ Add user, email + password, "Auto Confirm User" on — David is the first). Logging in
+(`supabase.signInWithPassword` → `store.logIn`) replaces whatever session was active
+(anonymous or none) and recovers the account's whole backed-up history: every entry it's
+ever synced downloads (`storage.downloadEntries`), unions with whatever the device already
+has by id — nothing on either side is dropped (`game.mergeEntries`) — and the Night count
+is recomputed from that merged truth (`game.nightsFromEntries`, exact: distinct dates, not
+incremental). Backup turns on as a side effect of logging in. Logging out
+(`store.logOut`) ends the session but never touches local history — it turns backup OFF
+instead, so the next tick doesn't silently re-sync the same nights under a fresh,
+disconnected anonymous identity. `App.tsx`'s `account` (from `supabase.currentAccount`,
+refreshed via `onAuthStateChange`) distinguishes anonymous from a real, named session for
+the Settings label and the Account page itself. Note: this does not link an anonymous
+session's rows to the account being logged into — those stay under the old anonymous
+user's id, orphaned but private. That's fine for a single manually-provisioned tester;
+revisit if self-serve signup + identity linking is ever needed.
 
 ### Drafts — words are never lost
 `lib/drafts.ts` (TESTED) persists every writing surface's in-progress text to

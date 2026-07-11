@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { applyEntry, daysBetween, todayStr, weekCount } from './game'
-import { loadState, resetState, saveState, syncEntries } from './storage'
+import { applyEntry, daysBetween, mergeEntries, nightsFromEntries, todayStr, weekCount } from './game'
+import { downloadEntries, loadState, resetState, saveState, syncEntries } from './storage'
 import { aiEnabled, fetchCoachClose, fetchCoachReply, fetchFirstRead, fetchNudge, getMonthlyArc, getWeeklyInsight } from './ai'
 import { applyMemo, applyWeeklyRevision, foldRating, isCharged, recordCommitment, renegotiateCommitment, mergeWeeklyDelta, staleCommitment } from './coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, type OnboardingAnswers } from './onboarding'
@@ -14,7 +14,7 @@ import {
 } from './morning'
 import { quietSynthesisDue, reviewSoFarReady, weeklyReady, type WeeklyAnswers, type Woop } from './weekly'
 import { liveDecision, monthlyReady, trailingEntryNights, type MonthlyAnswers } from './monthly'
-import { ensureSession, supabase } from './supabase'
+import { currentAccount, ensureSession, signInWithPassword, signOut, supabase, type Account } from './supabase'
 import { clearAllDrafts } from './drafts'
 import { cancelMorningIntention, scheduleDailyReminder, scheduleMorningIntention } from './notifications'
 import { track } from './analytics'
@@ -67,9 +67,23 @@ export function useFacet() {
   const [toast, setToast] = useState<string | null>(null)
   const [thinking, setThinking] = useState(false)
   const [reveal, setReveal] = useState<Reveal | null>(null)
+  const [account, setAccount] = useState<Account | null>(null)
+  const [authBusy, setAuthBusy] = useState(false)
   const online = useOnline()
 
   useEffect(() => saveState(state), [state])
+
+  // Who's signed in, read live from the session — never persisted, never
+  // guessed. Refreshed on load and on every auth change (sign-in, sign-out,
+  // token refresh), so Settings always shows the truth.
+  useEffect(() => {
+    if (!supabase) return
+    void currentAccount().then(setAccount)
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      void currentAccount().then(setAccount)
+    })
+    return () => data.subscription.unsubscribe()
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -531,6 +545,59 @@ export function useFacet() {
    * cloud copies behind would make "erase everything" a lie). Returns false
    * when the erase couldn't finish, so the confirm screen can stay put.
    */
+
+  /**
+   * A real, named sign-in — set up manually for now. Recovers this account's
+   * whole backed-up history: downloads every entry it's ever synced, merges
+   * it with whatever this device already has (nothing is dropped either
+   * side), and recomputes the Night count from the merged truth. Turns
+   * backup on, so the merged set (and anything only local) syncs back up.
+   */
+  const logIn = useCallback(
+    async (email: string, password: string): Promise<string | null> => {
+      if (!online) return 'Logging in needs a connection.'
+      setAuthBusy(true)
+      try {
+        const { userId, error } = await signInWithPassword(email.trim(), password)
+        if (!userId) return error ?? 'Couldn’t log in.'
+
+        const remote = await downloadEntries(userId)
+        if (remote === null) {
+          // Signed in, but the recovery read failed — don't understate what's
+          // theirs: say so plainly rather than quietly showing only local nights.
+          setState((s) => ({ ...s, settings: { ...s.settings, sync: true } }))
+          setToast('Signed in — your nights couldn’t be reached just now. Try again shortly.')
+          return null
+        }
+        setState((s) => {
+          const entries = mergeEntries(s.entries, remote)
+          return { ...s, entries, game: nightsFromEntries(entries), settings: { ...s.settings, sync: true } }
+        })
+        setToast(remote.length ? 'Signed in — your nights are here.' : 'Signed in.')
+        return null
+      } finally {
+        setAuthBusy(false)
+      }
+    },
+    [online],
+  )
+
+  /**
+   * Ends the session. Local history stays on the device (this isn't erase),
+   * but backup turns off — otherwise the very next tick would anonymously
+   * re-sync the same nights under a fresh, disconnected identity.
+   */
+  const logOut = useCallback(async (): Promise<void> => {
+    setAuthBusy(true)
+    try {
+      await signOut()
+      setState((s) => ({ ...s, settings: { ...s.settings, sync: false } }))
+      setToast('Signed out. This device is local-only until backup is on again.')
+    } finally {
+      setAuthBusy(false)
+    }
+  }, [])
+
   const eraseEverything = useCallback(async (): Promise<boolean> => {
     if (supabase) {
       try {
@@ -636,10 +703,10 @@ export function useFacet() {
   }, [derived.morningQuestion])
 
   return {
-    state, derived, toast, thinking, reveal, online,
+    state, derived, toast, thinking, reveal, online, account, authBusy,
     completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly, answerCoach,
     markGuidanceSeen, markStoneSeen, markIntroSeen, commitNudge, declineNudge, resolveNudge, renegotiateIntention,
-    beginMonthly, completeMonthly, setMorning, eraseEverything,
+    beginMonthly, completeMonthly, setMorning, eraseEverything, logIn, logOut,
     setToast, clearReveal: () => setReveal(null),
   }
 }
