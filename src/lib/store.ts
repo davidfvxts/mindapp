@@ -12,8 +12,8 @@ import {
   intentionForToday, isMorningWindow, needsComeback, nextDay,
   offlineMorningQuestion, upsertMorning,
 } from './morning'
-import { quietSynthesisDue, weeklyReady, type WeeklyAnswers, type Woop } from './weekly'
-import { liveDecision, monthlyReady, type MonthlyAnswers } from './monthly'
+import { quietSynthesisDue, reviewSoFarReady, weeklyReady, type WeeklyAnswers, type Woop } from './weekly'
+import { liveDecision, monthlyReady, trailingEntryNights, type MonthlyAnswers } from './monthly'
 import { ensureSession, supabase } from './supabase'
 import { clearAllDrafts } from './drafts'
 import { cancelMorningIntention, scheduleDailyReminder, scheduleMorningIntention } from './notifications'
@@ -334,7 +334,7 @@ export function useFacet() {
       setThinking(true)
       const result = await getWeeklyInsight(state.entries, state.settings, state.coach, { review, woop })
       setThinking(false)
-      if (!result) { setToast('Coach couldn’t be reached. Try again in a moment.'); return null }
+      if (!result) return null
       const today = todayStr()
       const card: InsightCard = { id: uid(), text: result.text, date: today }
       const nights = state.game.nights
@@ -567,23 +567,30 @@ export function useFacet() {
     }
     const morningWindow = isMorningWindow(new Date().getHours())
 
-    // The weekly review: ready when the week is gathered and the last guided
-    // review is far enough back. The open standing intention (if any) is
+    // Three nights can support a review so far; the fuller five-Night gate
+    // still governs the quiet synthesis. The standing intention (if any) is
     // checked in on at the top of the next review.
-    const reviewReady = weeklyReady(thisWeek, state.lastWeeklyReview, today)
+    const reviewReady = reviewSoFarReady(thisWeek, state.lastWeeklyReview, today)
+    const fullWeeklyReview = weeklyReady(thisWeek, state.lastWeeklyReview, today)
     const openWeeklyIntention =
       state.nudges.find((n) => n.kind === 'intention' && n.status === 'committed') ?? null
 
     // An intention that aged out unresolved — awaiting the user's call in Guidance.
     const staleIntention = staleCommitment(state.coach)
 
-    // The monthly arc: enough weekly reads gathered, spaced from the last arc.
-    const monthReady = monthlyReady(state.cards.length, state.lastMonthlyArc, today)
+    // The monthly arc: enough lived material, spaced from the last arc.
+    const monthReady = monthlyReady(
+      state.game.nights,
+      state.cards.length,
+      trailingEntryNights(state.entries, today),
+      state.lastMonthlyArc,
+      today,
+    )
     const liveDecisionText = liveDecision(state.coach)
 
     return {
       reflectedToday, thisWeek, todayIntention, comeback, morningNote, morningQuestion, morningWindow,
-      reviewReady, openWeeklyIntention, staleIntention, monthReady, liveDecision: liveDecisionText,
+      reviewReady, fullWeeklyReview, openWeeklyIntention, staleIntention, monthReady, liveDecision: liveDecisionText,
     }
   }, [state.entries, state.game, state.coach, state.comebackAck, state.mornings, state.nextMorningQuestion, state.nudges, state.lastWeeklyReview, state.cards.length, state.lastMonthlyArc])
 

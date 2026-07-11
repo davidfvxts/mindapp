@@ -16,8 +16,8 @@ import {
   intentionForToday, isMorningWindow, missedNights, needsComeback,
   nextDay, offlineMorningQuestion, upsertMorning,
 } from '../src/lib/morning'
-import { quietSynthesisDue, weeklyReady } from '../src/lib/weekly'
-import { monthlyReady, liveDecision } from '../src/lib/monthly'
+import { quietSynthesisDue, reviewSoFarReady, weeklyReady } from '../src/lib/weekly'
+import { monthlyReady, trailingEntryNights, liveDecision } from '../src/lib/monthly'
 import { inclusionsForStone, prevMilestoneNight } from '../src/lib/inclusions'
 import { STONES } from '../src/lib/milestones'
 import { buildMonthlyUser } from '../supabase/functions/coach/logic'
@@ -367,11 +367,12 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
 
 // ---------- the weekly review: the user's work, paced + captured ----------
 {
-  // readiness: week gathered + last guided review far enough back
-  ok('not ready under the gate', !weeklyReady(4, null, '2026-07-09'))
-  ok('ready at the gate, never reviewed', weeklyReady(5, null, '2026-07-09'))
-  ok('not ready right after a review', !weeklyReady(7, '2026-07-07', '2026-07-09'))
-  ok('ready again after the gap', weeklyReady(7, '2026-07-01', '2026-07-09'))
+  // Three nights open the same guided review; five still make a full week.
+  ok('not ready before three nights', !reviewSoFarReady(2, null, '2026-07-09'))
+  ok('three nights opens a review so far', reviewSoFarReady(3, null, '2026-07-09'))
+  ok('five nights makes a full weekly review', weeklyReady(5, null, '2026-07-09'))
+  ok('review waits after a recent guided review', !reviewSoFarReady(7, '2026-07-07', '2026-07-09'))
+  ok('review opens again after the gap', reviewSoFarReady(3, '2026-07-01', '2026-07-09'))
 
   // quiet synthesis: only when ready-but-untouched for a while
   ok('quiet pass not due under the gate', !quietSynthesisDue(4, null, null, '2026-07-09'))
@@ -484,11 +485,16 @@ const E = (date: string, o: Partial<Entry> = {}): Entry => ({
   ok('month theme reaches the daily block',
     buildDailyUser('David', En({}), [], [], { monthTheme: 'Ship, don’t polish' }).includes("THIS MONTH'S THEME"))
 
-  // monthly gating: enough weekly reads, spaced from the last arc
-  ok('monthly not ready under the gate', !monthlyReady(3, null, '2026-07-31'))
-  ok('monthly ready with the reads gathered', monthlyReady(4, null, '2026-07-31'))
-  ok('a recent arc blocks another', !monthlyReady(6, '2026-07-20', '2026-07-31'))
-  ok('an old arc opens again', monthlyReady(6, '2026-06-01', '2026-07-31'))
+  // monthly gating: Night 30 plus either reads or recent lived material
+  ok('monthly stays closed before Night 30', !monthlyReady(29, 3, 25, null, '2026-07-31'))
+  ok('monthly opens with two weekly reads', monthlyReady(30, 2, 0, null, '2026-07-31'))
+  ok('monthly opens with twenty recent nights', monthlyReady(30, 0, 20, null, '2026-07-31'))
+  ok('monthly needs enough material after Night 30', !monthlyReady(30, 1, 19, null, '2026-07-31'))
+  ok('a recent arc blocks another', !monthlyReady(30, 2, 20, '2026-07-20', '2026-07-31'))
+  ok('an old arc opens again', monthlyReady(30, 2, 20, '2026-06-01', '2026-07-31'))
+  ok('monthly material counts distinct entry nights in 35 days', trailingEntryNights([
+    { date: '2026-07-31' }, { date: '2026-07-31' }, { date: '2026-07-01' }, { date: '2026-06-27' }, { date: '2026-06-26' },
+  ], '2026-07-31') === 3)
 
   // liveDecision drives whether the fear-setting step shows
   ok('a live decision surfaces from memory',

@@ -120,6 +120,8 @@ export default function App() {
         {tab === 'review' && (
           <Reviews
             ready={m.derived.reviewReady}
+            fullWeek={m.derived.fullWeeklyReview}
+            online={m.online}
             cards={m.state.cards}
             arcs={m.state.arcs}
             thinking={m.thinking}
