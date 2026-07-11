@@ -212,14 +212,6 @@ export const SEEDS: readonly Seed[] = [
     value: 'For a founder, protected reflection time is a duty, not an indulgence; the burnout research is blunt about it.',
     fit: (c) => c.nights >= 30,
   },
-  {
-    seedId: 'gratitude', kind: 'habit', weight: 1,
-    title: 'End on one specific gratitude',
-    body: 'One concrete thing you’re grateful for — specificity beats length. A counterweight to all the auditing, not the centrepiece.',
-    value: 'A single specific gratitude lifts well-being; its effect is real but modest, so keep it small (Emmons).',
-    fit: (c) => c.nights >= 30,
-  },
-
   // ---- readings: method-grounded (offered when the method fires) ----
   {
     seedId: 'read-chatter', kind: 'reading', weight: 2,

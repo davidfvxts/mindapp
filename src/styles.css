@@ -403,6 +403,10 @@ textarea.error, input.error { border-color: var(--line-control); }
   color: var(--ink-body); font-size: var(--type-secondary-size);
   line-height: var(--type-body-lh);
 }
+/* An open inclusion is the page's ONE raised object; the whole night unfolds inside. */
+.inclusion-open { border-radius: var(--r-lg); background: var(--surface-raised); padding: 0 var(--s-4) var(--s-4); margin: var(--s-2) 0; }
+.inclusion-open .inclusion { border-top: none; }
+.inclusion-open + .inclusion { border-top: none; }
 
 /* new-nudge marker on the Guidance tab */
 .tabs button .tab-dot {

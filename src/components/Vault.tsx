@@ -8,6 +8,39 @@ import type { AppState, Entry } from '../lib/types'
 const humanDate = (iso: string): string =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'long' })
 
+/** The full night: reflection + the whole Coach exchange. Shared by the
+ *  nights archive and the inclusions inside a banked stone. */
+function NightDetail({ e }: { e: Entry }) {
+  return (
+    <div className="night-detail develop">
+      {e.well && (
+        <p className="secondary"><span className="ambient">Went well · </span>{e.well}</p>
+      )}
+      {e.next && (
+        <p className="secondary"><span className="ambient">Next · </span>{e.next}</p>
+      )}
+      {e.coach && (
+        <div className="item-coach">
+          <span className="ambient">Coach</span>
+          <p>{e.coach.text}</p>
+        </div>
+      )}
+      {e.coachAnswer && (
+        <div className="item-coach item-answer">
+          <span className="ambient">You</span>
+          <p>{e.coachAnswer}</p>
+        </div>
+      )}
+      {e.coachClose && (
+        <div className="item-coach item-close">
+          <span className="ambient">Coach</span>
+          <p>{e.coachClose.text}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** One archived night: a quiet row that opens into the full entry + exchange. */
 function NightRow({ e, open, onToggle }: { e: Entry; open: boolean; onToggle: () => void }) {
   return (
@@ -19,34 +52,7 @@ function NightRow({ e, open, onToggle }: { e: Entry; open: boolean; onToggle: ()
         </span>
         <span className="item-body">{e.event}</span>
       </button>
-      {open && (
-        <div className="night-detail develop">
-          {e.well && (
-            <p className="secondary"><span className="ambient">Went well · </span>{e.well}</p>
-          )}
-          {e.next && (
-            <p className="secondary"><span className="ambient">Next · </span>{e.next}</p>
-          )}
-          {e.coach && (
-            <div className="item-coach">
-              <span className="ambient">Coach</span>
-              <p>{e.coach.text}</p>
-            </div>
-          )}
-          {e.coachAnswer && (
-            <div className="item-coach item-answer">
-              <span className="ambient">You</span>
-              <p>{e.coachAnswer}</p>
-            </div>
-          )}
-          {e.coachClose && (
-            <div className="item-coach item-close">
-              <span className="ambient">Coach</span>
-              <p>{e.coachClose.text}</p>
-            </div>
-          )}
-        </div>
-      )}
+      {open && <NightDetail e={e} />}
     </div>
   )
 }
@@ -79,16 +85,25 @@ export function Vault({ state, onRevisit }: { state: AppState; onRevisit: () => 
           <div className="section">
             <span className="ambient">Inside this stone</span>
             <div className="spacer" />
-            {points.map((p) => (
-              <button
-                key={p.date}
-                className={`inclusion${inclusion?.date === p.date ? ' on' : ''}`}
-                onClick={() => setInclusion(inclusion?.date === p.date ? null : p)}
-              >
-                <span className="inclusion-label">{p.label}</span>
-                {inclusion?.date === p.date && <span className="inclusion-words develop">{p.event}</span>}
-              </button>
-            ))}
+            {points.map((p) => {
+              const on = inclusion?.date === p.date
+              // An open inclusion surfaces the WHOLE night — the reflection
+              // and the Coach exchange — not just the event line.
+              const night = on ? entries.find((e) => e.date === p.date) : undefined
+              return (
+                <div key={p.date} className={on ? 'inclusion-open surface' : undefined}>
+                  <button
+                    className={`inclusion${on ? ' on' : ''}`}
+                    aria-expanded={on}
+                    onClick={() => setInclusion(on ? null : p)}
+                  >
+                    <span className="inclusion-label">{p.label}</span>
+                    {on && <span className="inclusion-words develop">{p.event}</span>}
+                  </button>
+                  {on && night && <NightDetail e={night} />}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

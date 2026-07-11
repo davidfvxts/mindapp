@@ -295,7 +295,7 @@ export function Reviews({
             <div className="section">
               <label className="field-label"><span className="ambient">What it gets you</span></label>
               <input value={outcome} onChange={(e) => setOutcome(e.target.value)}
-                placeholder="How it will feel, what it unlocks — one line." aria-label="What it gets you." />
+                placeholder="How it will feel, what it makes possible — one line." aria-label="What it gets you." />
             </div>
           </>
         )}

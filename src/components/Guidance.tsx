@@ -154,10 +154,7 @@ export function Guidance({ state, onCommit, onDecline, onResolve, onRenegotiate,
 
       {decision ?? (
         <div className="section">
-          <p className="secondary">
-            Nothing right now. When something’s worth your time, it appears here —
-            every few nights at most.
-          </p>
+          <p className="secondary">Nothing right now. When something’s worth your time, it appears here.</p>
         </div>
       )}
 
