@@ -150,14 +150,39 @@ export function Stone({
 
         <g clipPath={`url(#${id('clip')})`}>
           <polygon points={geo.silhouette} fill="#FFFFFF" opacity="0.05" />
+          {/* The heart-thread: the captured light in the core — there from the
+              first dark shard, brighter as the crystal wakes. Achromatic. */}
+          <polyline
+            points={geo.heart.points}
+            fill="none"
+            stroke="#FFFFFF"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            opacity={geo.heart.strength * 0.5}
+            filter={`url(#${id('glow')})`}
+          />
+          <polyline
+            points={geo.heart.points}
+            fill="none"
+            stroke="#FFFFFF"
+            strokeWidth="0.7"
+            strokeLinecap="round"
+            opacity={geo.heart.strength * 0.85}
+          />
           {geo.facets.map((f, i) => (
             <polygon
               key={i}
               points={f.points}
               fill="#FFFFFF"
               fillOpacity={fillOpacity(f.brightness, f.revealed, f.isNew)}
-              stroke={f.isNew ? 'rgba(255,255,255,0.55)' : f.revealed ? 'rgba(255,255,255,0.15)' : 'none'}
-              strokeWidth={f.isNew ? 0.9 : 0.4}
+              stroke={
+                f.isNew
+                  ? 'rgba(255,255,255,0.55)'
+                  : f.revealed
+                    ? f.locked ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.15)'
+                    : 'none'
+              }
+              strokeWidth={f.isNew ? 0.9 : f.locked ? 0.55 : 0.4}
             />
           ))}
           {geo.speculars.map((s, i) =>

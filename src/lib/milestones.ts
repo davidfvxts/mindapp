@@ -14,15 +14,20 @@ export interface Stone {
   night: number
   from: string
   to: string
+  /** The chapter line — what the light learned in this stone. One quiet
+   *  sentence for the Vault detail; words, never numbers. */
+  chapter: string
 }
 
-/** Earned in order. Nights match the design system exactly. */
+/** Earned in order. Nights match the design system exactly. The chapters tell
+ *  one storyline across the stones (docs/Stone-Story.md): the same light
+ *  migrates from stone to stone, learning a new shape in each. */
 export const STONES: readonly Stone[] = [
-  { name: 'Ember', night: 7, from: '#FF6A3D', to: '#C2273B' },
-  { name: 'Tide', night: 30, from: '#35D0BA', to: '#2563EB' },
-  { name: 'Iris', night: 90, from: '#7C5CFF', to: '#C838F0' },
-  { name: 'Aurora', night: 180, from: '#34D399', to: '#22D3EE' },
-  { name: 'Solstice', night: 365, from: '#FFD34D', to: '#FF8A2A' },
+  { name: 'Ember', night: 7, from: '#FF6A3D', to: '#C2273B', chapter: 'The spark that survives — the light learned to stay lit.' },
+  { name: 'Tide', night: 30, from: '#35D0BA', to: '#2563EB', chapter: 'The rhythm — the light learned to return.' },
+  { name: 'Iris', night: 90, from: '#7C5CFF', to: '#C838F0', chapter: 'The seeing — the light learned to show you patterns.' },
+  { name: 'Aurora', night: 180, from: '#34D399', to: '#22D3EE', chapter: 'The movement — the light learned to change shape.' },
+  { name: 'Solstice', night: 365, from: '#FFD34D', to: '#FF8A2A', chapter: 'The still point — the light learned to hold steady.' },
 ] as const
 
 export const isMilestoneNight = (night: number): boolean =>

@@ -196,9 +196,12 @@ src/
     storage.ts      Local-first persistence + opportunistic sync (unsynced entries).
     drafts.ts       In-progress writing survives anything: debounced per-flow drafts.  ← TESTED
     store.ts        useFacet() — the single app hook. Owns online/offline + deferral + memory merge + nudges.
-    milestones.ts   The five Stone colourways (Night 7/30/90/180/365) + stage words.
-    stoneGeometry.ts The Stone's evolving form: five cuts, one facet per Night,
-                    deterministic light/jitter — the game layer's centerpiece.  ← TESTED
+    milestones.ts   The five Stone colourways (Night 7/30/90/180/365) + stage words
+                    + the chapter line each stone carries (the light's storyline).
+    stoneGeometry.ts The Stone's evolving form, told as light (docs/Stone-Story.md):
+                    five cuts, one face wakes per Night, a heart-thread in the core
+                    (flares on Night 1), one ring locks per seven nights — all
+                    deterministic. The game layer's centerpiece.  ← TESTED
   components/
     Onboarding · DailyRitual (Tonight) · AfterReflection · Stone · Guidance · Reviews · Vault
 supabase/

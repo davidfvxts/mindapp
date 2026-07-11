@@ -94,6 +94,35 @@ ok('facets catch different light', new Set(lit.facets.map((f) => Math.round(f.br
 const silhouettes = [0, 1, 2, 3, 4].map((ci) => renderStone(ci, { nightsIntoSpan: 20, span: 20 }).silhouette)
 ok('every stone has its own cut', new Set(silhouettes).size === 5)
 
+// ---- the heart-thread: the captured light in the core ----
+const shard = renderStone(1, { nightsIntoSpan: 0, span: 23 })
+ok('the new dark shard already carries the thread', shard.heart.strength > 0)
+const heartPts = shard.heart.points.split(' ').map((p) => p.split(',').map(Number))
+ok('the thread lives inside the viewBox', heartPts.every(([x, y]) => x > 0 && x < 100 && y > 0 && y < 100))
+const early = renderStone(1, { nightsIntoSpan: 5, span: 23 }).heart.strength
+const late = renderStone(1, { nightsIntoSpan: 20, span: 23 }).heart.strength
+ok('the thread brightens as the crystal wakes', late > early)
+ok('thread strength stays in 0..1', early >= 0 && late <= 1)
+const ignition = renderStone(1, { nightsIntoSpan: 1, span: 23, markNew: true }).heart.strength
+const nightOneQuiet = renderStone(1, { nightsIntoSpan: 1, span: 23 }).heart.strength
+ok('Night 1 ignites the core — the light takes', ignition === 1 && ignition > nightOneQuiet)
+const laterNew = renderStone(1, { nightsIntoSpan: 5, span: 23, markNew: true }).heart.strength
+ok('later nights wake a face, not the whole core', laterNew < 1)
+
+// ---- the weekly beat: every 7th night a ring locks ----
+ok('no ring before the seventh night', renderStone(1, { nightsIntoSpan: 6, span: 23 }).ringsLocked === 0)
+ok('the seventh night locks the first ring', renderStone(1, { nightsIntoSpan: 7, span: 23 }).ringsLocked === 1)
+ok('the fourteenth locks the second', renderStone(1, { nightsIntoSpan: 14, span: 23 }).ringsLocked === 2)
+const week1 = renderStone(1, { nightsIntoSpan: 7, span: 23 })
+ok('a locked ring marks its faces', week1.facets.some((f) => f.locked))
+ok('rings never exceed the bands', renderStone(4, { nightsIntoSpan: 185, span: 185 }).ringsLocked <= 5)
+// The lock is structural: the locked band's lines shed their jitter, so the
+// ring's geometry from night 7 survives unchanged into night 8.
+const week1Locked = week1.facets.filter((f) => f.locked).map((f) => f.points).join('|')
+const week2 = renderStone(1, { nightsIntoSpan: 8, span: 23 })
+const week2Locked = week2.facets.filter((f) => f.locked).map((f) => f.points).join('|')
+ok('a locked ring holds its shape the next night', week1Locked === week2Locked)
+
 // ---- the milestone echo: the user's own first words of the span ----
 const E = (i: number, event: string): Entry =>
   ({ id: `e${i}`, date: `2026-07-${String(i).padStart(2, '0')}`, event, emotions: [], well: '', next: '', ts: i })

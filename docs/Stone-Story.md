@@ -33,9 +33,11 @@ glass, with a **thin filament of light suspended in its core** — the
 
 Every 7th night inside a span, a **ring locks**: a whole band of faces
 around the crystal snaps into brilliant alignment and the silhouette steps
-visibly closer to its final form. Not +1 face — a reorganization. (In-app,
-this needs no new mechanic: the weekly frames are simply drawn with the
-lock; the weekly review already gives that day a rhythm.)
+visibly closer to its final form. Not +1 face — a reorganization. (In-app
+this is now native: `stoneGeometry.ts` locks one ring per seven nights —
+aligned light, zero jitter on the ring's lines — so the procedural fallback
+carries the beat even before frames exist; weekly frames simply draw the
+same lock.)
 
 ## The monthly beat (the payoff)
 
@@ -58,9 +60,10 @@ shard is the light you grew in the last one. Five chapters, one year:
 | Aurora | 180 | *The movement* | To change shape — who you were vs who you're becoming |
 | Solstice | 365 | *The still point* | To hold steady through the longest night |
 
-Vault detail copy can carry the chapter line under each stone (one quiet
-sentence, words not numbers). Inclusions stay as-is: the user's own nights
-are what's inside the stone — the story never replaces their words.
+The Vault detail carries the chapter line under each stone (one quiet
+sentence, words not numbers — `milestones.ts` holds the copy). Inclusions
+stay as-is: the user's own nights are what's inside the stone — the story
+never replaces their words.
 
 ## Scalability
 

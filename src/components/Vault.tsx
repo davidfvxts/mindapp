@@ -70,7 +70,9 @@ export function Vault({ state, onRevisit }: { state: AppState; onRevisit: () => 
         <div className="section center">
           {/* Colour blooms here, on the detail view. */}
           <Stone colored stone={open} size={200} caption={open.name} />
-          <p className="sub" style={{ marginTop: 'var(--s-5)' }}>Night {open.night}.</p>
+          <p className="sub" style={{ marginTop: 'var(--s-5)', marginBottom: 'var(--s-2)' }}>Night {open.night}.</p>
+          {/* The chapter — what the light learned in this stone. Words, never numbers. */}
+          <p className="secondary">{open.chapter}</p>
         </div>
 
         {points.length > 0 && (

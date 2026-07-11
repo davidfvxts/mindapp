@@ -1,13 +1,17 @@
 /**
  * Facet — the Stone's geometry (PURE: no DOM, no randomness, no time).
  *
- * The centerpiece of the game layer. The stone is an evolving artpiece:
- * it begins as a jittered rough, and every completed Night does two visible
- * things — one more facet is CUT (it ignites with light and crisp edges),
- * and the whole silhouette trues up a little toward the final form. At the
- * milestone the last facet lands, the jitter reaches zero, and the cut is
- * complete. Everything is deterministic: the same night always renders the
- * same stone, on every device, forever.
+ * The centerpiece of the game layer, told as light (docs/Stone-Story.md:
+ * "The Light Learns Its Shape"). The stone is a dark crystal with a
+ * heart-thread — a thin filament of light suspended in its core — and every
+ * completed Night does two visible things: one more face WAKES (matte
+ * obsidian turns to a softly glowing plane), and the whole silhouette trues
+ * up a little toward the final form. Every 7th night a RING LOCKS: a band of
+ * faces snaps into brilliant alignment and its lines lose their jitter — the
+ * weekly beat, structural rather than additive. At the milestone the last
+ * face lands, the jitter reaches zero, and the form is complete. Everything
+ * is deterministic: the same night always renders the same stone, on every
+ * device, forever.
  *
  * Five cuts, one per milestone stone. A banked stone keeps exactly the
  * facets its span earned, so later stones are literally more finely worked:
@@ -27,10 +31,12 @@ export interface FacetSpec {
   points: string
   /** 0..1 — how much of the key light this face catches. */
   brightness: number
-  /** Cut and polished (true) vs still rough matte (false). */
+  /** Awake (true) vs still matte obsidian (false). */
   revealed: boolean
-  /** Tonight's freshly cut face — rendered a touch brighter. */
+  /** Tonight's freshly woken face — rendered a touch brighter. */
   isNew: boolean
+  /** Part of a locked ring — aligned light, crisp shared edges. */
+  locked: boolean
 }
 
 export interface SpecularSpec {
@@ -45,6 +51,11 @@ export interface StoneRender {
   facets: FacetSpec[]
   girdle: { x1: number; y1: number; x2: number; y2: number }
   speculars: SpecularSpec[]
+  /** The heart-thread: the captured light in the core, present from the first
+   *  dark shard on. Polyline points; strength 0..1 (flares on Night 1). */
+  heart: { points: string; strength: number }
+  /** Whole rings locked so far — one per seven nights into the span. */
+  ringsLocked: number
   revealedCount: number
   totalFacets: number
   /** 0..1 — overall progress toward the finished cut. */
@@ -189,9 +200,18 @@ export function renderStone(cutIndex: number, opts: SpanProgress): StoneRender {
   // Jitter eases out as the cut nears completion — the stone trues up nightly.
   const λ = (1 - progress) * JITTER_AMPLITUDE
 
+  // The weekly beat: every 7th night a whole ring locks — its band aligns
+  // and its lines drop their jitter. A structural step, not one more face.
+  const ringsLocked = Math.min(Math.floor(nights / 7), plan.bands.length - 1)
+
   // ---- the shared point grid ----
   const { girdleLine, lineCount } = plan
   const M = Math.max(...plan.bands.map((b) => b.count), 1)
+
+  // Bands 1..ringsLocked are locked (band 0 is the table); a locked band's
+  // two lines lose their jitter entirely — the ring snaps into alignment.
+  const bandLocked = (bandIndex: number): boolean => bandIndex >= 1 && bandIndex <= ringsLocked
+  const lineLocked = (l: number): boolean => ringsLocked >= 1 && l >= 1 && l <= ringsLocked + 1
 
   const lineY: number[] = []
   const lineHalf: number[] = []
@@ -212,11 +232,11 @@ export function renderStone(cutIndex: number, opts: SpanProgress): StoneRender {
 
   const gridX = (l: number, c: number): number => {
     const w = lineHalf[l]
-    const jitter = signed(ci * 7919 + l * 131 + c * 17) * λ
+    const jitter = lineLocked(l) ? 0 : signed(ci * 7919 + l * 131 + c * 17) * λ
     return CX - w + (2 * w * c) / M + jitter
   }
   const gridY = (l: number, c: number): number => {
-    const jitter = signed(ci * 7919 + l * 131 + c * 17 + 500009) * λ * 0.6
+    const jitter = lineLocked(l) ? 0 : signed(ci * 7919 + l * 131 + c * 17 + 500009) * λ * 0.6
     return lineY[l] + jitter
   }
   const culet = {
@@ -226,9 +246,10 @@ export function renderStone(cutIndex: number, opts: SpanProgress): StoneRender {
 
   // ---- facets ----
   const light = { x: -0.55, y: -0.835 } // fixed key light, top-left
-  const raw: { points: string; brightness: number; cx: number; cy: number }[] = []
+  const raw: { points: string; brightness: number; cx: number; cy: number; locked: boolean }[] = []
 
-  for (const band of plan.bands) {
+  for (const [bandIndex, band] of plan.bands.entries()) {
+    const locked = bandLocked(bandIndex)
     const toCulet = band.bottom === -1
     for (let f = 0; f < band.count; f++) {
       const c0 = Math.floor((f * M) / band.count)
@@ -257,11 +278,13 @@ export function renderStone(cutIndex: number, opts: SpanProgress): StoneRender {
       else { nx = dx * 0.72; ny = 0.58 }
       const nl = Math.hypot(nx, ny) || 1
       const lambert = (nx / nl) * light.x + (ny / nl) * light.y
-      // Sparkle: adjacent faces catch slightly different light.
-      const sparkle = signed(ci * 104729 + raw.length * 7907) * 0.11
+      // Sparkle: adjacent faces catch slightly different light. A locked ring
+      // drops the noise and takes a small lift — coherent, brilliant alignment
+      // instead of glitter.
+      const sparkle = locked ? 0.08 : signed(ci * 104729 + raw.length * 7907) * 0.11
       const brightness = Math.max(0.05, Math.min(1, 0.5 + 0.5 * lambert + sparkle))
 
-      raw.push({ points, brightness, cx, cy })
+      raw.push({ points, brightness, cx, cy, locked })
     }
   }
 
@@ -283,6 +306,7 @@ export function renderStone(cutIndex: number, opts: SpanProgress): StoneRender {
     brightness: f.brightness,
     revealed: revealedSet.has(i),
     isNew: i === newest,
+    locked: f.locked,
   }))
 
   // ---- silhouette (shares the exact grid points — crack-free) ----
@@ -318,6 +342,25 @@ export function renderStone(cutIndex: number, opts: SpanProgress): StoneRender {
     },
   ]
 
+  // ---- the heart-thread: the captured light in the core. It is already
+  // inside the new dark shard (the light migrated from the last stone),
+  // grows as the crystal wakes, and FLARES on Night 1 — "the light takes". ----
+  const heartTopY = cut.tableY + (cut.girdleY - cut.tableY) * 0.38
+  const heartMidY = cut.girdleY
+  const heartLowY = cut.girdleY + (cut.culetY - cut.girdleY) * 0.42
+  const heartX = CX + signed(ci * 7919 + 77) * 1.6
+  const heart = {
+    points: [
+      pt(heartX, heartTopY),
+      pt(heartX + signed(ci * 7919 + 177) * 1.4, heartMidY),
+      pt(CX + cut.culetOffset * 0.4, heartLowY),
+    ].join(' '),
+    strength:
+      markNew && nights === 1
+        ? 1 // Night 1: the core ignites.
+        : Math.min(1, 0.35 + 0.5 * progress),
+  }
+
   return {
     silhouette,
     facets,
@@ -328,6 +371,8 @@ export function renderStone(cutIndex: number, opts: SpanProgress): StoneRender {
       y2: r2(gridY(girdleLine, M)),
     },
     speculars,
+    heart,
+    ringsLocked,
     revealedCount,
     totalFacets: plan.total,
     progress,
