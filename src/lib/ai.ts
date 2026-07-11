@@ -1,4 +1,4 @@
-import type { AppState, CoachClose, CoachKind, CoachMemo, CoachMemory, CoachProfile, CoachReply, Entry, Settings } from './types'
+import type { AppState, CoachKind, CoachMemo, CoachMemory, CoachProfile, CoachReply, Entry, Settings } from './types'
 import { anonKey, supabase } from './supabase'
 import { curate } from './coachMemory'
 import type { NudgeDraft } from './guidance'
@@ -32,12 +32,6 @@ async function authHeaders(): Promise<Record<string, string>> {
 /** Tonight's reply plus what Coach learned, to fold into local memory. */
 export interface DailyResult {
   reply: CoachReply
-  memo: CoachMemo | null
-}
-
-/** Coach's final line after the user's one optional answer. */
-export interface AnswerResult {
-  close: CoachClose
   memo: CoachMemo | null
 }
 
@@ -87,41 +81,41 @@ export async function fetchCoachReply(
   }
 }
 
-/**
- * The optional answer turn is deliberately bounded: the answer is already
- * persisted by the caller before this request starts, and a failure simply
- * leaves the entry with no close. Closes are never queued for catch-up.
- */
-export async function fetchCoachClose(
+/** One conversation turn about a night: Coach's reply + what it learned. */
+export async function fetchCoachChat(
   entry: Entry,
-  history: Entry[],
+  message: string,
   settings: Settings,
   coach: CoachMemory,
-): Promise<AnswerResult | null> {
-  if (!COACH_URL || !entry.coach || !entry.coachAnswer) return null
+  history: Entry[],
+): Promise<{ text: string; memo: CoachMemo | null } | null> {
+  if (!COACH_URL) return null
   const { memory } = curate(history, coach)
   try {
     const res = await fetch(COACH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({
-        mode: 'answer',
+        mode: 'chat',
         name: settings.name,
         entry: { event: entry.event, emotions: entry.emotions, well: entry.well, next: entry.next },
-        reply: { text: entry.coach.text, kind: entry.coach.kind },
-        answer: entry.coachAnswer,
+        reply: entry.coach ? { text: entry.coach.text, kind: entry.coach.kind } : null,
+        // The whole exchange travels: the legacy bounded turns first, then the thread.
+        thread: [
+          ...(entry.coachAnswer ? [{ role: 'you', text: entry.coachAnswer }] : []),
+          ...(entry.coachClose ? [{ role: 'coach', text: entry.coachClose.text }] : []),
+          ...(entry.thread ?? []).map((t) => ({ role: t.role, text: t.text })),
+        ].slice(-12),
+        message,
         memory,
       }),
     })
     if (!res.ok) throw new Error(`coach ${res.status}`)
-    const data = (await res.json()) as { close?: string; memo?: CoachMemo; meta?: CoachClose['meta'] }
-    if (!data.close) throw new Error('empty close')
-    return {
-      close: { text: data.close, source: 'ai', meta: data.meta },
-      memo: data.memo ?? null,
-    }
+    const data = (await res.json()) as { text?: string; memo?: CoachMemo }
+    if (!data.text) throw new Error('empty chat reply')
+    return { text: data.text, memo: data.memo ?? null }
   } catch (err) {
-    console.warn('[facet] Coach could not close this answer:', err)
+    console.warn('[facet] Coach could not reply just now:', err)
     return null
   }
 }

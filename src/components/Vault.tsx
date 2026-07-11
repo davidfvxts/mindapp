@@ -1,18 +1,22 @@
 import { useState } from 'react'
 import { Stone } from './Stone'
 import { StoneFilm } from './StoneFilm'
+import { CoachChat } from './CoachChat'
 import { STONES, bankedStones, nextStone, stoneStage, type Stone as StoneModel } from '../lib/milestones'
 import { filmForNight, filmWindow } from '../lib/stoneFilm'
 import { inclusionsForStone, prevMilestoneNight, type Inclusion } from '../lib/inclusions'
 import type { AppState, Entry } from '../lib/types'
 
+type OnChat = (entryId: string, message: string) => Promise<boolean>
+
 /** ISO date → "Tue 8 July" — an instrument never shows debug output. */
 const humanDate = (iso: string): string =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'long' })
 
-/** The full night: reflection + the whole Coach exchange. Shared by the
- *  nights archive and the inclusions inside a banked stone. */
-function NightDetail({ e }: { e: Entry }) {
+/** The full night: reflection, Coach's read, and the conversation — which
+ *  stays open here. Shared by the nights archive and the inclusions inside
+ *  a banked stone; any night can be talked about, whenever it matters. */
+function NightDetail({ e, online, onChat }: { e: Entry; online: boolean; onChat: OnChat }) {
   return (
     <div className="night-detail develop">
       {e.well && (
@@ -27,24 +31,15 @@ function NightDetail({ e }: { e: Entry }) {
           <p>{e.coach.text}</p>
         </div>
       )}
-      {e.coachAnswer && (
-        <div className="item-coach item-answer">
-          <span className="ambient">You</span>
-          <p>{e.coachAnswer}</p>
-        </div>
-      )}
-      {e.coachClose && (
-        <div className="item-coach item-close">
-          <span className="ambient">Coach</span>
-          <p>{e.coachClose.text}</p>
-        </div>
-      )}
+      <CoachChat entry={e} online={online} onSend={onChat} />
     </div>
   )
 }
 
 /** One archived night: a quiet row that opens into the full entry + exchange. */
-function NightRow({ e, open, onToggle }: { e: Entry; open: boolean; onToggle: () => void }) {
+function NightRow({ e, open, online, onChat, onToggle }: {
+  e: Entry; open: boolean; online: boolean; onChat: OnChat; onToggle: () => void
+}) {
   return (
     <div className={open ? 'item surface night-open' : 'item'}>
       <button className="night-row" onClick={onToggle} aria-expanded={open}>
@@ -54,12 +49,14 @@ function NightRow({ e, open, onToggle }: { e: Entry; open: boolean; onToggle: ()
         </span>
         <span className="item-body">{e.event}</span>
       </button>
-      {open && <NightDetail e={e} />}
+      {open && <NightDetail e={e} online={online} onChat={onChat} />}
     </div>
   )
 }
 
-export function Vault({ state, onStoneSeen, onSettings }: { state: AppState; onStoneSeen: () => void; onSettings: () => void }) {
+export function Vault({ state, online, onChat, onStoneSeen, onSettings }: {
+  state: AppState; online: boolean; onChat: OnChat; onStoneSeen: () => void; onSettings: () => void
+}) {
   const { game, entries } = state
   // Night is monotonic, so the Vault's stone history is always banked.
   const banked = bankedStones(game.nights)
@@ -102,7 +99,7 @@ export function Vault({ state, onStoneSeen, onSettings }: { state: AppState; onS
                     <span className="inclusion-label">{p.label}</span>
                     {on && <span className="inclusion-words develop">{p.event}</span>}
                   </button>
-                  {on && night && <NightDetail e={night} />}
+                  {on && night && <NightDetail e={night} online={online} onChat={onChat} />}
                 </div>
               )
             })}
@@ -127,6 +124,8 @@ export function Vault({ state, onStoneSeen, onSettings }: { state: AppState; onS
                 key={e.id}
                 e={e}
                 open={openNight === e.id}
+                online={online}
+                onChat={onChat}
                 onToggle={() => setOpenNight(openNight === e.id ? null : e.id)}
               />
             ))

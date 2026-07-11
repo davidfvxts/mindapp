@@ -10,6 +10,7 @@
 import {
   boundedClose,
   buildAnswerUser,
+  buildChatUser,
   buildDailyUser,
   buildGuidanceUser,
   buildMonthlyUser,
@@ -20,6 +21,7 @@ import {
   routeModelForKind,
   triage,
   type CoachKind,
+  type ChatTurnIn,
   type EntryIn,
   type MemoryIn,
   type Model,
@@ -29,7 +31,7 @@ import {
   type WeeklyReviewIn,
   type WoopIn,
 } from './logic.ts'
-import { answerSystem, dailySystem, guidanceSystem, monthlySystem, onboardingSystem, weeklySystem } from './prompts.ts'
+import { answerSystem, chatSystem, dailySystem, guidanceSystem, monthlySystem, onboardingSystem, weeklySystem } from './prompts.ts'
 
 // claude_secret_api_key is the deployed project secret. Retain the conventional
 // name as a fallback so existing environments keep working during a rotation.
@@ -77,6 +79,16 @@ interface WeeklyBody {
   /** Present when the user did the guided review — their answers + their WOOP. */
   review?: WeeklyReviewIn | null
   woop?: WoopIn | null
+}
+interface ChatBody {
+  mode: 'chat'
+  name: string
+  entry: EntryIn
+  /** The original nightly read, when there was one — anchors tier + context. */
+  reply?: { text: string; kind?: string } | null
+  thread?: ChatTurnIn[]
+  message: string
+  memory?: MemoryIn
 }
 interface OnboardingBody {
   mode: 'onboarding'
@@ -145,7 +157,7 @@ Deno.serve(async (req) => {
   if (!ANTHROPIC_KEY) return json({ error: 'Coach API key not set' }, 500)
 
   try {
-    const body = (await req.json()) as DailyBody | AnswerBody | WeeklyBody | MonthlyBody | OnboardingBody | GuidanceBody
+    const body = (await req.json()) as DailyBody | AnswerBody | ChatBody | WeeklyBody | MonthlyBody | OnboardingBody | GuidanceBody
 
     if (body.mode === 'guidance') {
       // The occasional nudge — Opus scouts for one useful thing, or holds back.
@@ -198,6 +210,37 @@ Deno.serve(async (req) => {
         theme: parsed.theme ?? null,
         profile: parsed.profile ?? null,
         meta: { model: 'claude-opus-4-8', route: 'monthly→opus' },
+      })
+    }
+
+    if (body.mode === 'chat') {
+      if (!body.entry || !body.message?.trim()) {
+        return json({ error: 'entry and message are required' }, 400)
+      }
+      const memory = body.memory ?? {}
+      // Same tier as the night's read — a charged night stays with the
+      // strongest model through the whole conversation.
+      const { model, route } = routeModelForKind(asKind(body.reply?.kind))
+      const thread = (body.thread ?? []).slice(-12).map((t) => ({
+        role: t.role === 'coach' ? 'coach' as const : 'you' as const,
+        text: String(t.text ?? '').slice(0, 600),
+      }))
+      const user = buildChatUser(
+        body.name,
+        body.entry,
+        body.reply?.text ? { text: body.reply.text } : null,
+        thread,
+        body.message.trim().slice(0, 600),
+        memory,
+      )
+      const raw = await callClaude(model, chatSystem(memory), user, 400, false)
+      const parsed = extractJson<{ text?: string; memo?: unknown }>(raw)
+      const text = (parsed?.text ?? raw).trim()
+      if (!text) throw new Error('empty chat reply')
+      return json({
+        text,
+        memo: parsed?.memo ?? null,
+        meta: { model, route: `${route}→chat` },
       })
     }
 

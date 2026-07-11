@@ -23,6 +23,7 @@ export const EVENTS = [
   'night_7',
   'night_30',
   'stone_pressed',
+  'chat_sent',
   'weekly_review_started',
   'weekly_review_completed',
   'monthly_arc_completed',

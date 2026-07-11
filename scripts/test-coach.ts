@@ -4,9 +4,9 @@
  * Run: npm run test:coach
  */
 import {
-  boundedClose, buildAnswerUser, buildDailyUser, buildWeeklyUser, extractJson, routeModel, routeModelForKind, triage, type MemoryIn,
+  boundedClose, buildAnswerUser, buildChatUser, buildDailyUser, buildWeeklyUser, extractJson, routeModel, routeModelForKind, triage, type MemoryIn,
 } from '../supabase/functions/coach/logic'
-import { answerSystem, dailySystem } from '../supabase/functions/coach/prompts'
+import { answerSystem, chatSystem, dailySystem } from '../supabase/functions/coach/prompts'
 import {
   curate, recordCommitment, applyMemo, mergeWeeklyDelta,
   applyWeeklyRevision, foldRating, renegotiateCommitment, staleCommitment, themeMatches,
@@ -100,6 +100,12 @@ ok('daily prompt adds an owed-intention clause',
   const answer = answerSystem({ voice: 'terse, lowercase' })
   ok('answer prompt closes without another question',
     answer.includes('Do NOT ask another question') && answer.includes('Maximum 2 short sentences'))
+
+  const chat = chatSystem({ voice: 'terse, lowercase' })
+  ok('chat prompt keeps every turn complete and short',
+    chat.includes('land COMPLETE') && chat.includes('Maximum 3 short sentences'))
+  ok('chat prompt keeps the distress signpost and bans commitments in the memo',
+    chat.includes('acute distress') && chat.includes('Never a commitment outcome'))
 }
 
 // ---------- user data block ----------
@@ -124,6 +130,27 @@ ok('daily prompt adds an owed-intention clause',
   )
   ok('answer user block carries the full exchange',
     a.includes("COACH'S READ") && a.includes('THEIR ONE ANSWER') && a.includes('KNOWN VOICE'))
+
+  const c = buildChatUser(
+    'David', En({ event: 'missed the investor follow-up' }),
+    { text: 'What would you tell a founder you respect here?' },
+    [
+      { role: 'you', text: 'that the note matters more than the wording' },
+      { role: 'coach', text: 'Then the wording can be plain.' },
+    ],
+    'ok — sending it before standup tomorrow',
+    { narrative: 'Rebuilding after a hard quarter.', voice: 'terse, lowercase', themes: [{ key: 'avoidance', count: 2, first: 'a', last: 'b' }] },
+  )
+  ok('chat user block carries night + read + thread + message',
+    c.includes('THE NIGHT THIS IS ABOUT') && c.includes("COACH'S READ OF IT")
+    && c.includes('Them: that the note matters') && c.includes('Coach: Then the wording')
+    && c.includes('THEY JUST SAID: ok — sending it before standup tomorrow'))
+  ok('chat user block carries who they are',
+    c.includes('WHO THEY ARE: Rebuilding') && c.includes('KNOWN VOICE') && c.includes('avoidance×2'))
+
+  const bare = buildChatUser('David', En({}), null, [], 'first message', {})
+  ok('chat user block stands without a read or thread',
+    !bare.includes("COACH'S READ") && !bare.includes('CONVERSATION SO FAR') && bare.includes('THEY JUST SAID: first message'))
 }
 
 // ---------- extractJson robustness ----------

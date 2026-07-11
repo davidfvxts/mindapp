@@ -236,6 +236,36 @@ export function buildAnswerUser(
   return lines.join('\n')
 }
 
+export interface ChatTurnIn { role: 'you' | 'coach'; text: string }
+
+/** The DATA block for a conversation turn about one night. */
+export function buildChatUser(
+  name: string,
+  entry: EntryIn,
+  reply: { text: string } | null,
+  thread: ChatTurnIn[],
+  message: string,
+  memory: MemoryIn,
+): string {
+  const lines: string[] = [`Reflector: ${name || 'the user'}`, '', 'THE NIGHT THIS IS ABOUT']
+  lines.push(`Event: ${entry.event}`)
+  lines.push(`Emotions: ${entry.emotions.join(', ') || '(none named)'}`)
+  lines.push(`What went well / their contribution: ${entry.well || '(left blank)'}`)
+  lines.push(`What they'll do differently: ${entry.next || '(left blank)'}`)
+  if (reply?.text) lines.push('', `COACH'S READ OF IT: ${reply.text}`)
+  if (thread.length) {
+    lines.push('', 'THE CONVERSATION SO FAR:')
+    for (const t of thread) lines.push(`${t.role === 'you' ? 'Them' : 'Coach'}: ${t.text}`)
+  }
+  lines.push('', `THEY JUST SAID: ${message}`)
+  if (memory.narrative) lines.push('', `WHO THEY ARE: ${memory.narrative}`)
+  if (memory.voice) lines.push(`KNOWN VOICE: ${memory.voice}`)
+  if (memory.themes?.length) {
+    lines.push(`RECURRING THEMES: ${memory.themes.map((t) => `${t.key}×${t.count}`).join('; ')}`)
+  }
+  return lines.join('\n')
+}
+
 export interface WeeklyReviewIn {
   wins?: string
   friction?: string

@@ -169,18 +169,17 @@ export default function App() {
             {tab === 'today' &&
               (m.reveal ? (
                 <AfterReflection
-                  entryId={m.reveal.entryId}
+                  entry={revealedEntry}
                   reply={m.reveal.reply}
                   pending={m.reveal.pending}
                   night={m.reveal.night}
                   firstRead={m.reveal.firstRead}
                   echo={milestoneEcho(m.state.entries, m.reveal.night)}
-                  answer={revealedEntry?.coachAnswer}
-                  close={revealedEntry?.coachClose}
                   stoneSeen={m.state.stoneSeen}
+                  online={m.online}
                   onStoneSeen={m.markStoneSeen}
                   onRate={m.rateReply}
-                  onAnswer={(answer) => m.answerCoach(m.reveal!.entryId, answer)}
+                  onChat={m.chatWithCoach}
                   onDone={() => {
                     const wasFirst = m.reveal?.firstRead
                     m.clearReveal()
@@ -237,7 +236,13 @@ export default function App() {
             )}
 
             {tab === 'vault' && (
-              <Vault state={m.state} onStoneSeen={m.markStoneSeen} onSettings={() => setScreen('settings')} />
+              <Vault
+                state={m.state}
+                online={m.online}
+                onChat={m.chatWithCoach}
+                onStoneSeen={m.markStoneSeen}
+                onSettings={() => setScreen('settings')}
+              />
             )}
           </>
         )}

@@ -246,11 +246,9 @@ textarea.error, input.error { border-color: var(--line-control); }
 .rate button:hover:not(.pick) { background: var(--fill-pressed); }
 .rate button.pick { background: var(--surface-inverse); color: var(--ink-on-inverse); }
 
-/* One optional answer, then one closing line — a bounded exchange, not chat. */
-.answer-turn { margin-top: var(--s-5); }
-.answer-turn .btn.text { padding-left: 0; }
-.answer-turn textarea { min-height: var(--s-8); }
-.answer-send { margin-top: var(--s-3); }
+/* The conversation about a night. Your turns sit on a quiet left rule,
+   Coach's turns read as type; the field is simply there — never a button. */
+.chat { margin-top: var(--s-5); }
 .reflection-answer {
   margin-top: var(--s-5); padding-left: var(--s-4);
   border-left: 2px solid var(--line-control);
@@ -258,7 +256,11 @@ textarea.error, input.error { border-color: var(--line-control); }
 .reflection-answer .ambient { display: block; margin-bottom: var(--s-3); }
 .reflection-answer p { margin: 0; color: var(--ink-body); font-size: var(--type-body-size); line-height: var(--type-body-lh); }
 .coach-close { margin-top: var(--s-5); }
-.answer-unavailable { margin-top: var(--s-4); }
+.chat-status { margin-top: var(--s-4); margin-bottom: 0; }
+.chat-input { margin-top: var(--s-5); }
+.chat-input textarea { min-height: var(--s-8); }
+/* Send sizes to its word: the page's one full-weight button stays Done. */
+.chat-send { margin-top: var(--s-3); width: auto; min-height: 44px; padding: var(--s-2) var(--s-6); }
 
 /* ---------- lists: the Vault, past nights ---------- */
 .vault-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s-6) var(--s-7); }
@@ -300,8 +302,19 @@ textarea.error, input.error { border-color: var(--line-control); }
   margin: 0; font-size: var(--type-secondary-size);
   color: var(--ink-secondary); line-height: var(--type-body-lh);
 }
-.item .item-answer { padding-left: var(--s-3); border-left: 1px solid var(--line-control); }
-.item .item-close { padding-left: var(--s-3); border-left: 1px solid var(--ink-primary); }
+/* Inside a compact archive row the conversation keeps the archive's quieter
+   voice — smaller type, tighter rules — but it is the same conversation. */
+.night-detail .chat { margin-top: var(--s-3); }
+.night-detail .reflection-answer { margin-top: var(--s-4); padding-left: var(--s-3); border-left-width: 1px; }
+.night-detail .coach-close { margin-top: var(--s-4); padding-left: var(--s-3); border-left-width: 1px; }
+.night-detail .reflection-answer .ambient,
+.night-detail .coach-close .ambient { margin-bottom: var(--s-1); }
+.night-detail .reflection-answer p,
+.night-detail .coach-close p {
+  font-size: var(--type-secondary-size);
+  color: var(--ink-secondary); line-height: var(--type-body-lh);
+}
+.night-detail .chat-input { margin-top: var(--s-4); }
 
 /* ---------- tab bar: text only, no icons ---------- */
 .tabs {

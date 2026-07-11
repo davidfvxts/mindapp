@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { applyEntry, daysBetween, mergeEntries, nightsFromEntries, todayStr, weekCount } from './game'
 import { downloadEntries, loadState, resetState, saveState, syncEntries } from './storage'
-import { aiEnabled, fetchCoachClose, fetchCoachReply, fetchFirstRead, fetchNudge, getMonthlyArc, getWeeklyInsight } from './ai'
+import { aiEnabled, fetchCoachChat, fetchCoachReply, fetchFirstRead, fetchNudge, getMonthlyArc, getWeeklyInsight } from './ai'
 import { applyMemo, applyWeeklyRevision, foldRating, isCharged, recordCommitment, renegotiateCommitment, mergeWeeklyDelta, staleCommitment } from './coachMemory'
 import { seedMemoryFromAnswers, deterministicFirstRead, secondPerson, type OnboardingAnswers } from './onboarding'
 import {
@@ -18,7 +18,7 @@ import { currentAccount, ensureSession, signInWithPassword, signOut, supabase, t
 import { clearAllDrafts } from './drafts'
 import { cancelMorningIntention, scheduleDailyReminder, scheduleMorningIntention } from './notifications'
 import { track } from './analytics'
-import type { AppState, CoachReply, Emotion, Entry, InsightCard, MonthTheme, MorningNote, Settings } from './types'
+import type { AppState, ChatTurn, CoachReply, Emotion, Entry, InsightCard, MonthTheme, MorningNote, Settings } from './types'
 
 const uid = (): string =>
   globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -441,51 +441,53 @@ export function useFacet() {
   }, [online, state.entries.length, state.lastWeeklyReview, state.lastWeeklySynthesis, thinking])
 
   /**
-   * One optional answer, saved to the entry before any network work begins.
-   * A missing close is final for this night: no synthetic line and no reconnect
-   * queue, so the nightly ritual never becomes a chat thread.
+   * One turn of the conversation about a night. The user's words are saved to
+   * the entry BEFORE any request starts — losing them is the unforgivable bug.
+   * Coach's reply is live-only: online it appends and its memo folds into
+   * memory lightly (themes/voice, never commitments); offline or on failure
+   * the words simply stand, honestly unanswered. Nothing is queued or faked.
    */
-  const answerCoach = useCallback(async (entryId: string, rawAnswer: string): Promise<boolean> => {
-    const answer = rawAnswer.trim().slice(0, ANSWER_LIMIT)
+  const chatWithCoach = useCallback(async (entryId: string, rawMessage: string): Promise<boolean> => {
+    const message = rawMessage.trim().slice(0, ANSWER_LIMIT)
     const entry = state.entries.find((e) => e.id === entryId)
-    if (!answer || !entry?.coach || entry.coachAnswer || entry.coachClose) return false
+    if (!message || !entry) return false
 
-    const answeredEntry: Entry = { ...entry, coachAnswer: answer, synced: false }
-    const locallySaved = {
-      ...state,
-      entries: state.entries.map((e) => (e.id === entryId ? answeredEntry : e)),
-    }
-    // Persist synchronously before starting the optional online close.
-    saveState(locallySaved)
+    const yourTurn: ChatTurn = { role: 'you', text: message, ts: Date.now() }
+    const withYours: Entry = { ...entry, thread: [...(entry.thread ?? []), yourTurn], synced: false }
+    // Persist synchronously before the network is allowed anywhere near it.
+    saveState({ ...state, entries: state.entries.map((e) => (e.id === entryId ? withYours : e)) })
     setState((s) => ({
       ...s,
-      entries: s.entries.map((e) => (e.id === entryId ? { ...e, coachAnswer: answer, synced: false } : e)),
+      entries: s.entries.map((e) =>
+        e.id === entryId ? { ...e, thread: [...(e.thread ?? []), yourTurn], synced: false } : e,
+      ),
     }))
+    track('chat_sent')
 
     if (!online || !aiEnabled()) return false
 
-    const result = await fetchCoachClose(
-      answeredEntry,
-      state.entries.filter((e) => e.id !== entryId),
+    // The prior entry, not withYours: the new message travels once, as the
+    // message itself — never doubled as the thread's last line.
+    const result = await fetchCoachChat(
+      entry,
+      message,
       state.settings,
       state.coach,
+      state.entries.filter((e) => e.id !== entryId),
     )
     if (!result) return false
 
     const today = todayStr()
-    setState((s) => {
-      const target = s.entries.find((e) => e.id === entryId)
-      if (!target || target.coachAnswer !== answer || target.coachClose) return s
-      return {
-        ...s,
-        entries: s.entries.map((e) =>
-          e.id === entryId ? { ...e, coachClose: result.close, synced: false } : e,
-        ),
-        // The answer can sharpen themes and voice, but must not re-resolve an
-        // intention already handled by the nightly read.
-        coach: applyMemo(s.coach, result.memo, today, false),
-      }
-    })
+    setState((s) => ({
+      ...s,
+      entries: s.entries.map((e) =>
+        e.id === entryId
+          ? { ...e, thread: [...(e.thread ?? []), { role: 'coach', text: result.text, ts: Date.now() } satisfies ChatTurn], synced: false }
+          : e,
+      ),
+      // Themes/voice only — a chat aside must never resolve a commitment.
+      coach: applyMemo(s.coach, result.memo, today, false),
+    }))
     return true
   }, [state, online])
 
@@ -704,9 +706,9 @@ export function useFacet() {
 
   return {
     state, derived, toast, thinking, reveal, online, account, authBusy,
-    completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly, answerCoach,
+    completeOnboarding, beginJourney, retune, submitEntry, rateReply, completeWeekly,
     markGuidanceSeen, markStoneSeen, markIntroSeen, commitNudge, declineNudge, resolveNudge, renegotiateIntention,
-    beginMonthly, completeMonthly, setMorning, eraseEverything, logIn, logOut,
+    beginMonthly, completeMonthly, setMorning, eraseEverything, logIn, logOut, chatWithCoach,
     setToast, clearReveal: () => setReveal(null),
   }
 }

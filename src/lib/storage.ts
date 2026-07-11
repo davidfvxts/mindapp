@@ -64,7 +64,7 @@ export async function syncEntries(entries: Entry[]): Promise<Entry[]> {
       // Keep the full bounded exchange in the existing JSONB column. This avoids
       // a schema change while keeping the answer and close available to sync.
       coach: e.coach
-        ? { ...e.coach, answer: e.coachAnswer, close: e.coachClose ?? undefined }
+        ? { ...e.coach, answer: e.coachAnswer, close: e.coachClose ?? undefined, thread: e.thread ?? undefined }
         : null,
       morning: e.morning ?? null,
       rating: e.rating ?? null,
@@ -89,7 +89,7 @@ export interface EntryRow {
   emotions: string[]
   well: string
   next_step: string
-  coach: (CoachReply & { answer?: string; close?: CoachClose }) | null
+  coach: (CoachReply & { answer?: string; close?: CoachClose; thread?: Entry['thread'] }) | null
   morning: Entry['morning'] | null
   rating: 0 | 1 | null
   created_at: string
@@ -97,7 +97,7 @@ export interface EntryRow {
 
 /** Pure: a synced row back into the app's Entry shape. */
 export function rowToEntry(row: EntryRow): Entry {
-  const { answer, close, ...coach } = row.coach ?? {}
+  const { answer, close, thread, ...coach } = row.coach ?? {}
   return {
     id: row.id,
     date: row.date,
@@ -109,6 +109,7 @@ export function rowToEntry(row: EntryRow): Entry {
     coach: row.coach ? (coach as CoachReply) : undefined,
     coachAnswer: answer,
     coachClose: close,
+    thread,
     rating: row.rating ?? undefined,
     morning: row.morning ?? undefined,
     synced: true,

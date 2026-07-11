@@ -208,8 +208,8 @@ src/
                     evolution; filmWindow() maps nights→film fractions (pure).  ← TESTED
     haptics.ts      The development pulse: Capacitor Haptics native, vibrate on web.
   components/
-    Onboarding · DailyRitual (Tonight) · AfterReflection · Stone · StoneFilm · Guidance ·
-    Reviews · Vault · Settings · Method · Account
+    Onboarding · DailyRitual (Tonight) · AfterReflection · CoachChat · Stone · StoneFilm ·
+    Guidance · Reviews · Vault · Settings · Method · Account
 supabase/
   migrations/0001_init.sql   Schema + Row-Level Security.
   functions/coach/
@@ -234,19 +234,30 @@ screen. Past Coach reads are always readable under their nights in the Vault lis
 weekly read is online-only too. This is deliberate: maximum value online, still fully
 usable offline.
 
-### The answer turn — one answer, one close
-After an **online** nightly Coach read, the user may optionally choose **Answer Coach** once.
-Their answer is saved to the `Entry` locally **before** any request starts, then synced inside
-the existing `entries.coach` JSONB payload along with the final close. `mode:'answer'` on the
-edge function receives the entry, original read, answer, and curated memory; it derives the
-same model tier from the original intervention via `routeModel`, runs thinking-off, and returns
-one closing line of at most two sentences plus a memo. The answer and close are part of future
-Coach context (history + memo) and appear with the original read in the Vault.
+### The conversation — a field, not a button
+Under every Coach read sits a plain text field (`CoachChat.tsx`): the user writes back,
+Coach replies, and the exchange can continue — a real conversation, persisted as
+`Entry.thread` (`ChatTurn[]`) and synced inside the existing `entries.coach` JSONB payload.
+It lives at every touchpoint where a night is in view: the after-reflection read (not the
+First Read — that one is a welcome, and setup follows it) and every opened night in the
+Vault (archive rows and the inclusions inside a banked stone), so any past night can be
+talked about when it matters.
 
-This is deliberately not a chat thread: no second answer, no follow-up question in the close,
-and no retry queue. If the user is offline or the close request fails, the answer remains saved
-and the exchange ends without a fabricated close or reconnect catch-up. Keep this boundary
-simple; the nightly ritual must stay optional, short, and safe to leave at any point.
+Mechanics (`store.chatWithCoach` → `ai.fetchCoachChat` → server `mode:'chat'`): each user
+turn is saved to the entry **synchronously before any request starts** (words are never
+lost; draft key `chat.<entryId>`). The server receives the entry, the original read, the
+thread so far (last 12 turns, 600 chars each — the new message travels once, as the
+message, never doubled as the thread's last line) and curated memory; it derives the model
+tier from the original read's kind via `routeModelForKind`, runs thinking-off at 400 max
+tokens, and returns ≤3 sentences plus a memo (themes/voice only — a chat aside never
+resolves a commitment). `chatSystem` keeps the bedside contract: every turn lands COMPLETE
+so the user can stop at any moment, loops close at night, the distress signpost stands,
+replies mirror the user's language.
+
+Offline or on failure the user's words stand, honestly unanswered — one plain line, no
+fabricated reply, no retry queue. Legacy bounded exchanges (`coachAnswer`/`coachClose`)
+render as the first turns of the same thread and travel with it; the server keeps
+`mode:'answer'` only for old cached clients — nothing in the app calls it anymore.
 
 ### The loop beyond 11pm — the Today bookend, morning note + comeback
 The intention written at night ("one thing I'll do differently") comes back **the next
@@ -311,7 +322,7 @@ revisit if self-serve signup + identity linking is ever needed.
 ### Drafts — words are never lost
 `lib/drafts.ts` (TESTED) persists every writing surface's in-progress text to
 localStorage, debounced, keyed per flow (`tonight.<date>`, `onboarding`,
-`answer.<entryId>`, `weekly`, `monthly`). Surfaces hydrate from their draft on mount
+`chat.<entryId>`, `weekly`, `monthly`). Surfaces hydrate from their draft on mount
 (one quiet "Picked up where you left off." line — no box), save on change, and clear on
 successful submit. The weekly/monthly reviews resume from the Reviews landing
 ("Continue the review"), and the monthly resume reuses the saved AI draft — no second

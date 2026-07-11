@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Stone } from './Stone'
 import { StoneFilm } from './StoneFilm'
+import { CoachChat } from './CoachChat'
 import { stoneForNight, stoneStage } from '../lib/milestones'
 import { filmForNight, filmWindow } from '../lib/stoneFilm'
-import { clearDraft, loadDraft, saveDraft } from '../lib/drafts'
 import { track } from '../lib/analytics'
-import type { CoachClose, CoachReply } from '../lib/types'
+import type { CoachReply, Entry } from '../lib/types'
 
 interface Props {
-  /** The entry this screen belongs to — keys the answer draft. */
-  entryId: string
+  /** The saved entry — carries the conversation thread. */
+  entry?: Entry
   /** Coach's read. Null when skipped (offline / not configured). */
   reply: CoachReply | null
   /** A read is owed but wasn't reachable — it'll arrive on reconnect. */
@@ -20,35 +20,22 @@ interface Props {
   firstRead?: boolean
   /** The milestone callback: the user's own words from the span's first night. */
   echo?: { night: number; words: string } | null
-  /** The user's one saved answer and Coach's optional final line. */
-  answer?: string
-  close?: CoachClose
   /** The last Night whose stone development has been pressed through. */
   stoneSeen: number
+  online: boolean
   onStoneSeen: () => void
   onRate: (r: 0 | 1) => void
-  onAnswer: (answer: string) => Promise<boolean>
+  onChat: (entryId: string, message: string) => Promise<boolean>
   onDone: () => void
 }
 
 export function AfterReflection({
-  entryId, reply, pending, night, firstRead, echo, answer, close, stoneSeen, onStoneSeen, onRate, onAnswer, onDone,
+  entry, reply, pending, night, firstRead, echo, stoneSeen, online, onStoneSeen, onRate, onChat, onDone,
 }: Props) {
-  const draftKey = `answer.${entryId}`
   const [rated, setRated] = useState<0 | 1 | null>(null)
   // The milestone stone arrives encased in rock — the user cracks it open.
   const [cracked, setCracked] = useState(false)
-  // An in-progress answer survives a refresh; a non-empty draft reopens the composer.
-  const [answerDraft, setAnswerDraft] = useState(() => (answer ? '' : loadDraft<string>(draftKey) ?? ''))
-  const [composerOpen, setComposerOpen] = useState(() => !answer && !!answerDraft.trim())
-  const [answerStatus, setAnswerStatus] = useState<'idle' | 'sending' | 'closed' | 'unavailable'>('idle')
   const milestone = stoneForNight(night)
-  const savedAnswer = answer ?? (answerStatus === 'idle' ? '' : answerDraft.trim())
-
-  useEffect(() => {
-    if (answerStatus !== 'idle' || answer) return
-    saveDraft(draftKey, answerDraft)
-  }, [draftKey, answerDraft, answerStatus, answer])
 
   // The pilot's wow-counter: the First Read reached the screen. Name only.
   useEffect(() => {
@@ -58,17 +45,6 @@ export function AfterReflection({
   const rate = (r: 0 | 1) => {
     setRated(r)
     onRate(r)
-  }
-
-  const sendAnswer = async () => {
-    const text = answerDraft.trim()
-    if (!text || answerStatus === 'sending') return
-    setAnswerStatus('sending')
-    const closed = await onAnswer(text)
-    // The answer is saved to the entry either way — the draft has done its job.
-    clearDraft(draftKey)
-    setComposerOpen(false)
-    setAnswerStatus(closed ? 'closed' : 'unavailable')
   }
 
   return (
@@ -157,61 +133,9 @@ export function AfterReflection({
             )}
           </div>
 
-          {!firstRead && !savedAnswer && !composerOpen && (
-            <div className="answer-turn">
-              {/* Optional stays optional: one quiet action, never a second
-                  full-weight button competing with Done. */}
-              <button className="btn text" style={{ paddingLeft: 0 }} onClick={() => setComposerOpen(true)}>
-                Answer Coach →
-              </button>
-            </div>
-          )}
-
-          {!firstRead && !savedAnswer && composerOpen && (
-            <div className="answer-turn develop">
-              <label className="field-label ambient" htmlFor="coach-answer">Your answer</label>
-              <textarea
-                id="coach-answer"
-                value={answerDraft}
-                maxLength={600}
-                placeholder="Write it down."
-                aria-label="Your answer to Coach"
-                onChange={(event) => setAnswerDraft(event.target.value)}
-                disabled={answerStatus === 'sending'}
-              />
-              <div className="row">
-                <button
-                  className="btn answer-send"
-                  onClick={() => void sendAnswer()}
-                  disabled={!answerDraft.trim() || answerStatus === 'sending'}
-                >
-                  {answerStatus === 'sending' ? 'Coach is reading' : 'Send'}
-                </button>
-                {answerStatus !== 'sending' && (
-                  /* Stepping back keeps the draft — words are never lost. */
-                  <button className="btn text" onClick={() => setComposerOpen(false)}>Cancel</button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {savedAnswer && (
-            <div className="reflection-answer develop">
-              <span className="ambient">You</span>
-              <p>{savedAnswer}</p>
-            </div>
-          )}
-
-          {close && (
-            <div className="coach coach-close develop">
-              <span className="coach-label ambient">Coach</span>
-              <p>{close.text}</p>
-            </div>
-          )}
-
-          {savedAnswer && !close && answerStatus === 'unavailable' && (
-            <p className="secondary answer-unavailable" role="status">Saved. Coach couldn’t close this one.</p>
-          )}
+          {/* The conversation: a field, not a button. The First Read stands
+              alone — it's a welcome, and setup follows it. */}
+          {!firstRead && entry && <CoachChat entry={entry} online={online} onSend={onChat} />}
         </div>
       ) : pending ? (
         <div className="section">

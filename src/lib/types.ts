@@ -24,10 +24,15 @@ export interface Entry {
   ts: number
   /** Coach's reply, cached so we don't re-bill the API. */
   coach?: CoachReply
-  /** The user's one optional answer to Coach's nightly read. Always saved first. */
+  /** The user's one optional answer to Coach's nightly read. Always saved first.
+   *  (Legacy of the bounded exchange — rendered as the thread's first turns.) */
   coachAnswer?: string
   /** Coach's one short closing line after the optional answer. Never fabricated locally. */
   coachClose?: CoachClose
+  /** The conversation with Coach about this night — the user's words saved
+   *  the moment they're typed, Coach's replies appended when they arrive.
+   *  Bounded per turn, never per feeling; safe to leave at any point. */
+  thread?: ChatTurn[]
   /**
    * Written while offline (or a transient online failure): the reflection is
    * saved and the Night advances, but Coach hasn't read it yet. Cleared once a
@@ -63,6 +68,13 @@ export interface CoachReply {
 }
 
 /** The final, AI-produced line that closes the optional answer turn. */
+/** One turn of the conversation with Coach about a night. */
+export interface ChatTurn {
+  role: 'you' | 'coach'
+  text: string
+  ts: number
+}
+
 export interface CoachClose {
   text: string
   source: 'ai'
